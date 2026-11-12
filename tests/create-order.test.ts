@@ -67,6 +67,20 @@ describe("create-order", () => {
     expect(Number(saved!.total)).toBe(expected.total);
   });
 
+  it("preview: true returns the exact total for the read-back but saves nothing", async () => {
+    const marker = `${RUN_MARKER}-preview`;
+    const { status, json } = await callTool(POST, orderBody({ preview: true, notes: marker }));
+    expect(status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(json.preview).toBe(true);
+    expect(json.order_number).toBeUndefined();
+    expect(json.total).toBe(expected.total);
+    expect(json.speech).toContain(expected.total.toFixed(2));
+    expect(json.speech).not.toContain("£");
+    const saved = await db.from("orders").select("id", { count: "exact", head: true }).eq("notes", marker);
+    expect(saved.count).toBe(0);
+  });
+
   it("delivery below min_order_value is rejected, naming the shortfall", async () => {
     const { status, json } = await callTool(
       POST,

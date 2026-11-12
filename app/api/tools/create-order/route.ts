@@ -30,6 +30,9 @@ const itemSchema = z.object({
 });
 
 const bodySchema = z.object({
+  // preview: true = run every check and price the order, but save nothing.
+  // The agent uses it to read back the exact total before the caller confirms.
+  preview: z.boolean().default(false),
   restaurant_id: z.guid(),
   call_id: z.string().trim().max(100).nullish(),
   fulfilment_type: z.enum(["delivery", "pickup"]),
@@ -293,6 +296,33 @@ export const POST = timed("create-order", async (request: Request, timer) => {
 
   timer.lap("price");
 
+  // Read the order back so the caller can catch mistakes.
+  const readBack = joinForSpeech(
+    lines.map((l) => {
+      const size = l.sizeName ? `${sizeForSpeech(l.sizeName)} ` : "";
+      const opts = l.chosen.length ? ` with ${joinForSpeech(l.chosen.map(optionForSpeech))}` : "";
+      return `${numberToWords(l.quantity)} ${size}${l.item.name.toLowerCase()}${opts}`;
+    }),
+  );
+  const readBackSentence = `${readBack.charAt(0).toUpperCase()}${readBack.slice(1)}`;
+  const eta = isDelivery ? DELIVERY_ETA_MINUTES : PICKUP_ETA_MINUTES;
+  const total = pounds(totalPence);
+
+  if (body.preview) {
+    const how = isDelivery
+      ? `for delivery to ${body.delivery_postcode!.toUpperCase()}. That comes to ${priceForSpeech(total)} in total, including ${priceForSpeech(pounds(deliveryFeePence))} delivery`
+      : `for collection. That comes to ${priceForSpeech(total)} in total`;
+    return NextResponse.json({
+      success: true,
+      preview: true,
+      subtotal: pounds(subtotalPence),
+      delivery_fee: pounds(deliveryFeePence),
+      total,
+      eta_minutes: eta,
+      speech: `So that's ${readBack}, ${how}. Is that all correct?`,
+    });
+  }
+
   // Rule: one atomic insert of the order + all items.
   const { data: order, error: rpcError } = await supabaseAdmin.rpc("create_order_tx", {
     p_order: {
@@ -331,16 +361,6 @@ export const POST = timed("create-order", async (request: Request, timer) => {
     );
   }
 
-  // Read the order back so the caller can catch mistakes.
-  const readBack = joinForSpeech(
-    lines.map((l) => {
-      const size = l.sizeName ? `${sizeForSpeech(l.sizeName)} ` : "";
-      const opts = l.chosen.length ? ` with ${joinForSpeech(l.chosen.map(optionForSpeech))}` : "";
-      return `${numberToWords(l.quantity)} ${size}${l.item.name.toLowerCase()}${opts}`;
-    }),
-  );
-  const eta = isDelivery ? DELIVERY_ETA_MINUTES : PICKUP_ETA_MINUTES;
-  const total = pounds(totalPence);
   const how = isDelivery
     ? `for delivery to ${body.delivery_postcode!.toUpperCase()}, ${priceForSpeech(total)} total including ${priceForSpeech(pounds(deliveryFeePence))} delivery, about ${eta} minutes`
     : `for collection, ${priceForSpeech(total)} total, ready in about ${eta} minutes`;
@@ -353,6 +373,6 @@ export const POST = timed("create-order", async (request: Request, timer) => {
     delivery_fee: pounds(deliveryFeePence),
     total,
     eta_minutes: eta,
-    speech: `Perfect. ${readBack.charAt(0).toUpperCase()}${readBack.slice(1)}, ${how}. Your order number is ${orderNumber}.`,
+    speech: `Perfect. ${readBackSentence}, ${how}. Your order number is ${orderNumber}.`,
   });
 });
