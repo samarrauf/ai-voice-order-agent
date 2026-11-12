@@ -43,7 +43,7 @@ export const TOOLS = [
   {
     name: "create_order",
     description:
-      "Price or place the order. All prices are calculated by the server from the menu. First call with preview=true to get the exact total for the read-back (nothing is saved). Only after the caller confirms the read-back, call again with preview=false to place it; that returns the order number. Returns a 'speech' sentence; if the order has a problem (unavailable item, wrong size, below minimum), 'success' is false and 'speech' says what to ask the caller.",
+      "Price or place the order. All prices are calculated by the server from the menu. First call with preview=true to get the exact total for the read-back (nothing is saved). Only after the caller confirms the read-back, call again with preview=false to place it; that returns the order number, and its 'speech' reads back the phone number and postcode exactly as saved; say it word for word. Never call with preview=false twice for the same order. Returns a 'speech' sentence; if the order has a problem (unavailable item, wrong size, below minimum), 'success' is false and 'speech' says what to ask the caller.",
     input_schema: {
       type: "object",
       properties: {
@@ -53,7 +53,7 @@ export const TOOLS = [
         },
         fulfilment_type: { type: "string", enum: ["delivery", "pickup"], description: "'pickup' means collection." },
         customer_name: { type: "string", description: "The caller's name." },
-        customer_phone: { type: "string", description: "Contact number, digits only, as confirmed by the caller." },
+        customer_phone: { type: "string", description: "Contact number, digits only, copied digit by digit from what the caller confirmed." },
         delivery_address: { type: "string", description: "First line of the address. Required for delivery." },
         delivery_postcode: { type: "string", description: "Postcode as confirmed by the caller. Required for delivery." },
         payment_method: { type: "string", enum: ["cash", "card_on_delivery"], description: "'card_on_delivery' if they say card." },
@@ -86,10 +86,14 @@ export const TOOLS = [
   {
     name: "request_callback",
     description:
-      "Save a request for a staff member to phone the caller back. Use it for any allergen or dietary question (never answer those yourself), when a tool fails, or when you cannot help. Only call it after the caller has confirmed their name and the read-back of their number. Returns a 'speech' sentence to say.",
+      "Save a request for a staff member to phone the caller back. Use it for any allergen or dietary question (never answer those yourself), when a tool fails, or when you cannot help. Only call it after the caller has confirmed their name and the read-back of their number. Returns 'callback_id' and a 'speech' sentence that reads back the number exactly as saved; say it word for word. If the caller says that number is wrong, call this tool again with the corrected number AND the same callback_id, which corrects the saved request instead of creating a second one.",
     input_schema: {
       type: "object",
       properties: {
+        callback_id: {
+          type: "string",
+          description: "Only when correcting: the callback_id returned by the earlier request_callback call.",
+        },
         customer_name: { type: "string", description: "The caller's name." },
         customer_phone: { type: "string", description: "Number to call back, digits only, as confirmed by the caller." },
         reason: {

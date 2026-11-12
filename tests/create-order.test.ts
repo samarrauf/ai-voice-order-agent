@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/tools/create-order/route";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { phoneForSpeech } from "@/lib/speech";
 import {
   ITEMS, RID, RUN_MARKER, callTool, cleanupTestOrders, db, orderBody, useOpenClock, useRealClock,
 } from "./helpers/helpers";
@@ -46,8 +47,10 @@ describe("create-order", () => {
     expect(json.subtotal).toBe(expected.subtotal);
     expect(json.delivery_fee).toBe(expected.fee);
     expect(json.total).toBe(expected.total);
-    expect(json.speech).toContain(expected.total.toFixed(2));
     expect(json.speech).not.toContain("£");
+    // Echo-back: phone and postcode are read back as stored.
+    expect(json.speech).toContain(phoneForSpeech("07700900123"));
+    expect(json.speech).toContain("M-one-four, five-T-P");
 
     // What was saved must match what was spoken.
     const { data: saved } = await db
@@ -79,6 +82,21 @@ describe("create-order", () => {
     expect(json.speech).not.toContain("£");
     const saved = await db.from("orders").select("id", { count: "exact", head: true }).eq("notes", marker);
     expect(saved.count).toBe(0);
+  });
+
+  it("the success speech echoes the phone and postcode AS STORED, so a mis-copy is heard", async () => {
+    const callerSaid = "07700900123";
+    const agentSent = "07700 900 132"; // last two digits swapped while copying
+    const { status, json } = await callTool(
+      POST,
+      orderBody({ customer_phone: agentSent, delivery_postcode: "m14 5tp", notes: `${RUN_MARKER}-echo` }),
+    );
+    expect(status).toBe(200);
+    expect(json.stored_phone).toBe("07700900132");
+    expect(json.stored_postcode).toBe("M14 5TP");
+    expect(json.speech).toContain(phoneForSpeech("07700900132"));
+    expect(json.speech).not.toContain(phoneForSpeech(callerSaid));
+    expect(json.speech).toContain("M-one-four, five-T-P");
   });
 
   it("delivery below min_order_value is rejected, naming the shortfall", async () => {

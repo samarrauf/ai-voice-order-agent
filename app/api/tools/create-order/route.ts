@@ -2,7 +2,15 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireToolSecret } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { numberToWords, priceForSpeech, sizeForSpeech } from "@/lib/speech";
+import {
+  formatPostcode,
+  normalizePhone,
+  numberToWords,
+  phoneForSpeech,
+  postcodeForSpeech,
+  priceForSpeech,
+  sizeForSpeech,
+} from "@/lib/speech";
 import {
   DELIVERY_ETA_MINUTES,
   FEE_MISSING_SPEECH,
@@ -37,7 +45,10 @@ const bodySchema = z.object({
   call_id: z.string().trim().max(100).nullish(),
   fulfilment_type: z.enum(["delivery", "pickup"]),
   customer_name: z.string().trim().min(1).max(100),
-  customer_phone: z.string().trim().min(5).max(30),
+  customer_phone: z
+    .string()
+    .transform(normalizePhone)
+    .refine((p) => p.replace("+", "").length >= 10 && p.length <= 16),
   delivery_address: z.string().trim().max(300).nullish(),
   delivery_postcode: z.string().trim().max(20).nullish(),
   payment_method: z.enum(["cash", "card_on_delivery"]),
@@ -304,13 +315,12 @@ export const POST = timed("create-order", async (request: Request, timer) => {
       return `${numberToWords(l.quantity)} ${size}${l.item.name.toLowerCase()}${opts}`;
     }),
   );
-  const readBackSentence = `${readBack.charAt(0).toUpperCase()}${readBack.slice(1)}`;
   const eta = isDelivery ? DELIVERY_ETA_MINUTES : PICKUP_ETA_MINUTES;
   const total = pounds(totalPence);
 
   if (body.preview) {
     const how = isDelivery
-      ? `for delivery to ${body.delivery_postcode!.toUpperCase()}. That comes to ${priceForSpeech(total)} in total, including ${priceForSpeech(pounds(deliveryFeePence))} delivery`
+      ? `for delivery to ${formatPostcode(body.delivery_postcode!)}. That comes to ${priceForSpeech(total)} in total, including ${priceForSpeech(pounds(deliveryFeePence))} delivery`
       : `for collection. That comes to ${priceForSpeech(total)} in total`;
     return NextResponse.json({
       success: true,
@@ -332,7 +342,7 @@ export const POST = timed("create-order", async (request: Request, timer) => {
       customer_name: body.customer_name,
       customer_phone: body.customer_phone,
       delivery_address: isDelivery ? body.delivery_address : null,
-      delivery_postcode: isDelivery ? body.delivery_postcode!.toUpperCase() : null,
+      delivery_postcode: isDelivery ? formatPostcode(body.delivery_postcode!) : null,
       subtotal: pounds(subtotalPence),
       delivery_fee: pounds(deliveryFeePence),
       total: pounds(totalPence),
@@ -361,18 +371,23 @@ export const POST = timed("create-order", async (request: Request, timer) => {
     );
   }
 
-  const how = isDelivery
-    ? `for delivery to ${body.delivery_postcode!.toUpperCase()}, ${priceForSpeech(total)} total including ${priceForSpeech(pounds(deliveryFeePence))} delivery, about ${eta} minutes`
-    : `for collection, ${priceForSpeech(total)} total, ready in about ${eta} minutes`;
-  const orderNumber = (order as { order_number: string }).order_number;
+  // ECHO-BACK RULE: phone and postcode are read back from the row AS STORED,
+  // so a copying mistake by the agent is heard by the caller. Items and total
+  // were already read back (preview) and confirmed, so they aren't repeated.
+  const saved = order as { order_number: string; customer_phone: string; delivery_postcode: string | null };
+  const where = isDelivery
+    ? `delivering to ${postcodeForSpeech(saved.delivery_postcode!)} in about ${eta} minutes`
+    : `ready to collect in about ${eta} minutes`;
 
   return NextResponse.json({
     success: true,
-    order_number: orderNumber,
+    order_number: saved.order_number,
     subtotal: pounds(subtotalPence),
     delivery_fee: pounds(deliveryFeePence),
     total,
     eta_minutes: eta,
-    speech: `Perfect. ${readBackSentence}, ${how}. Your order number is ${orderNumber}.`,
+    stored_phone: saved.customer_phone,
+    stored_postcode: saved.delivery_postcode,
+    speech: `Perfect, order number ${saved.order_number}, ${where}. We've got your number as ${phoneForSpeech(saved.customer_phone)}.`,
   });
 });
