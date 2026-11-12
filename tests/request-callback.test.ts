@@ -73,6 +73,73 @@ describe("request-callback", () => {
     expect(count).toBe(0);
   });
 
+  // JUNK GUARD: values the model has really sent before it had the caller's details.
+  const savedCount = async (marker: string) => {
+    const { count } = await db.from("callback_requests").select("id", { count: "exact", head: true }).eq("details", marker);
+    return count;
+  };
+
+  it.each(["Unknown", "unknown caller", "Caller", "N/A", "  ", "123"])(
+    "rejects placeholder name %j, asks for the name, saves nothing",
+    async (name) => {
+      const marker = `${RUN_MARKER}-name-${name}`;
+      const { status, json } = await callTool(POST, body({ customer_name: name, details: marker }));
+      expect(status).toBe(400);
+      expect(json.success).toBe(false);
+      expect(json.speech).toMatch(/name/i);
+      expect(json.speech).not.toMatch(/£/);
+      expect(await savedCount(marker)).toBe(0);
+    },
+  );
+
+  it.each([
+    ["0", "0"],
+    ["3-digit number", "999"],
+    ["all zeros", "00000000000"],
+  ])("rejects phone %s, asks for a number, saves nothing", async (_label, phone) => {
+    const marker = `${RUN_MARKER}-phone-${phone}`;
+    const { status, json } = await callTool(POST, body({ customer_phone: phone, details: marker }));
+    expect(status).toBe(400);
+    expect(json.speech).toMatch(/number/i);
+    expect(await savedCount(marker)).toBe(0);
+  });
+
+  it('rejects "Unknown" + "0" together (the exact call seen in testing)', async () => {
+    const marker = `${RUN_MARKER}-unknown-0`;
+    const { status, json } = await callTool(POST, body({ customer_name: "Unknown", customer_phone: "0", details: marker }));
+    expect(status).toBe(400);
+    expect(json.speech).toBe("Sorry, could I take your name for the callback?");
+    expect(await savedCount(marker)).toBe(0);
+  });
+
+  it("rejects an empty body", async () => {
+    const before = (await db.from("callback_requests").select("id", { count: "exact", head: true })).count;
+    // What the model sent ({}), as it arrives after the server adds restaurant_id…
+    const asSent = await callTool(POST, { restaurant_id: RID });
+    expect(asSent.status).toBe(400);
+    expect(asSent.json.speech).toMatch(/name/i);
+    // …and a truly empty body.
+    const empty = await callTool(POST, {});
+    expect(empty.status).toBe(400);
+    expect(typeof empty.json.speech).toBe("string");
+    const after = (await db.from("callback_requests").select("id", { count: "exact", head: true })).count;
+    expect(after).toBe(before);
+  });
+
+  it('treats callback_id "" as not set (creates a request instead of failing)', async () => {
+    const marker = `${RUN_MARKER}-empty-id`;
+    const { status, json } = await callTool(POST, body({ callback_id: "", details: marker }));
+    expect(status).toBe(200);
+    expect(json.updated).toBe(false);
+    expect(await savedCount(marker)).toBe(1);
+  });
+
+  it("still accepts a real name that contains a placeholder word", async () => {
+    const marker = `${RUN_MARKER}-real-name`;
+    const { status } = await callTool(POST, body({ customer_name: "Tess Unknown-Smith", details: marker }));
+    expect(status).toBe(200);
+  });
+
   it("rejects a request without the tool secret", async () => {
     const { status } = await callTool(POST, body(), null);
     expect(status).toBe(401);

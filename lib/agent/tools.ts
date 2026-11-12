@@ -27,7 +27,7 @@ export const TOOLS = [
   {
     name: "check_delivery",
     description:
-      "Check whether we deliver to a UK postcode, and get the delivery fee and estimated time. Call this as soon as the caller says they want delivery and has given a postcode, before taking more items. Returns 'deliverable', 'fee', 'eta_minutes' and a 'speech' sentence.",
+      "Check whether we deliver to a UK postcode, and get the delivery fee and estimated time. Call this ONLY when you have a postcode that the caller has said yes to after you read it back to them. The caller merely saying 'delivery' is not a reason to call it; never call it with a guessed, partial or empty postcode. Returns 'deliverable', 'fee', 'eta_minutes' and a 'speech' sentence.",
     input_schema: {
       type: "object",
       properties: {
@@ -43,13 +43,13 @@ export const TOOLS = [
   {
     name: "create_order",
     description:
-      "Price or place the order. All prices are calculated by the server from the menu. First call with preview=true to get the exact total for the read-back (nothing is saved). Only after the caller confirms the read-back, call again with preview=false to place it; that returns the order number, and its 'speech' reads back the phone number and postcode exactly as saved; say it word for word. Never call with preview=false twice for the same order. Returns a 'speech' sentence; if the order has a problem (unavailable item, wrong size, below minimum), 'success' is false and 'speech' says what to ask the caller.",
+      "Price or place the order. All prices are calculated by the server from the menu. Call it with preview=true ONLY once you have every required detail from the caller: the items (ids from search_menu), delivery or collection, their name, a phone number they confirmed on read-back, the payment method, and for delivery the confirmed postcode and address. Never fill a field with a placeholder or guess. Nothing is saved on a preview; it returns the exact total for the read-back. Call it with preview=false ONLY after the caller has said a clear yes to 'Is that all correct?' for that exact preview; the payment answer or any other reply is not a yes. That returns the order number and a 'speech' that reads back the phone number and postcode exactly as saved. Never call with preview=false twice in one call, even if the caller later corrects a detail. If the order has a problem (unavailable item, wrong size, below minimum), 'success' is false and 'speech' says what to ask the caller.",
     input_schema: {
       type: "object",
       properties: {
         preview: {
           type: "boolean",
-          description: "true = price only, do not place. false = place the order for real. Only use false after the caller has said yes to the read-back.",
+          description: "true = price only, do not place. false = place the order for real. Only use false after the caller has said a clear yes to 'Is that all correct?'.",
         },
         fulfilment_type: { type: "string", enum: ["delivery", "pickup"], description: "'pickup' means collection." },
         customer_name: { type: "string", description: "The caller's name." },
@@ -91,7 +91,7 @@ export const TOOLS = [
   {
     name: "request_callback",
     description:
-      "Save a request for a staff member to phone the caller back. Use it for any allergen or dietary question (never answer those yourself), when a tool fails, or when you cannot help. Only call it after the caller has confirmed their name and the read-back of their number. Returns 'callback_id' and a 'speech' sentence that reads back the number exactly as saved; say it word for word. If the caller says that number is wrong, call this tool again with the corrected number AND the same callback_id, which corrects the saved request instead of creating a second one.",
+      "Record a callback the caller has AGREED to, so a staff member phones them back. Call this ONLY when ALL of these are true: (1) the caller has said yes to being called back, (2) the caller has told you their name, (3) the caller has told you their phone number, and (4) the caller has said yes to your read-back of that number. If any one is missing, do not call this tool; ask the caller for the missing piece instead. Never call it with placeholder, guessed or empty values such as 'Unknown', 'Caller' or '0'. A topic is never by itself a reason to call it: when the caller mentions allergens, a problem or anything you cannot help with, you SAY the callback offer and wait; this tool only records the callback once the details above are in hand. Returns 'callback_id' and a 'speech' sentence that reads back the number exactly as saved; say it word for word. If the caller says that number is wrong, call this tool again with the corrected number AND the same callback_id, which corrects the saved request instead of creating a second one. Leave callback_id out otherwise.",
     input_schema: {
       type: "object",
       properties: {
@@ -99,8 +99,8 @@ export const TOOLS = [
           type: "string",
           description: "Only when correcting: the callback_id returned by the earlier request_callback call.",
         },
-        customer_name: { type: "string", description: "The caller's name." },
-        customer_phone: { type: "string", description: "Number to call back, digits only, as confirmed by the caller." },
+        customer_name: { type: "string", description: "The name the caller told you. Never a placeholder." },
+        customer_phone: { type: "string", description: "Number to call back, digits only, exactly as the caller confirmed on read-back." },
         reason: {
           type: "string",
           enum: ["allergen", "problem", "other"],

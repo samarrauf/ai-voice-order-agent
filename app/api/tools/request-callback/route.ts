@@ -16,14 +16,33 @@ import { timed } from "@/lib/timing";
 //
 // TODO(phase 4): link call_id once Vapi call rows exist in public.calls.
 
+// JUNK GUARD: the model has sent "Unknown" / "0" / {} before it had the
+// caller's details. Saving those gives staff a callback they can't make, so
+// reject them with a 400 whose speech asks the caller for the real value.
+const PLACEHOLDER_NAMES = new Set([
+  "unknown", "unknown caller", "caller", "the caller", "customer", "the customer", "anonymous",
+  "name", "no name", "not given", "not provided", "n a", "na", "none", "null", "undefined", "tbc", "test",
+]);
+
+function isRealName(raw: string): boolean {
+  const name = raw.trim().toLowerCase().replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
+  return /[a-z]/.test(name) && !PLACEHOLDER_NAMES.has(name);
+}
+
+function isRealPhone(normalized: string): boolean {
+  const d = normalized.replace("+", "");
+  return d.length >= 10 && normalized.length <= 16 && !/^(\d)\1+$/.test(d); // not "0000000000"
+}
+
 const bodySchema = z.object({
   restaurant_id: z.guid(), // seeded demo ids aren't RFC-version UUIDs
-  callback_id: z.guid().nullish(), // set = correct an earlier request instead of creating a new one
-  customer_name: z.string().trim().min(1).max(100),
+  // set = correct an earlier request instead of creating a new one. "" = not set.
+  callback_id: z.preprocess((v) => (v === "" ? undefined : v), z.guid().nullish()),
+  customer_name: z.string().trim().min(1).max(100).refine(isRealName),
   customer_phone: z
     .string()
     .transform(normalizePhone)
-    .refine((p) => p.replace("+", "").length >= 10 && p.length <= 16),
+    .refine(isRealPhone),
   reason: z.enum(["allergen", "problem", "other"]),
   details: z.string().trim().max(500).nullish(),
 });
@@ -39,12 +58,16 @@ export const POST = timed("request-callback", async (request: Request, timer) =>
   timer.lap("parse");
   if (!parsed.success) {
     const paths = parsed.error.issues.map((i) => i.path.join("."));
-    const speech = paths.includes("customer_phone")
-      ? "Sorry, could I take a number for them to call you back on?"
-      : paths.includes("customer_name")
-        ? "Sorry, could I take your name?"
+    // Ask for the name first: that's the order Gio collects them in.
+    const speech = paths.includes("customer_name")
+      ? "Sorry, could I take your name for the callback?"
+      : paths.includes("customer_phone")
+        ? "Sorry, could I take a number for them to call you back on?"
         : "Sorry, could you tell me that again?";
-    return NextResponse.json({ success: false, error: "invalid body", speech }, { status: 400 });
+    return NextResponse.json(
+      { success: false, error: `invalid body: ${paths.join(", ") || "missing"}`, speech },
+      { status: 400 },
+    );
   }
 
   const { restaurant_id, callback_id, customer_name, customer_phone, reason, details } = parsed.data;
