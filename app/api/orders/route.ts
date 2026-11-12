@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireToolSecret } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { timed } from "@/lib/timing";
 
 // Orders feed for the kitchen board (Phase 3): orders with their items, newest first.
 // Uses the service role, so it returns customer names, phones and addresses.
@@ -16,8 +17,9 @@ const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(100),
 });
 
-export async function GET(request: NextRequest) {
+export const GET = timed("orders", async (request: NextRequest, timer) => {
   const denied = requireToolSecret(request);
+  timer.lap("auth");
   if (denied) return denied;
 
   const sp = request.nextUrl.searchParams;
@@ -49,9 +51,10 @@ export async function GET(request: NextRequest) {
   if (restaurant_id) query = query.eq("restaurant_id", restaurant_id);
 
   const { data, error } = await query;
+  timer.lap("db");
   if (error) {
     console.error("GET /api/orders failed", error);
     return NextResponse.json({ error: "failed to load orders" }, { status: 500 });
   }
   return NextResponse.json({ orders: data });
-}
+});

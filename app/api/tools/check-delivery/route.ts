@@ -4,6 +4,7 @@ import { requireToolSecret } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { priceForSpeech } from "@/lib/speech";
 import { DELIVERY_ETA_MINUTES, FEE_MISSING_SPEECH, inDeliveryArea } from "@/lib/delivery";
+import { timed } from "@/lib/timing";
 
 // Voice-agent tool: can we deliver to the caller's postcode?
 
@@ -15,11 +16,13 @@ const bodySchema = z.object({
 const REFUSED_SPEECH =
   "Sorry, we don't deliver to that postcode, but you're welcome to collect. Would you like to do collection?";
 
-export async function POST(request: Request) {
+export const POST = timed("check-delivery", async (request: Request, timer) => {
   const denied = requireToolSecret(request);
+  timer.lap("auth");
   if (denied) return denied;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  timer.lap("parse");
   if (!parsed.success) {
     return NextResponse.json(
       { error: "body must be { postcode: string, restaurant_id: uuid }", speech: "Sorry, could you tell me your postcode again?" },
@@ -36,6 +39,7 @@ export async function POST(request: Request) {
     .select("delivery_fee")
     .eq("id", parsed.data.restaurant_id)
     .maybeSingle();
+  timer.lap("db");
 
   if (error || !data) {
     console.error("check-delivery: restaurant lookup failed", error);
@@ -65,4 +69,4 @@ export async function POST(request: Request) {
     eta_minutes: DELIVERY_ETA_MINUTES,
     speech: `Yes, we deliver there. ${feeSpeech}, about ${DELIVERY_ETA_MINUTES} minutes.`,
   });
-}
+});

@@ -10,6 +10,7 @@ import {
   inDeliveryArea,
 } from "@/lib/delivery";
 import { checkOpen, type OpeningHours } from "@/lib/opening-hours";
+import { timed } from "@/lib/timing";
 
 // Voice-agent tool: place an order.
 //
@@ -113,11 +114,13 @@ function validationSpeech(error: z.ZodError): string {
   return "Sorry, something didn't come through properly. Could we go over the order again?";
 }
 
-export async function POST(request: Request) {
+export const POST = timed("create-order", async (request: Request, timer) => {
   const denied = requireToolSecret(request);
+  timer.lap("auth");
   if (denied) return denied;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  timer.lap("parse");
   if (!parsed.success) {
     return reject(validationSpeech(parsed.error), `invalid body: ${parsed.error.issues.map((i) => i.path.join(".") + " " + i.message).join("; ")}`);
   }
@@ -156,6 +159,7 @@ export async function POST(request: Request) {
       .select("id, menu_item_id, category_id, group_name, name, price_delta, max_select, is_available")
       .eq("restaurant_id", body.restaurant_id),
   ]);
+  timer.lap("db");
 
   if (restaurantRes.error || itemsRes.error || optionsRes.error) {
     console.error("create-order: lookup failed", restaurantRes.error ?? itemsRes.error ?? optionsRes.error);
@@ -287,6 +291,8 @@ export async function POST(request: Request) {
   }
   const totalPence = subtotalPence + deliveryFeePence;
 
+  timer.lap("price");
+
   // Rule: one atomic insert of the order + all items.
   const { data: order, error: rpcError } = await supabaseAdmin.rpc("create_order_tx", {
     p_order: {
@@ -314,6 +320,7 @@ export async function POST(request: Request) {
       notes: l.notes,
     })),
   });
+  timer.lap("insert");
 
   if (rpcError || !order) {
     console.error("create-order: create_order_tx failed", rpcError);
@@ -348,4 +355,4 @@ export async function POST(request: Request) {
     eta_minutes: eta,
     speech: `Perfect. ${readBack.charAt(0).toUpperCase()}${readBack.slice(1)}, ${how}. Your order number is ${orderNumber}.`,
   });
-}
+});

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cacheLife } from "next/cache";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase/client";
+import { timed } from "@/lib/timing";
 
 // Public, read-only menu. Uses the anon client, so RLS applies.
 // Exactly two queries, run in parallel:
@@ -112,10 +113,11 @@ async function getMenu(restaurantId: string) {
   }));
 }
 
-export async function GET(request: NextRequest) {
+export const GET = timed("menu", async (request: NextRequest, timer) => {
   const parsed = querySchema.safeParse({
     restaurant_id: request.nextUrl.searchParams.get("restaurant_id"),
   });
+  timer.lap("parse");
   if (!parsed.success) {
     return NextResponse.json(
       { error: "restaurant_id query parameter must be a valid uuid" },
@@ -125,9 +127,11 @@ export async function GET(request: NextRequest) {
 
   try {
     const categories = await getMenu(parsed.data.restaurant_id);
+    // Usually a cache hit (menu is cached for 60s), so often near 0ms.
+    timer.lap("db");
     return NextResponse.json({ categories });
   } catch (error) {
     console.error("GET /api/menu failed", error);
     return NextResponse.json({ error: "failed to load menu" }, { status: 500 });
   }
-}
+});

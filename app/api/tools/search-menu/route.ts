@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireToolSecret } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { priceForSpeech, sizeForSpeech } from "@/lib/speech";
+import { timed } from "@/lib/timing";
 
 // Voice-agent tool: fuzzy-search the menu for what the caller said.
 // All matching happens in Postgres (public.search_menu) in a single RPC call.
@@ -53,8 +54,9 @@ function buildSpeech(rows: SearchRow[]): string {
   return `${top.name} — ${parts.join(", ")}.`;
 }
 
-export async function POST(request: Request) {
+export const POST = timed("search-menu", async (request: Request, timer) => {
   const denied = requireToolSecret(request);
+  timer.lap("auth");
   if (denied) return denied;
 
   let json: unknown;
@@ -68,6 +70,7 @@ export async function POST(request: Request) {
   }
 
   const parsed = bodySchema.safeParse(json);
+  timer.lap("parse");
   if (!parsed.success) {
     return NextResponse.json(
       { error: "body must be { query: string, restaurant_id: uuid }", speech: "Sorry, could you say that again?" },
@@ -79,6 +82,7 @@ export async function POST(request: Request) {
     p_restaurant_id: parsed.data.restaurant_id,
     p_query: parsed.data.query,
   });
+  timer.lap("db");
 
   if (error) {
     console.error("search_menu RPC failed", error);
@@ -106,4 +110,4 @@ export async function POST(request: Request) {
     })),
     speech: buildSpeech(rows),
   });
-}
+});
