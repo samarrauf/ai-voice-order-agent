@@ -83,6 +83,29 @@ export const TOOLS = [
       additionalProperties: false,
     },
   },
+  {
+    name: "request_callback",
+    description:
+      "Save a request for a staff member to phone the caller back. Use it for any allergen or dietary question (never answer those yourself), when a tool fails, or when you cannot help. Only call it after the caller has confirmed their name and the read-back of their number. Returns a 'speech' sentence to say.",
+    input_schema: {
+      type: "object",
+      properties: {
+        customer_name: { type: "string", description: "The caller's name." },
+        customer_phone: { type: "string", description: "Number to call back, digits only, as confirmed by the caller." },
+        reason: {
+          type: "string",
+          enum: ["allergen", "problem", "other"],
+          description: "'allergen' for any allergy or dietary question, 'problem' if something went wrong, 'other' for anything else.",
+        },
+        details: {
+          type: "string",
+          description: "One short line for the staff member, e.g. 'Asked if garlic bread contains nuts'.",
+        },
+      },
+      required: ["customer_name", "customer_phone", "reason"],
+      additionalProperties: false,
+    },
+  },
 ] as const;
 
 export type ToolName = (typeof TOOLS)[number]["name"];

@@ -6,6 +6,7 @@ import { DEMO_RESTAURANT_ID, TOOLS, type ToolName } from "@/lib/agent/tools";
 import { POST as searchMenu } from "@/app/api/tools/search-menu/route";
 import { POST as checkDelivery } from "@/app/api/tools/check-delivery/route";
 import { POST as createOrder } from "@/app/api/tools/create-order/route";
+import { POST as requestCallback } from "@/app/api/tools/request-callback/route";
 
 // TEXT TEST RIG — imitates what Vapi will do in Phase 4:
 // run the LLM with our system prompt + tools, execute tool calls against our
@@ -23,6 +24,7 @@ const HANDLERS: Record<ToolName, (req: Request) => Promise<Response>> = {
   search_menu: searchMenu,
   check_delivery: checkDelivery,
   create_order: createOrder,
+  request_callback: requestCallback,
 };
 
 type ToolCallLog = { name: string; input: unknown; status: number; result: unknown; ms: number };
