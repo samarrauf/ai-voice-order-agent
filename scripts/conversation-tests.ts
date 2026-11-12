@@ -57,17 +57,19 @@ const pcNorm = (s: unknown) => String(s ?? "").toUpperCase().replace(/[^A-Z0-9]/
 
 async function runConversation(lines: string[]): Promise<Turn[]> {
   let messages: unknown[] = [];
+  let statusContext: string | undefined;
   const turns: Turn[] = [];
   for (const caller of lines) {
     messages.push({ role: "user", content: caller });
     const res = await fetch(CHAT_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({ messages, statusContext }),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(`chat failed: ${json.error ?? res.status}`);
     messages = json.messages;
+    statusContext = json.statusContext;
     turns.push({
       caller,
       reply: json.reply,

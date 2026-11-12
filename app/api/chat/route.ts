@@ -7,6 +7,9 @@ import { POST as searchMenu } from "@/app/api/tools/search-menu/route";
 import { POST as checkDelivery } from "@/app/api/tools/check-delivery/route";
 import { POST as createOrder } from "@/app/api/tools/create-order/route";
 import { POST as requestCallback } from "@/app/api/tools/request-callback/route";
+import { POST as restaurantStatus } from "@/app/api/tools/restaurant-status/route";
+import { STATUS_PLACEHOLDER, buildStatusContext } from "@/lib/agent/status-context";
+import type { RestaurantStatus } from "@/lib/restaurant-status";
 
 // TEXT TEST RIG — imitates what Vapi will do in Phase 4:
 // run the LLM with our system prompt + tools, execute tool calls against our
@@ -50,6 +53,22 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<To
   return { name, input, status: res.status, result, ms: Math.round(performance.now() - start) };
 }
 
+/**
+ * Start of call: ask our restaurant-status endpoint (exactly as our Phase 4
+ * Vapi webhook will) and turn the answer into the RESTAURANT STATUS block.
+ */
+async function fetchStatusContext(): Promise<string> {
+  const res = await restaurantStatus(
+    new Request("http://localhost/api/tools/restaurant-status", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-tool-secret": process.env.TOOL_API_SECRET ?? "" },
+      body: JSON.stringify({ restaurant_id: DEMO_RESTAURANT_ID }),
+    }),
+  );
+  const status = res.ok ? ((await res.json()) as RestaurantStatus) : null;
+  return buildStatusContext(status);
+}
+
 function costUsd(u: Usage): number {
   return (
     (u.input * PRICE_PER_MTOK.input +
@@ -68,11 +87,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY is not set in .env.local" }, { status: 500 });
   }
 
-  const body = (await request.json().catch(() => null)) as { messages?: Anthropic.MessageParam[] } | null;
+  const body = (await request.json().catch(() => null)) as
+    | { messages?: Anthropic.MessageParam[]; statusContext?: string }
+    | null;
   const messages = body?.messages;
   if (!Array.isArray(messages) || messages.length === 0 || messages.length > 200 || messages.at(-1)?.role !== "user") {
     return NextResponse.json({ error: "body must be { messages: MessageParam[] } ending with a user message" }, { status: 400 });
   }
+
+  // The status is fetched ONCE at the start of the call and then sent back by
+  // the page on every turn, so it stays fixed for the whole call (like Vapi's
+  // variableValues) and the cached prompt prefix doesn't change mid-call.
+  const statusContext =
+    typeof body?.statusContext === "string" && body.statusContext.length < 2000
+      ? body.statusContext
+      : await fetchStatusContext();
+  const system = SYSTEM_PROMPT.replace(STATUS_PLACEHOLDER, statusContext);
 
   const client = new Anthropic();
   const toolCalls: ToolCallLog[] = [];
@@ -89,7 +119,7 @@ export async function POST(request: Request) {
         output_config: { effort: "low" },
         // Caches the system prompt + tools + history, so each round is cheaper.
         cache_control: { type: "ephemeral" },
-        system: SYSTEM_PROMPT,
+        system,
         tools: TOOLS as unknown as Anthropic.Tool[],
         messages,
       });
@@ -152,5 +182,5 @@ export async function POST(request: Request) {
       `cost=$${cost.toFixed(5)}`,
   );
 
-  return NextResponse.json({ reply, toolCalls, messages, usage: { ...usage, costUsd: cost, ms } });
+  return NextResponse.json({ reply, toolCalls, messages, statusContext, usage: { ...usage, costUsd: cost, ms } });
 }

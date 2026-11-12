@@ -9,6 +9,8 @@ export default function ChatClient() {
   // The full API-format history (including tool calls and thinking blocks).
   // Sent back to the server each turn — the server keeps no state.
   const history = useRef<unknown[]>([]);
+  // Restaurant status block, fetched by the server on the first turn and kept for the call.
+  const statusContext = useRef<string | undefined>(undefined);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -26,11 +28,12 @@ export default function ChatClient() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ messages }),
+        body: JSON.stringify({ messages, statusContext: statusContext.current }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
       history.current = json.messages;
+      statusContext.current = json.statusContext;
       setTotalCost((c) => c + json.usage.costUsd);
       setBubbles((b) => [
         ...b,
@@ -51,6 +54,7 @@ export default function ChatClient() {
 
   function reset() {
     history.current = [];
+    statusContext.current = undefined;
     setBubbles([]);
     setTotalCost(0);
   }

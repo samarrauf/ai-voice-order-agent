@@ -42,6 +42,107 @@ export function timeForSpeech(hhmm: string): string {
   return `${hour} ${m < 10 ? `oh ${numberToWords(m)}` : numberToWords(m)}`;
 }
 
+/**
+ * Clock-style speech for times the caller hears.
+ * "16:00" -> "four o'clock", "16:15" -> "quarter past four", "16:30" -> "half past four",
+ * "16:45" -> "quarter to five", "16:20" -> "four twenty".
+ */
+export function clockForSpeech(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  const hour12 = (x: number) => numberToWords(x % 12 === 0 ? 12 : x % 12);
+  if (m === 0) {
+    if (h === 12) return "twelve noon";
+    if (h === 0) return "midnight";
+    return `${hour12(h)} o'clock`;
+  }
+  if (m === 15) return `quarter past ${hour12(h)}`;
+  if (m === 30) return `half past ${hour12(h)}`;
+  if (m === 45) return `quarter to ${hour12(h + 1)}`;
+  return timeForSpeech(hhmm);
+}
+
+// ---------------------------------------------------------------------------
+// Real instants from restaurant wall-clock times (DST-safe).
+
+/** How far ahead of UTC the timezone is at that instant, in ms (London: 0 or 3,600,000). */
+function tzOffsetMs(timeZone: string, at: Date): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(at);
+  const g = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const asUtc = Date.UTC(g("year"), g("month") - 1, g("day"), g("hour"), g("minute"), g("second"));
+  return asUtc - Math.floor(at.getTime() / 1000) * 1000;
+}
+
+/** Local calendar date at an instant: year, month (1-12), day. */
+function localDate(timeZone: string, at: Date): { y: number; m: number; d: number } {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(at);
+  const g = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  return { y: g("year"), m: g("month"), d: g("day") };
+}
+
+/** Local wall-clock time on a local date -> the real instant. Day overflow (d + 1) is fine. */
+export function zonedToUtc(y: number, m: number, d: number, hhmm: string, timeZone: string): Date {
+  const [hh, mm] = hhmm.split(":").map(Number);
+  const guess = Date.UTC(y, m - 1, d, hh, mm);
+  const first = guess - tzOffsetMs(timeZone, new Date(guess));
+  const second = guess - tzOffsetMs(timeZone, new Date(first));
+  return new Date(second);
+}
+
+/** "" for today, "tomorrow at " for tomorrow, "on Friday at " otherwise. */
+function dayPrefix(daysAhead: number, y: number, m: number, d: number): string {
+  if (daysAhead === 0) return "";
+  if (daysAhead === 1) return "tomorrow at ";
+  const weekday = new Date(Date.UTC(y, m - 1, d + daysAhead)).toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" });
+  return `on ${weekday} at `;
+}
+
+export type NextOpening = { at: Date; hhmm: string; daysAhead: number; spoken: string };
+
+/** The next time the restaurant opens strictly after `now`, or null if it has no hours in the next week. */
+export function nextOpening(hours: OpeningHours | null, timeZone: string, now = new Date()): NextOpening | null {
+  if (!hours) return null;
+  const { y, m, d } = localDate(timeZone, now);
+  for (let k = 0; k <= 7; k++) {
+    const weekday = new Date(Date.UTC(y, m - 1, d + k)).getUTCDay();
+    const ranges = (hours[DAYS[weekday]] ?? []).slice().sort((a, b) => toMinutes(a.open) - toMinutes(b.open));
+    for (const r of ranges) {
+      const at = zonedToUtc(y, m, d + k, r.open, timeZone);
+      if (at.getTime() > now.getTime()) {
+        return { at, hhmm: r.open, daysAhead: k, spoken: `${dayPrefix(k, y, m, d)}${clockForSpeech(r.open)}` };
+      }
+    }
+  }
+  return null;
+}
+
+export type RequestedTime = { at: Date; hhmm: string; daysAhead: number; spoken: string };
+
+/**
+ * "16:15" (restaurant local time) -> the next 16:15 that is after `now`.
+ * The agent only ever sends a wall-clock time; the server works out the date,
+ * so the model never does timezone or date maths.
+ */
+export function resolveRequestedTime(hhmm: string, timeZone: string, now = new Date()): RequestedTime {
+  const { y, m, d } = localDate(timeZone, now);
+  let daysAhead = 0;
+  let at = zonedToUtc(y, m, d, hhmm, timeZone);
+  if (at.getTime() <= now.getTime()) {
+    daysAhead = 1;
+    at = zonedToUtc(y, m, d + 1, hhmm, timeZone);
+  }
+  return { at, hhmm, daysAhead, spoken: `${dayPrefix(daysAhead, y, m, d)}${clockForSpeech(hhmm)}` };
+}
+
+/** Restaurant local time now, e.g. { weekday: "Thursday", hhmm: "14:05" }. */
+export function localClock(timeZone: string, now = new Date()): { weekday: string; hhmm: string } {
+  const weekday = now.toLocaleDateString("en-GB", { weekday: "long", timeZone });
+  const hhmm = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(now);
+  return { weekday, hhmm };
+}
+
 export type OpenCheck = { open: true } | { open: false; speech: string };
 
 export function checkOpen(hours: OpeningHours | null, timeZone: string, now = new Date()): OpenCheck {

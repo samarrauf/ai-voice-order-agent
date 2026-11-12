@@ -57,6 +57,11 @@ export const TOOLS = [
         delivery_address: { type: "string", description: "First line of the address. Required for delivery." },
         delivery_postcode: { type: "string", description: "Postcode as confirmed by the caller. Required for delivery." },
         payment_method: { type: "string", enum: ["cash", "card_on_delivery"], description: "'card_on_delivery' if they say card." },
+        requested_time: {
+          type: "string",
+          description:
+            "Pre-orders only: the time the caller wants it, as 24-hour Manchester time 'HH:MM', e.g. '16:15'. Required when the restaurant is closed; omit for as soon as possible. The server works out the date.",
+        },
         notes: { type: "string", description: "Optional note for the whole order, e.g. 'ring the bell twice'." },
         items: {
           type: "array",

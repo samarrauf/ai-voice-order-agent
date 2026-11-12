@@ -17,7 +17,7 @@ import {
   PICKUP_ETA_MINUTES,
   inDeliveryArea,
 } from "@/lib/delivery";
-import { checkOpen, type OpeningHours } from "@/lib/opening-hours";
+import { checkOpen, nextOpening, resolveRequestedTime, type OpeningHours } from "@/lib/opening-hours";
 import { timed } from "@/lib/timing";
 
 // Voice-agent tool: place an order.
@@ -52,6 +52,9 @@ const bodySchema = z.object({
   delivery_address: z.string().trim().max(300).nullish(),
   delivery_postcode: z.string().trim().max(20).nullish(),
   payment_method: z.enum(["cash", "card_on_delivery"]),
+  // Pre-orders: restaurant wall-clock time "HH:MM" (24h). The server resolves the
+  // date itself (next occurrence), so the agent never does date/timezone maths.
+  requested_time: z.string().trim().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullish(),
   notes: z.string().trim().max(500).nullish(),
   items: z.array(itemSchema).min(1).max(30),
 });
@@ -184,13 +187,45 @@ export const POST = timed("create-order", async (request: Request, timer) => {
     return reject("Sorry, I'm having trouble placing that order. Could you hold on a moment?", "restaurant not found", 404);
   }
 
-  // Rule 2: open and accepting orders.
+  // Rule 2: the owner's switch beats everything, whatever the time.
   if (!restaurant.is_accepting_orders) {
     return reject("Sorry, we're not taking any orders at the moment.", "restaurant not accepting orders");
   }
-  const openCheck = checkOpen(restaurant.opening_hours as OpeningHours | null, restaurant.timezone ?? "Europe/London");
+
+  // Rule 2b: open now, or a valid pre-order for when we're open.
+  const tz = restaurant.timezone ?? "Europe/London";
+  const hours = restaurant.opening_hours as OpeningHours | null;
+  const now = new Date();
+  const openCheck = checkOpen(hours, tz, now);
+  const scheduled = body.requested_time ? resolveRequestedTime(body.requested_time, tz, now) : null;
+
   if (!openCheck.open) {
-    return reject(openCheck.speech, "restaurant closed");
+    const next = nextOpening(hours, tz, now);
+    if (!next) {
+      return reject(openCheck.speech, "restaurant closed, no upcoming opening hours");
+    }
+    if (!scheduled) {
+      return reject(
+        `We're closed at the moment, we open at ${next.spoken}. I can take your order for then if you like. What time would you like it?`,
+        "restaurant closed: pre-order needs requested_time",
+      );
+    }
+    if (scheduled.at.getTime() < next.at.getTime()) {
+      return reject(
+        `Sorry, we don't open until ${next.spoken}, so the earliest I can do is ${next.spoken}. Is that okay?`,
+        `requested_time ${body.requested_time} is before next opening ${next.at.toISOString()}`,
+      );
+    }
+  }
+  // Any requested time (pre-order or later today) must fall inside opening hours.
+  if (scheduled && !checkOpen(hours, tz, scheduled.at).open) {
+    const next = nextOpening(hours, tz, now);
+    return reject(
+      next
+        ? `Sorry, we're closed at that time. The earliest I can do is ${next.spoken}. What time would you like it?`
+        : "Sorry, we're closed at that time. What time would you like it?",
+      `requested_time ${body.requested_time} is outside opening hours`,
+    );
   }
 
   const menuById = new Map((itemsRes.data as unknown as DbItem[]).map((m) => [m.id, m]));
@@ -318,10 +353,12 @@ export const POST = timed("create-order", async (request: Request, timer) => {
   const eta = isDelivery ? DELIVERY_ETA_MINUTES : PICKUP_ETA_MINUTES;
   const total = pounds(totalPence);
 
+  const when = scheduled ? ` for ${scheduled.spoken}` : "";
+
   if (body.preview) {
     const how = isDelivery
-      ? `for delivery to ${formatPostcode(body.delivery_postcode!)}. That comes to ${priceForSpeech(total)} in total, including ${priceForSpeech(pounds(deliveryFeePence))} delivery`
-      : `for collection. That comes to ${priceForSpeech(total)} in total`;
+      ? `for delivery to ${formatPostcode(body.delivery_postcode!)}${when}. That comes to ${priceForSpeech(total)} in total, including ${priceForSpeech(pounds(deliveryFeePence))} delivery`
+      : `for collection${when}. That comes to ${priceForSpeech(total)} in total`;
     return NextResponse.json({
       success: true,
       preview: true,
@@ -329,6 +366,7 @@ export const POST = timed("create-order", async (request: Request, timer) => {
       delivery_fee: pounds(deliveryFeePence),
       total,
       eta_minutes: eta,
+      requested_time: scheduled ? scheduled.at.toISOString() : null,
       speech: `So that's ${readBack}, ${how}. Is that all correct?`,
     });
   }
@@ -347,6 +385,7 @@ export const POST = timed("create-order", async (request: Request, timer) => {
       delivery_fee: pounds(deliveryFeePence),
       total: pounds(totalPence),
       payment_method: body.payment_method,
+      requested_time: scheduled ? scheduled.at.toISOString() : null,
       notes: body.notes ?? null,
     },
     p_items: lines.map((l) => ({
@@ -374,10 +413,19 @@ export const POST = timed("create-order", async (request: Request, timer) => {
   // ECHO-BACK RULE: phone and postcode are read back from the row AS STORED,
   // so a copying mistake by the agent is heard by the caller. Items and total
   // were already read back (preview) and confirmed, so they aren't repeated.
-  const saved = order as { order_number: string; customer_phone: string; delivery_postcode: string | null };
-  const where = isDelivery
-    ? `delivering to ${postcodeForSpeech(saved.delivery_postcode!)} in about ${eta} minutes`
-    : `ready to collect in about ${eta} minutes`;
+  const saved = order as {
+    order_number: string;
+    customer_phone: string;
+    delivery_postcode: string | null;
+    requested_time: string | null;
+  };
+  const where = scheduled
+    ? isDelivery
+      ? `delivering to ${postcodeForSpeech(saved.delivery_postcode!)}, that'll be with you for ${scheduled.spoken}`
+      : `that'll be ready for ${scheduled.spoken}`
+    : isDelivery
+      ? `delivering to ${postcodeForSpeech(saved.delivery_postcode!)} in about ${eta} minutes`
+      : `ready to collect in about ${eta} minutes`;
 
   return NextResponse.json({
     success: true,
@@ -386,6 +434,7 @@ export const POST = timed("create-order", async (request: Request, timer) => {
     delivery_fee: pounds(deliveryFeePence),
     total,
     eta_minutes: eta,
+    requested_time: saved.requested_time,
     stored_phone: saved.customer_phone,
     stored_postcode: saved.delivery_postcode,
     speech: `Perfect, order number ${saved.order_number}, ${where}. We've got your number as ${phoneForSpeech(saved.customer_phone)}.`,
