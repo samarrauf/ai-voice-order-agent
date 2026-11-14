@@ -19,6 +19,20 @@ import {
 } from "@/lib/delivery";
 import { checkOpen, nextOpening, resolveRequestedTime, type OpeningHours } from "@/lib/opening-hours";
 import { timed } from "@/lib/timing";
+import {
+  MAX_QTY,
+  MENU_ITEM_SELECT,
+  OPTION_SELECT,
+  itemSchema,
+  joinForSpeech,
+  optionForSpeech,
+  pence,
+  pounds,
+  priceLines,
+  toOrderItemsPayload,
+  type DbItem,
+  type DbOption,
+} from "@/lib/order-pricing";
 
 // Voice-agent tool: place an order.
 //
@@ -26,16 +40,6 @@ import { timed } from "@/lib/timing";
 // menu tables. Anything price-like in the request body is never read — zod
 // strips unknown keys like "total" and "subtotal" before we touch the data.
 // All arithmetic is done in whole pence to avoid floating-point errors.
-
-const MAX_QTY = 20;
-
-const itemSchema = z.object({
-  menu_item_id: z.guid(),
-  size_name: z.string().trim().max(50).nullish(),
-  quantity: z.number().int().min(1).max(MAX_QTY),
-  options: z.array(z.string().trim().min(1).max(60)).max(20).default([]),
-  notes: z.string().trim().max(200).nullish(),
-});
 
 const bodySchema = z.object({
   // preview: true = run every check and price the order, but save nothing.
@@ -61,58 +65,9 @@ const bodySchema = z.object({
 
 type Body = z.infer<typeof bodySchema>;
 
-type DbSize = { name: string; price: number | string; is_default: boolean };
-type DbItem = {
-  id: string;
-  name: string;
-  category_id: string | null;
-  base_price: number | string;
-  is_available: boolean;
-  item_sizes: DbSize[];
-};
-type DbOption = {
-  id: string;
-  menu_item_id: string | null;
-  category_id: string | null;
-  group_name: string;
-  name: string;
-  price_delta: number | string;
-  max_select: number;
-  is_available: boolean;
-};
-
-const pence = (v: number | string) => Math.round(Number(v) * 100);
-const pounds = (p: number) => p / 100;
-
 /** 400 with a sentence the agent can read straight to the caller. */
 function reject(speech: string, error: string, status = 400) {
   return NextResponse.json({ success: false, error, speech }, { status });
-}
-
-/** "12 inch", "12\"", "12", "Twelve Inch" all normalise to "12inch". */
-function normSize(s: string): string {
-  const words: Record<string, string> = { ten: "10", twelve: "12", fourteen: "14", sixteen: "16" };
-  let n = s.toLowerCase().replace(/["”]/g, "inch");
-  n = n.replace(/\b(ten|twelve|fourteen|sixteen)\b/g, (w) => words[w]);
-  n = n.replace(/[^a-z0-9]/g, "").replace(/inches$/, "inch");
-  return /^\d+$/.test(n) ? `${n}inch` : n;
-}
-
-/** "Extra Cheese", "extra cheese", "add cheese" all normalise to "cheese". */
-function normOption(s: string): string {
-  return s.toLowerCase().replace(/^(extra|add)\s+/, "").replace(/[^a-z0-9]/g, "");
-}
-
-function optionForSpeech(o: DbOption): string {
-  const name = o.name.toLowerCase();
-  if (/topping/i.test(o.group_name) && !name.startsWith("extra")) return `extra ${name}`;
-  if (/crust/i.test(o.group_name)) return `${name} crust`;
-  return name;
-}
-
-function joinForSpeech(parts: string[]): string {
-  if (parts.length <= 1) return parts.join("");
-  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
 }
 
 /** Turns a zod failure into something the caller can hear. Never technical. */
@@ -168,12 +123,12 @@ export const POST = timed("create-order", async (request: Request, timer) => {
       .maybeSingle(),
     supabaseAdmin
       .from("menu_items")
-      .select("id, name, category_id, base_price, is_available, item_sizes ( name, price, is_default )")
+      .select(MENU_ITEM_SELECT)
       .eq("restaurant_id", body.restaurant_id)
       .in("id", itemIds),
     supabaseAdmin
       .from("item_options")
-      .select("id, menu_item_id, category_id, group_name, name, price_delta, max_select, is_available")
+      .select(OPTION_SELECT)
       .eq("restaurant_id", body.restaurant_id),
   ]);
   timer.lap("db");
@@ -231,94 +186,10 @@ export const POST = timed("create-order", async (request: Request, timer) => {
   const menuById = new Map((itemsRes.data as unknown as DbItem[]).map((m) => [m.id, m]));
   const allOptions = optionsRes.data as DbOption[];
 
-  // Price every line from the database.
-  const lines = [];
-  for (const req of body.items) {
-    const item = menuById.get(req.menu_item_id);
-    if (!item) {
-      return reject(
-        "Sorry, I couldn't find one of those items on our menu. Could you tell me that item again?",
-        `menu_item_id ${req.menu_item_id} not found for this restaurant`,
-      );
-    }
-    // Rule 3: name the unavailable item.
-    if (!item.is_available) {
-      return reject(
-        `Sorry, the ${item.name} isn't available right now. Would you like something else instead?`,
-        `item unavailable: ${item.name}`,
-      );
-    }
-
-    // Size: must match one of the item's sizes; default size if none given.
-    let sizeName: string | null = null;
-    let unitPence = pence(item.base_price);
-    if (item.item_sizes.length > 0) {
-      const size = req.size_name
-        ? item.item_sizes.find((s) => normSize(s.name) === normSize(req.size_name!))
-        : item.item_sizes.find((s) => s.is_default);
-      if (!size) {
-        const choices = joinForSpeech(item.item_sizes.map((s) => sizeForSpeech(s.name)));
-        return reject(
-          `What size would you like the ${item.name}? We do ${choices}.`,
-          `size "${req.size_name ?? ""}" not found for ${item.name}`,
-        );
-      }
-      sizeName = size.name;
-      unitPence = pence(size.price);
-    }
-
-    // Options: must apply to this item (item-level, its category, or restaurant-wide).
-    const applicable = allOptions.filter(
-      (o) =>
-        o.menu_item_id === item.id ||
-        (o.menu_item_id === null && o.category_id === item.category_id) ||
-        (o.menu_item_id === null && o.category_id === null),
-    );
-    const chosen: DbOption[] = [];
-    for (const raw of req.options) {
-      const opt = applicable.find((o) => normOption(o.name) === normOption(raw));
-      if (!opt) {
-        return reject(
-          `Sorry, we can't do ${raw.toLowerCase()} on the ${item.name}. Is it okay without?`,
-          `option "${raw}" not valid for ${item.name}`,
-        );
-      }
-      if (!opt.is_available) {
-        return reject(
-          `Sorry, ${opt.name.toLowerCase()} isn't available right now. Is the ${item.name} okay without it?`,
-          `option unavailable: ${opt.name}`,
-        );
-      }
-      chosen.push(opt);
-    }
-    // Respect max_select per option group (e.g. only one crust).
-    const perGroup = new Map<string, number>();
-    for (const o of chosen) perGroup.set(o.group_name, (perGroup.get(o.group_name) ?? 0) + 1);
-    for (const [group, count] of perGroup) {
-      const max = Math.min(...chosen.filter((o) => o.group_name === group).map((o) => o.max_select));
-      if (count > max) {
-        return reject(
-          `Sorry, you can only choose ${numberToWords(max)} ${group.toLowerCase()} for the ${item.name}. Which would you like?`,
-          `too many options in group ${group} for ${item.name}`,
-        );
-      }
-    }
-
-    unitPence += chosen.reduce((sum, o) => sum + pence(o.price_delta), 0);
-    const linePence = unitPence * req.quantity;
-
-    lines.push({
-      item,
-      sizeName,
-      chosen,
-      quantity: req.quantity,
-      notes: req.notes ?? null,
-      unitPence,
-      linePence,
-    });
-  }
-
-  const subtotalPence = lines.reduce((sum, l) => sum + l.linePence, 0);
+  // Price every line from the database (shared with the staff manual-order route).
+  const priced = priceLines(body.items, menuById, allOptions);
+  if (!priced.ok) return reject(priced.speech, priced.error);
+  const { lines, subtotalPence } = priced;
 
   let deliveryFeePence = 0;
   if (isDelivery) {
@@ -390,16 +261,7 @@ export const POST = timed("create-order", async (request: Request, timer) => {
       // Explicit: orders from this route are always phone orders.
       source: "phone",
     },
-    p_items: lines.map((l) => ({
-      menu_item_id: l.item.id,
-      item_name: l.item.name,
-      size_name: l.sizeName,
-      options: l.chosen.map((o) => ({ id: o.id, group: o.group_name, name: o.name, price_delta: Number(o.price_delta) })),
-      quantity: l.quantity,
-      unit_price: pounds(l.unitPence),
-      line_total: pounds(l.linePence),
-      notes: l.notes,
-    })),
+    p_items: toOrderItemsPayload(lines),
   });
   timer.lap("insert");
 
