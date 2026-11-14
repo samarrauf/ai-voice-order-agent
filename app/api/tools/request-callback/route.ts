@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireToolSecret } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { normalizePhone, phoneForSpeech } from "@/lib/speech";
+import { isRealName, isRealPhone } from "@/lib/caller-details";
 import { timed } from "@/lib/timing";
 
 // Voice-agent tool: save a callback request so a staff member rings the caller back.
@@ -16,23 +17,9 @@ import { timed } from "@/lib/timing";
 //
 // TODO(phase 4): link call_id once Vapi call rows exist in public.calls.
 
-// JUNK GUARD: the model has sent "Unknown" / "0" / {} before it had the
-// caller's details. Saving those gives staff a callback they can't make, so
-// reject them with a 400 whose speech asks the caller for the real value.
-const PLACEHOLDER_NAMES = new Set([
-  "unknown", "unknown caller", "caller", "the caller", "customer", "the customer", "anonymous",
-  "name", "no name", "not given", "not provided", "n a", "na", "none", "null", "undefined", "tbc", "test",
-]);
-
-function isRealName(raw: string): boolean {
-  const name = raw.trim().toLowerCase().replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
-  return /[a-z]/.test(name) && !PLACEHOLDER_NAMES.has(name);
-}
-
-function isRealPhone(normalized: string): boolean {
-  const d = normalized.replace("+", "");
-  return d.length >= 10 && normalized.length <= 16 && !/^(\d)\1+$/.test(d); // not "0000000000"
-}
+// JUNK GUARD (isRealName / isRealPhone live in lib/caller-details.ts, shared with
+// create-booking): placeholder names and numbers get a 400 whose speech asks
+// the caller for the real value.
 
 const bodySchema = z.object({
   restaurant_id: z.guid(), // seeded demo ids aren't RFC-version UUIDs
