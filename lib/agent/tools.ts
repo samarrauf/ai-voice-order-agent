@@ -91,7 +91,7 @@ export const TOOLS = [
   {
     name: "check_availability",
     description:
-      "Check whether we have a free table for a party at a date and time. Call this ONLY when the caller has clearly said they want to reserve a table AND you already have all three of: the date, the time and how many people. The word 'table' or 'booking' on its own is not a reason to call it, and never call it with a guessed, partial or missing date, time or party size. It only looks; it reserves nothing. Do not call it for a party of more than 8: those cannot be booked this way. Returns 'available' (true or false) and a 'speech' sentence to say. If available is false the speech says why (no table, or we are closed at that time); tell the caller and ask whether another day or time would suit them.",
+      "Check whether we have a free table for a party at a date and time. Call this ONLY when the caller has clearly said they want to reserve a table AND you already have all three of: the date, the time and how many people. The word 'table' or 'booking' on its own is not a reason to call it, and never call it with a guessed, partial or missing date, time or party size. The party size must be a number the caller said themselves, in their own words: never assume one (for example 1) or use a default just to run the check; if they have not told you how many people, ask and wait. It only looks; it reserves nothing. Do not call it for a party of more than 8: those cannot be booked this way. Returns 'available' (true or false) and a 'speech' sentence to say. If available is false the speech says why (no table, or we are closed at that time); tell the caller and ask whether another day or time would suit them.",
     input_schema: {
       type: "object",
       properties: {

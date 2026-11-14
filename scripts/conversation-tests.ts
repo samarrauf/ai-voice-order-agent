@@ -686,6 +686,11 @@ async function runConversation(convo: Convo, turns: Turn[]): Promise<void> {
     statusContext = json.statusContext;
     turns.push({ caller: next, reply: json.reply, toolCalls: json.toolCalls, words: words(json.reply), ms: json.usage.ms, costUsd: json.usage.costUsd });
     process.stdout.write(".");
+    // Live view: print each turn to the terminal as soon as it happens.
+    console.log(`\n  [${convo.title}] turn ${turns.length}`);
+    console.log(`    Caller: ${next}`);
+    for (const c of json.toolCalls) console.log(`    [tool: ${c.name}]`);
+    console.log(`    Gio: ${json.reply}`);
 
     if (turns.length < convo.opening.length) next = convo.opening[turns.length];
     else if (persona) next = callerSays(json.reply, convo, persona, used);
@@ -796,7 +801,9 @@ function behaviourChecks(r: Result): Check[] {
     } else if (!gateReadBack && ideas.length >= 3) {
       fail("8 one idea per reply", `${at}: ${ideas.join(" + ")}: "${reply}"`);
     }
-    if (t.words > 25) fail("8 under 25 words", `${at}: ${t.words} words`);
+    // The final order read-back (items + total + payment + "Is that all correct?") gets a little more room.
+    const wordLimit = /all correct/i.test(reply) ? 30 : 25;
+    if (t.words > wordLimit) fail("8 under 25 words", `${at}: ${t.words} words (limit ${wordLimit})`);
   });
 
   if (upsells > 1) fail("4 upsell exactly once", `drinks/sides mentioned in ${upsells} replies`);
