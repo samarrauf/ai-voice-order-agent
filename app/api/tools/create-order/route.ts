@@ -387,6 +387,8 @@ export const POST = timed("create-order", async (request: Request, timer) => {
       payment_method: body.payment_method,
       requested_time: scheduled ? scheduled.at.toISOString() : null,
       notes: body.notes ?? null,
+      // Explicit: orders from this route are always phone orders.
+      source: "phone",
     },
     p_items: lines.map((l) => ({
       menu_item_id: l.item.id,

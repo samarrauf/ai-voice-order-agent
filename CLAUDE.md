@@ -45,3 +45,6 @@ The owner is learning and does not run terminal commands himself.
 - `npm run dev` — start the local dev server
 - `npm test` — run vitest
 - `npm run build` — production build
+
+## Dashboard auth
+For now ONE password (`DASHBOARD_PASSWORD`) gives access to the whole `/dashboard` area. This works because only one restaurant (Napoli) uses it; if Olive & Spice also needs the web dashboard later, a separate login must be built.

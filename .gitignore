@@ -48,3 +48,6 @@ next-env.d.ts
 
 # written by scripts/conversation-tests.ts at run time
 test-results/opening-hours-backup.json
+
+# example env file is safe to commit
+!.env.example
