@@ -90,6 +90,17 @@ describe("create-booking", () => {
     expect((await callTool(POST, body({ date, time: "20:30", party_size: 8 }))).status).toBe(200);
   });
 
+  it.each(["03:00", "15:00"])("refuses a booking at %s when the restaurant is closed: 409 'closed', nothing saved", async (time) => {
+    const date = "2031-04-13";
+    const { status, json } = await callTool(POST, body({ date, time }));
+    expect(status).toBe(409);
+    expect(json.success).toBe(false);
+    expect(json.available).toBe(false);
+    expect(json.reason).toBe("closed");
+    expect(json.speech).toMatch(/closed/i);
+    expect(await savedCount(date)).toBe(0);
+  });
+
   it("returns 409 party_too_large for a party no table can seat", async () => {
     const { status, json } = await callTool(POST, body({ date: "2031-04-08", party_size: 9 }));
     expect(status).toBe(409);

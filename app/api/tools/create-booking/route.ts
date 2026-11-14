@@ -4,8 +4,10 @@ import { requireToolSecret } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { isRealName, isRealPhone } from "@/lib/caller-details";
 import {
+  CLOSED_AT_THAT_TIME_SPEECH,
   bookingDateSchema,
   bookingTimeSchema,
+  checkBookingHours,
   dateForSpeech,
   partyForSpeech,
   partySizeSchema,
@@ -65,6 +67,22 @@ export const POST = timed("create-booking", async (request: Request, timer) => {
   }
 
   const { restaurant_id, date, time, party_size, customer_name, customer_phone, menu_preferences } = parsed.data;
+
+  // Outside opening hours: refuse before touching the bookings table.
+  const hours = await checkBookingHours(restaurant_id, date, time);
+  timer.lap("hours");
+  if (hours === "not_found" || hours === "error") {
+    return NextResponse.json(
+      { success: false, error: hours === "not_found" ? "restaurant not found" : "lookup failed", speech: SAVE_FAILED_SPEECH },
+      { status: hours === "not_found" ? 404 : 500 },
+    );
+  }
+  if (hours === "closed") {
+    return NextResponse.json(
+      { success: false, available: false, reason: "closed", speech: CLOSED_AT_THAT_TIME_SPEECH },
+      { status: 409 },
+    );
+  }
 
   const { data, error } = await supabaseAdmin.rpc("create_booking_tx", {
     p_restaurant_id: restaurant_id,

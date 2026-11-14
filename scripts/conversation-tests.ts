@@ -48,6 +48,8 @@ type Convo = {
   title: string;
   /** Sent in order regardless of what Gio says. */
   opening: string[];
+  /** Runs once before the conversation, e.g. to fill a table. */
+  setup?: () => Promise<void>;
   /** If absent, the caller stops after the opening lines. */
   persona?: Persona;
   rules?: Rule[];
@@ -63,6 +65,38 @@ type Result = { n: number; convo: Convo; turns: Turn[]; error?: string };
 type Check = { rule: string; pass: boolean; detail: string };
 
 const YES = /^(yes|yeah|yep|yup|correct|that's right|that's correct|perfect|spot on)\b/i;
+
+// Days used by the table-booking scenarios: far enough ahead to be free, one
+// per scenario. `spoken` is what the caller says, `iso` what the tool must receive.
+function testDay(daysAhead: number): { iso: string; spoken: string } {
+  const d = new Date(Date.now() + daysAhead * 86_400_000);
+  const weekday = d.toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" });
+  const month = d.toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });
+  return { iso: d.toISOString().slice(0, 10), spoken: `${weekday} the ${d.getUTCDate()} of ${month}` };
+}
+const DAY_A = testDay(30);
+const DAY_B = testDay(31);
+const DAY_C = testDay(32);
+const DAY_D = testDay(33);
+
+// Bookings made outside the conversations (to fill a table); removed in cleanup().
+const seededBookings: string[] = [];
+async function seedBooking(date: string, time: string, party: number): Promise<void> {
+  const { data, error } = await db.rpc("create_booking_tx", {
+    p_restaurant_id: RID,
+    p_date: date,
+    p_time: time,
+    p_party_size: party,
+    p_customer_name: "Conversation Test",
+    p_customer_phone: "07700900000",
+    p_menu_preferences: "conversation-test seed",
+  });
+  const result = data as { success?: boolean; booking_reference?: string } | null;
+  if (error || !result?.success || !result.booking_reference) {
+    throw new Error(`could not seed booking: ${error?.message ?? JSON.stringify(result)}`);
+  }
+  seededBookings.push(result.booking_reference);
+}
 
 const CONVERSATIONS: Convo[] = [
   {
@@ -232,6 +266,128 @@ const CONVERSATIONS: Convo[] = [
       ];
     },
   },
+
+  // ------------------------------------------------------------ table bookings
+  // Each booking scenario uses its own day so they never collide with each
+  // other. Bookings are made for real (and deleted at the end), and the
+  // restaurant is open all day during the run, so the time of day never matters.
+  {
+    title: "Table booking: straight through",
+    opening: ["hi, I'd like to book a table please"],
+    rules: [
+      { when: /date|day/i, say: [DAY_A.spoken] },
+      { when: /time/i, say: ["half past seven in the evening"] },
+      { when: /how many|people|party/i, say: ["four"] },
+    ],
+    persona: { fulfilment: "collection", name: "Sam", phone: "07700900123", payment: "cash" },
+    phones: ["07700900123"],
+    check: (r) => {
+      const calls = r.turns.flatMap((t) => t.toolCalls);
+      const made = calls.filter((c) => c.name === "create_booking");
+      const ok = made.filter((c) => c.status === 200);
+      const at = r.turns.findIndex((t) => t.toolCalls.some((c) => c.name === "create_booking"));
+      const firstCheck = r.turns.findIndex((t) => t.toolCalls.some((c) => c.name === "check_availability"));
+      const input = ok[0]?.input;
+      return [
+        { rule: "A booking made once", pass: made.length === 1 && ok.length === 1, detail: `${made.length} create_booking call(s), ${ok.length} succeeded` },
+        { rule: "A checked availability first", pass: firstCheck >= 0 && firstCheck < at, detail: `check at turn ${firstCheck + 1}, booking at turn ${at + 1}` },
+        {
+          rule: "A booking details right",
+          pass: !!input && input.date === DAY_A.iso && input.time === "19:30" && input.party_size === 4 && digits(input.customer_phone) === "07700900123",
+          detail: input ? JSON.stringify(input) : "no booking",
+        },
+        {
+          rule: "A waited for yes to the read-back",
+          pass: at > 0 && /all correct|shall I confirm/i.test(r.turns[at - 1].reply) && YES.test(r.turns[at].caller.trim()),
+          detail: at > 0 ? `asked: "${r.turns[at - 1].reply}" / caller: "${r.turns[at].caller}"` : "no booking",
+        },
+        {
+          rule: "A reference and table given",
+          pass: at >= 0 && /reference/i.test(r.turns[at].reply) && /table/i.test(r.turns[at].reply),
+          detail: at >= 0 ? `"${r.turns[at].reply}"` : "no booking",
+        },
+      ];
+    },
+  },
+  {
+    title: "Table booking: no space, offers another time",
+    // The only eight-seater is already booked at 19:00 that day.
+    setup: () => seedBooking(DAY_B.iso, "19:00", 8),
+    opening: ["hi, I'd like to book a table please"],
+    rules: [
+      { when: /date|day/i, say: [DAY_B.spoken] },
+      { when: /time/i, say: ["seven o'clock in the evening"] },
+      { when: /how many|people|party/i, say: ["eight"] },
+      { when: /another|different|other|instead|try/i, say: ["how about nine o'clock"] },
+    ],
+    persona: { fulfilment: "collection", name: "Priya", phone: "07700900124", payment: "cash" },
+    phones: ["07700900124"],
+    check: (r) => {
+      const calls = r.turns.flatMap((t) => t.toolCalls);
+      const checks = calls.filter((c) => c.name === "check_availability");
+      const failedAt = r.turns.findIndex((t) => t.toolCalls.some((c) => c.name === "check_availability" && c.result.available === false));
+      const offered = failedAt >= 0 && r.turns.slice(failedAt, failedAt + 3).some((t) => /another|different|other|how about/i.test(t.reply));
+      const made = calls.filter((c) => c.name === "create_booking");
+      const ok = made.filter((c) => c.status === 200);
+      return [
+        { rule: "B first check found no table", pass: checks[0]?.result.available === false, detail: `first check: ${JSON.stringify(checks[0]?.result.available)}` },
+        { rule: "B asked about another day or time", pass: offered, detail: failedAt >= 0 ? `replies after the failed check: ${r.turns.slice(failedAt, failedAt + 3).map((t) => `"${t.reply}"`).join(" / ")}` : "no failed check" },
+        { rule: "B did not book the full slot", pass: !made.some((c) => c.input.time === "19:00"), detail: `${made.length} create_booking call(s)` },
+        { rule: "B at most two failed checks", pass: checks.filter((c) => c.result.available === false).length <= 2, detail: `${checks.length} check(s)` },
+        {
+          rule: "B booked the other time",
+          pass: ok.length === 1 && ok[0].input.time === "21:00" && ok[0].input.date === DAY_B.iso,
+          detail: ok.length ? JSON.stringify(ok[0].input) : "no booking made",
+        },
+      ];
+    },
+  },
+  {
+    title: "Table booking: party of twelve",
+    opening: ["hi, I'd like to book a table for twelve people", `${DAY_C.spoken} at seven then`],
+    check: (r) => {
+      const calls = r.turns.flatMap((t) => t.toolCalls);
+      const replies = r.turns.map((t) => t.reply).join(" ");
+      return [
+        { rule: "C no booking tools called", pass: !calls.some((c) => c.name === "check_availability" || c.name === "create_booking"), detail: `${calls.length} tool call(s): ${calls.map((c) => c.name).join(", ") || "none"}` },
+        { rule: "C advised ringing the shop", pass: /\b(ring|call|phone)\b/i.test(replies) && /shop|restaurant/i.test(replies), detail: `"${replies}"` },
+        { rule: "C no workaround", pass: !/two tables|join|push (the )?tables|split/i.test(replies), detail: "no table-joining offered" },
+      ];
+    },
+  },
+  {
+    title: "Table booking: wrong digit caught by read-back",
+    // The caller says the number was read back wrongly, then gives the right one.
+    opening: ["hi, I'd like to book a table please"],
+    rules: [
+      { when: /date|day/i, say: [DAY_D.spoken] },
+      { when: /time/i, say: ["eight o'clock in the evening"] },
+      { when: /how many|people|party/i, say: ["two"] },
+      {
+        when: /\b(oh|zero)[-\s,]+seven/i,
+        scope: "full",
+        say: ["no, that's wrong, it's 07700900999"],
+        onFire: (p) => {
+          p.phone = "07700900999";
+        },
+      },
+    ],
+    persona: { fulfilment: "collection", name: "Dan", phone: "07700900123", payment: "cash" },
+    phones: ["07700900123", "07700900999"],
+    check: (r) => {
+      const calls = r.turns.flatMap((t) => t.toolCalls);
+      const made = calls.filter((c) => c.name === "create_booking");
+      const ok = made.filter((c) => c.status === 200);
+      const at = r.turns.findIndex((t) => t.toolCalls.some((c) => c.name === "create_booking"));
+      const gate = at > 0 ? spokenReadBack(r.turns[at - 1].reply) : null;
+      return [
+        { rule: "D corrected number stored", pass: ok.length === 1 && digits(ok[0].input.customer_phone) === "07700900999", detail: ok.length ? `stored ${ok[0].input.customer_phone}` : "no booking made" },
+        { rule: "D wrong number never booked", pass: !made.some((c) => digits(c.input.customer_phone) === "07700900123"), detail: `${made.length} create_booking call(s)` },
+        { rule: "D final read-back had the corrected number", pass: gate?.text === "07700900999", detail: gate ? `read back ${gate.text}` : "no read-back found before booking" },
+        { rule: "D server echo matches", pass: ok.length === 1 && digits(ok[0].result.stored_phone) === "07700900999", detail: ok.length ? `stored_phone ${ok[0].result.stored_phone}` : "no booking made" },
+      ];
+    },
+  },
 ];
 
 // ---------------------------------------------------------------- helpers
@@ -356,6 +512,7 @@ async function runConversation(convo: Convo, turns: Turn[]): Promise<void> {
   const persona = convo.persona ? { ...convo.persona } : undefined;
   const used = new Map<Rule, number>();
   const max = convo.maxTurns ?? 24;
+  await convo.setup?.();
 
   let next: string | null = convo.opening[0];
   while (next !== null && turns.length < max) {
@@ -396,7 +553,8 @@ function behaviourChecks(r: Result): Check[] {
     }
     // 1. Consequential tools only after a yes in THIS caller line.
     for (const c of t.toolCalls) {
-      const consequential = c.name === "check_delivery" || c.name === "request_callback" || (c.name === "create_order" && c.input.preview === false);
+      const consequential =
+        c.name === "check_delivery" || c.name === "request_callback" || c.name === "create_booking" || (c.name === "create_order" && c.input.preview === false);
       if (consequential && !YES.test(t.caller.trim())) {
         fail("1 waited for yes before acting", `${at}: ${c.name} called after caller said "${t.caller}"`);
       }
@@ -448,7 +606,9 @@ function behaviourChecks(r: Result): Check[] {
       if (expected.length && !expected.includes(isPostcode ? pcNorm(readBack.text) : readBack.text)) {
         fail("7 digits read correctly", `${at}: read back "${readBack.span}" = ${readBack.text}, expected ${expected.join(" or ")}`);
       }
-      if (!placing && !callback) {
+      // The booking read-back and the reply after create_booking carry the number by design.
+      const bookingReply = t.toolCalls.some((c) => c.name === "create_booking") || /all correct|shall I confirm/i.test(reply);
+      if (!placing && !callback && !bookingReply) {
         const rest = reply.replace(readBack.span, " ");
         const extra = words(rest.replace(/[^A-Za-z' ]/g, " "));
         if (extra > 9 || /\d+\.\d\d|minutes?/i.test(rest)) {
@@ -531,6 +691,14 @@ async function cleanup(results: Result[]) {
   for (const c of results.flatMap((r) => r.turns).flatMap((t) => t.toolCalls)) {
     if (c.name === "create_order" && c.result.order_number) orders.add(String(c.result.order_number));
     if (c.name === "request_callback" && c.result.callback_id) callbacks.add(String(c.result.callback_id));
+  }
+  const bookings = new Set<string>(seededBookings);
+  for (const c of results.flatMap((r) => r.turns).flatMap((t) => t.toolCalls)) {
+    if (c.name === "create_booking" && c.result.booking_reference) bookings.add(String(c.result.booking_reference));
+  }
+  if (bookings.size) {
+    const { error } = await db.from("bookings").delete().eq("restaurant_id", RID).in("booking_reference", [...bookings]);
+    console.log(error ? `!!! booking cleanup failed: ${error.message}` : `Deleted test bookings: ${[...bookings].join(", ")}`);
   }
   const toDelete = [...orders].filter((o) => !KEEP_ORDERS.has(o));
   if (toDelete.length) {

@@ -66,6 +66,19 @@ describe("check-availability", () => {
     expect((await at("17:30")).json.available).toBe(true); // would finish exactly at 19:00
   });
 
+  it.each(["03:00", "15:00"])("says no with reason 'closed' when the restaurant is shut at %s, even though every table is free", async (time) => {
+    const { status, json } = await callTool(POST, body({ date: "2031-03-06", time }));
+    expect(status).toBe(200);
+    expect(json.available).toBe(false);
+    expect(json.reason).toBe("closed");
+    expect(json.speech).toMatch(/closed/i);
+  });
+
+  it("returns 404 for a restaurant that does not exist", async () => {
+    const { status } = await callTool(POST, body({ restaurant_id: "99999999-9999-9999-9999-999999999999" }));
+    expect(status).toBe(404);
+  });
+
   it("says no for a party bigger than any table", async () => {
     const { json } = await callTool(POST, body({ date: "2031-03-05", party_size: 9 }));
     expect(json.available).toBe(false);

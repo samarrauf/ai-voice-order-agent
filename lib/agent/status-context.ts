@@ -32,12 +32,28 @@ import type { RestaurantStatus } from "@/lib/restaurant-status";
 
 export const STATUS_PLACEHOLDER = "{{restaurant_status}}";
 
-export function buildStatusContext(s: RestaurantStatus | null): string {
+/**
+ * Today and the next 13 days with exact dates, so the agent can turn "this
+ * Saturday" or "tomorrow" into a YYYY-MM-DD date for table bookings without
+ * doing calendar maths. The restaurant is in the UK, so the date is London's.
+ */
+function calendarLine(now: Date): string {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+  const g = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const days = Array.from({ length: 14 }, (_, k) => {
+    const d = new Date(Date.UTC(g("year"), g("month") - 1, g("day") + k));
+    const weekday = d.toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" });
+    return `${weekday} ${d.toISOString().slice(0, 10)}`;
+  });
+  return `Dates for table bookings. Today is ${days[0]}. Coming days: ${days.slice(1).join(", ")}.`;
+}
+
+export function buildStatusContext(s: RestaurantStatus | null, now = new Date()): string {
   const header = "RESTAURANT STATUS (filled in automatically at the start of this call)";
   if (!s) {
-    return `${header}\nStatus unknown. Take the order as normal; create_order will say if we are closed.`;
+    return `${header}\nStatus unknown. Take the order as normal; create_order will say if we are closed.\n${calendarLine(now)}`;
   }
-  const lines = [header, `Time now in Manchester: ${s.now_local}.`];
+  const lines = [header, `Time now in Manchester: ${s.now_local}.`, calendarLine(now)];
   if (!s.accepting_orders) {
     lines.push(
       "RIGHT NOW: the restaurant is NOT TAKING ORDERS. Apologise, take no order, and offer a callback if they want one.",

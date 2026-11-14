@@ -1,8 +1,39 @@
+import "server-only";
 import { z } from "zod";
-import { clockForSpeech } from "@/lib/opening-hours";
+import { supabaseAdmin } from "@/lib/supabase/server";
+import { checkOpen, clockForSpeech, zonedToUtc, type OpeningHours } from "@/lib/opening-hours";
 import { numberToWords } from "@/lib/speech";
 
 // Shared by the check-availability and create-booking tool routes.
+
+export const CLOSED_AT_THAT_TIME_SPEECH = "Sorry, we're closed at that time, so we can't take a booking for it.";
+
+/**
+ * Is the restaurant open at the booking's start time? Uses the existing
+ * opening-hours logic (checkOpen), pointed at the booking's moment instead of "now".
+ * Only the START time is checked: a booking may run past closing time.
+ */
+export async function checkBookingHours(
+  restaurantId: string,
+  date: string,
+  time: string,
+): Promise<"open" | "closed" | "not_found" | "error"> {
+  const { data, error } = await supabaseAdmin
+    .from("restaurants")
+    .select("opening_hours, timezone")
+    .eq("id", restaurantId)
+    .maybeSingle();
+  if (error) {
+    console.error("booking: restaurant lookup failed", error);
+    return "error";
+  }
+  if (!data) return "not_found";
+
+  const tz = data.timezone ?? "Europe/London";
+  const [y, m, d] = date.split("-").map(Number);
+  const startsAt = zonedToUtc(y, m, d, time, tz);
+  return checkOpen(data.opening_hours as OpeningHours | null, tz, startsAt).open ? "open" : "closed";
+}
 
 /** Largest party any table can seat is decided by the database; this is just a sanity cap. */
 export const MAX_PARTY_SIZE = 50;

@@ -7,6 +7,8 @@ import { POST as searchMenu } from "@/app/api/tools/search-menu/route";
 import { POST as checkDelivery } from "@/app/api/tools/check-delivery/route";
 import { POST as createOrder } from "@/app/api/tools/create-order/route";
 import { POST as requestCallback } from "@/app/api/tools/request-callback/route";
+import { POST as checkAvailability } from "@/app/api/tools/check-availability/route";
+import { POST as createBooking } from "@/app/api/tools/create-booking/route";
 import { POST as restaurantStatus } from "@/app/api/tools/restaurant-status/route";
 import { STATUS_PLACEHOLDER, buildStatusContext } from "@/lib/agent/status-context";
 import type { RestaurantStatus } from "@/lib/restaurant-status";
@@ -28,6 +30,8 @@ const HANDLERS: Record<ToolName, (req: Request) => Promise<Response>> = {
   check_delivery: checkDelivery,
   create_order: createOrder,
   request_callback: requestCallback,
+  check_availability: checkAvailability,
+  create_booking: createBooking,
 };
 
 type ToolCallLog = { name: string; input: unknown; status: number; result: unknown; ms: number };

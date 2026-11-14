@@ -29,6 +29,12 @@ describe("system prompt", () => {
     ["7. digits are the whole reply", "is the WHOLE reply"],
     ["8. one idea per reply", "ONE IDEA PER REPLY"],
     ["no second order after placing", "NEVER call create_order with preview false again"],
+    ["bookings section", "TABLE BOOKINGS"],
+    ["booking confirmation gate", "BOOKING CONFIRMATION GATE"],
+    ["booking confirm question", "Is that all correct, shall I confirm the booking?"],
+    ["no second booking", "never call create_booking again"],
+    ["big parties go to the shop", "If the party is 9 or more, do not call any tool"],
+    ["stop after two failed checks", "If the second check also finds nothing, stop searching"],
   ])("keeps rule: %s", (_label, phrase) => {
     expect(SYSTEM_PROMPT).toContain(phrase);
   });
@@ -62,5 +68,23 @@ describe("system prompt", () => {
       }
       expect(out).toBe(number);
     }
+  });
+});
+
+describe("booking tools", () => {
+  const byName = (n: string) => TOOLS.find((t) => t.name === n)!;
+
+  it("check_availability and create_booking are defined, and never take a restaurant id", () => {
+    for (const name of ["check_availability", "create_booking"]) {
+      const t = byName(name);
+      expect(t, name).toBeDefined();
+      expect(Object.keys(t.input_schema.properties)).not.toContain("restaurant_id");
+    }
+  });
+
+  it("descriptions say WHEN to call, not just the topic", () => {
+    expect(byName("check_availability").description).toContain("ONLY when");
+    expect(byName("create_booking").description).toContain("ONLY when ALL of these are true");
+    expect(byName("create_booking").description).toContain("is NOT confirmation");
   });
 });

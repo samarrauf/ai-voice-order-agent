@@ -89,6 +89,48 @@ export const TOOLS = [
     },
   },
   {
+    name: "check_availability",
+    description:
+      "Check whether we have a free table for a party at a date and time. Call this ONLY when the caller has clearly said they want to reserve a table AND you already have all three of: the date, the time and how many people. The word 'table' or 'booking' on its own is not a reason to call it, and never call it with a guessed, partial or missing date, time or party size. It only looks; it reserves nothing. Do not call it for a party of more than 8: those cannot be booked this way. Returns 'available' (true or false) and a 'speech' sentence to say. If available is false the speech says why (no table, or we are closed at that time); tell the caller and ask whether another day or time would suit them.",
+    input_schema: {
+      type: "object",
+      properties: {
+        date: {
+          type: "string",
+          description: "The booking date as 'YYYY-MM-DD', worked out from today's date and the coming days listed in the RESTAURANT STATUS. Never guess a date.",
+        },
+        time: {
+          type: "string",
+          description: "The booking time as 24-hour 'HH:MM' in Manchester time, e.g. '19:30'. A caller saying 'seven' for dinner means '19:00'.",
+        },
+        party_size: { type: "integer", minimum: 1, maximum: 8, description: "How many people the table is for." },
+      },
+      required: ["date", "time", "party_size"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "create_booking",
+    description:
+      "Reserve the table. Call this ONLY when ALL of these are true: (1) check_availability has said available for this exact date, time and party size, (2) the caller has told you their name, (3) the caller has told you their phone number and said yes to your read-back of it, and (4) you have read back the date, time, number of people, name and phone number, and the caller has said a clear yes to 'Is that all correct, shall I confirm the booking?'. A yes to anything else, such as the phone number read-back, is NOT confirmation, and neither is silence or 'hmm'. Never call it with placeholder, guessed or empty values such as 'Unknown' or '0'. Never call it twice in one call, even if the caller later corrects a detail. Returns 'booking_reference', 'table_number' and a 'speech' sentence that reads back the stored details. If 'success' is false, nothing was booked and 'speech' says why (no table free, or we are closed at that time); tell the caller and ask whether another day or time would suit them.",
+    input_schema: {
+      type: "object",
+      properties: {
+        date: { type: "string", description: "The booking date as 'YYYY-MM-DD', exactly as checked with check_availability." },
+        time: { type: "string", description: "The booking time as 24-hour 'HH:MM', exactly as checked with check_availability." },
+        party_size: { type: "integer", minimum: 1, maximum: 8, description: "How many people, exactly as checked." },
+        customer_name: { type: "string", description: "The name the caller told you. Never a placeholder." },
+        customer_phone: { type: "string", description: "Contact number, digits only, copied digit by digit from what the caller confirmed on read-back." },
+        menu_preferences: {
+          type: "string",
+          description: "Optional: only if the caller mentioned food or a special occasion, e.g. 'birthday, one vegetarian'. Omit otherwise.",
+        },
+      },
+      required: ["date", "time", "party_size", "customer_name", "customer_phone"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "request_callback",
     description:
       "Record a callback the caller has AGREED to, so a staff member phones them back. Call this ONLY when ALL of these are true: (1) the caller has said yes to being called back, (2) the caller has told you their name, (3) the caller has told you their phone number, and (4) the caller has said yes to your read-back of that number. If any one is missing, do not call this tool; ask the caller for the missing piece instead. Never call it with placeholder, guessed or empty values such as 'Unknown', 'Caller' or '0'. A topic is never by itself a reason to call it: when the caller mentions allergens, a problem or anything you cannot help with, you SAY the callback offer and wait; this tool only records the callback once the details above are in hand. Returns 'callback_id' and a 'speech' sentence that reads back the number exactly as saved; say it word for word. If the caller says that number is wrong, call this tool again with the corrected number AND the same callback_id, which corrects the saved request instead of creating a second one. Leave callback_id out otherwise.",
