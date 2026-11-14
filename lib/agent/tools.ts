@@ -157,6 +157,43 @@ export const TOOLS = [
       additionalProperties: false,
     },
   },
+  {
+    name: "lookup_order",
+    description:
+      "Find a PAST order the caller is asking about. Call this ONLY when ALL of these are true: (1) the caller has clearly said they want to talk about an order they already placed, to ask for a refund, ask for a change, or make a complaint, (2) you have asked for and been given the order number, and (3) you have asked for and been given the phone number they ordered with. A caller who mentions a past order in passing while placing a NEW order is not a reason to call it; carry on with the new order unless they clearly want to discuss the old one. Never call it with a guessed, partial or missing order number or phone number. It only looks, and decides nothing. The server needs BOTH to match, and when it finds nothing it gives the same answer whichever one was wrong, so never tell the caller which one it was and never guess which order they mean. Returns 'order' (number, date, items, total, type, status) and a 'speech' sentence. If 'success' is false nothing was found: apologise, ask once more for the details, and if it still fails offer a callback.",
+    input_schema: {
+      type: "object",
+      properties: {
+        order_number: { type: "string", description: "The order number exactly as the caller said it, e.g. 'A-1001'." },
+        customer_phone: { type: "string", description: "The phone number they ordered with, digits only, exactly as the caller said it." },
+      },
+      required: ["order_number", "customer_phone"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "create_order_query",
+    description:
+      "Record a refund request, change request or complaint about a past order, so the restaurant can follow it up. It records only: it never refunds, changes or decides anything. Call this ONLY when BOTH are true: (1) lookup_order has found the order and the caller has agreed it is the one they mean, AND (2) the caller has told you what the problem is. Never call it before the order is found, never with an empty or made-up description, and never twice for the same problem in one call. Use the same order_number and customer_phone you used for lookup_order. 'query_type' is 'refund' if they want money back, 'change' if they want the order altered, otherwise 'complaint'. 'description' is what the caller said, in their own words, short and factual, with no promises or opinions added. Returns 'reference_number' and a 'speech' sentence. If 'success' is false nothing was saved: say its speech and offer a callback.",
+    input_schema: {
+      type: "object",
+      properties: {
+        order_number: { type: "string", description: "The same order number used for lookup_order." },
+        customer_phone: { type: "string", description: "The same phone number used for lookup_order, digits only." },
+        query_type: {
+          type: "string",
+          enum: ["refund", "change", "complaint"],
+          description: "'refund' = wants money back. 'change' = wants the order altered. 'complaint' = anything else that went wrong.",
+        },
+        description: {
+          type: "string",
+          description: "What the caller said went wrong, in their own words, e.g. 'Pizza arrived cold and the base was soggy'.",
+        },
+      },
+      required: ["order_number", "customer_phone", "query_type", "description"],
+      additionalProperties: false,
+    },
+  },
 ] as const;
 
 export type ToolName = (typeof TOOLS)[number]["name"];

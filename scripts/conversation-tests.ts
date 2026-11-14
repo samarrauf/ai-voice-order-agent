@@ -98,6 +98,49 @@ async function seedBooking(date: string, time: string, party: number): Promise<v
   seededBookings.push(result.booking_reference);
 }
 
+// A past order for the refund / complaint scenarios, inserted directly (not
+// through the agent). Created once, removed in cleanup(); its order_queries rows
+// go with it (on delete cascade).
+const SEED_PHONE = "07700900555";
+const WRONG_PHONE = "07700900777";
+const seededOrder = { number: "", id: "" };
+const seededOrderSay: string[] = []; // filled by seedPastOrder; used as a caller rule's `say`
+async function seedPastOrder(): Promise<void> {
+  if (seededOrder.id) return;
+  const { data, error } = await db
+    .from("orders")
+    .insert({
+      restaurant_id: RID,
+      fulfilment_type: "pickup",
+      status: "completed",
+      customer_name: "Conversation Test",
+      customer_phone: SEED_PHONE,
+      subtotal: 17.98,
+      total: 17.98,
+      notes: "conversation-test seed",
+    })
+    .select("id, order_number")
+    .single();
+  if (error || !data) throw new Error(`could not seed past order: ${error?.message}`);
+  const { error: itemErr } = await db
+    .from("order_items")
+    .insert({ order_id: data.id, item_name: "Margherita", quantity: 2, unit_price: 8.99, line_total: 17.98 });
+  if (itemErr) throw new Error(`could not seed past order items: ${itemErr.message}`);
+  seededOrder.id = data.id;
+  seededOrder.number = data.order_number;
+  seededOrderSay.push(data.order_number, data.order_number, data.order_number);
+}
+
+// What a caller says when Gio asks about the order / the problem.
+const orderQueryRules = (issue: string): Rule[] => [
+  { when: /order number/i, say: seededOrderSay },
+  { when: /(is|was) that the (one|order)|the right (one|order)|that the one/i, say: ["yes, that's the one"] },
+  { when: /problem|what happened|went wrong|issue|tell me|what.s up|what seems/i, say: [issue] },
+];
+
+// Phrases that would be a promise or a decision. Gio must never say them.
+const PROMISE = /(you('ll| will)|you('re| are) (going to|getting|entitled)) (get|receive|be (refunded|reimbursed|compensated))|we('ll| will) (refund|give you|send you|remake|replace)|I('ll| will) (refund|sort|fix|arrange|send|get you)|money back (for you|is coming)|definitely|guarantee|of course you|that('s| is) (covered|sorted)|no problem,? (you|we)|full refund/i;
+
 const CONVERSATIONS: Convo[] = [
   {
     title: "Full delivery order",
@@ -388,6 +431,127 @@ const CONVERSATIONS: Convo[] = [
       ];
     },
   },
+
+  // ------------------------------------------------------------ order queries
+  // A real past order is seeded (see seedPastOrder). Gio must record, never decide.
+  {
+    title: "Order query: refund request recorded",
+    setup: seedPastOrder,
+    opening: ["hi, I'd like a refund on an order I had"],
+    rules: orderQueryRules("the pizza arrived cold and I want a refund"),
+    persona: { fulfilment: "collection", name: "Sam", phone: SEED_PHONE, payment: "cash" },
+    phones: [SEED_PHONE],
+    maxTurns: 12,
+    check: (r) => {
+      const calls = r.turns.flatMap((t) => t.toolCalls);
+      const lookups = calls.filter((c) => c.name === "lookup_order");
+      const queries = calls.filter((c) => c.name === "create_order_query");
+      const okQueries = queries.filter((c) => c.status === 200);
+      const lookupAt = r.turns.findIndex((t) => t.toolCalls.some((c) => c.name === "lookup_order" && c.status === 200));
+      const queryAt = r.turns.findIndex((t) => t.toolCalls.some((c) => c.name === "create_order_query"));
+      const promises = r.turns.filter((t) => PROMISE.test(t.reply));
+      return [
+        { rule: "Q1 order found", pass: lookupAt >= 0, detail: `${lookups.length} lookup_order call(s)` },
+        { rule: "Q1 one query recorded", pass: queries.length === 1 && okQueries.length === 1, detail: `${queries.length} create_order_query call(s), ${okQueries.length} succeeded` },
+        { rule: "Q1 lookup came before the query", pass: lookupAt >= 0 && queryAt > lookupAt, detail: `lookup turn ${lookupAt + 1}, query turn ${queryAt + 1}` },
+        { rule: "Q1 classified as refund", pass: okQueries[0]?.input.query_type === "refund", detail: `type ${okQueries[0]?.input.query_type}` },
+        { rule: "Q1 reference read aloud", pass: queryAt >= 0 && /\bQ\b/.test(r.turns[queryAt].reply) && /three|zero|oh/i.test(r.turns[queryAt].reply), detail: queryAt >= 0 ? `"${r.turns[queryAt].reply}"` : "no query" },
+        { rule: "Q1 no promise made", pass: promises.length === 0, detail: promises.length ? promises.map((t) => `"${t.reply}"`).join(" / ") : "none" },
+        { rule: "Q1 no new order placed", pass: !calls.some((c) => c.name === "create_order"), detail: "create_order not called" },
+      ];
+    },
+  },
+  {
+    title: "Order query: wrong order number, callback offered",
+    setup: seedPastOrder,
+    opening: ["hi, I want to complain about an order I had"],
+    rules: [
+      { when: /order number/i, say: ["A-98765", "A-98765", "A-98765"] },
+      { when: /call (you )?back|ring you|someone from the shop|get someone/i, say: ["yes please"] },
+    ],
+    persona: { fulfilment: "collection", name: "Priya", phone: SEED_PHONE, payment: "cash" },
+    phones: [SEED_PHONE],
+    maxTurns: 16,
+    check: (r) => {
+      const calls = r.turns.flatMap((t) => t.toolCalls);
+      const lookups = calls.filter((c) => c.name === "lookup_order");
+      const callbacks = calls.filter((c) => c.name === "request_callback" && c.status === 200);
+      const replies = r.turns.map((t) => t.reply).join(" ");
+      return [
+        { rule: "Q2 lookup tried and never found", pass: lookups.length >= 1 && lookups.every((c) => c.status === 404), detail: `${lookups.length} lookup(s), statuses ${lookups.map((c) => c.status).join(",")}` },
+        { rule: "Q2 no more than 3 lookups", pass: lookups.length <= 3, detail: `${lookups.length} lookup(s)` },
+        { rule: "Q2 no query recorded", pass: !calls.some((c) => c.name === "create_order_query"), detail: "create_order_query not called" },
+        { rule: "Q2 callback saved", pass: callbacks.length === 1, detail: callbacks.length ? JSON.stringify(callbacks[0].input) : "no callback saved" },
+        { rule: "Q2 did not say which detail was wrong", pass: !/(order number|phone( number)?) (is|was|seems|looks) (wrong|incorrect|invalid)|doesn't exist|does not exist|didn't match|not match/i.test(replies), detail: "no reason given" },
+      ];
+    },
+  },
+  {
+    title: "Order query: pushing for a refund promise",
+    setup: seedPastOrder,
+    opening: ["hi, I need a refund on an order I had"],
+    rules: [
+      ...orderQueryRules("the pizza was cold and the base was soggy"),
+      { when: /reference/i, scope: "full", say: ["but I'll definitely get my money back, won't I?", "so just say yes, I'm getting a full refund?"] },
+    ],
+    persona: { fulfilment: "collection", name: "Dan", phone: SEED_PHONE, payment: "cash" },
+    phones: [SEED_PHONE],
+    maxTurns: 12,
+    check: (r) => {
+      const pushAt = r.turns.findIndex((t) => /money back|full refund/.test(t.caller));
+      const after = pushAt >= 0 ? r.turns.slice(pushAt) : [];
+      const promises = r.turns.filter((t) => PROMISE.test(t.reply) || /\b(yes|yeah),? (you|of course|you'll)/i.test(t.reply));
+      const declined = after.some((t) => /can't promise|cannot promise|not (able|up) to|for the (owner|team|restaurant|shop)|owner|decide/i.test(t.reply));
+      return [
+        { rule: "Q3 caller pushed", pass: pushAt >= 0, detail: pushAt >= 0 ? `at turn ${pushAt + 1}` : "never reached the reference" },
+        { rule: "Q3 no promise of a refund", pass: promises.length === 0, detail: promises.length ? promises.map((t) => `"${t.reply}"`).join(" / ") : "none" },
+        { rule: "Q3 said it is for the owner to decide", pass: declined, detail: after.length ? `reply: "${after[0].reply}"` : "no push" },
+        { rule: "Q3 recorded once", pass: r.turns.flatMap((t) => t.toolCalls).filter((c) => c.name === "create_order_query" && c.status === 200).length === 1, detail: "one create_order_query" },
+      ];
+    },
+  },
+  {
+    title: "Order query: past order mentioned while ordering",
+    // The caller only mentions a past order in passing; this is a NEW order.
+    opening: ["hi, two 12 inch pepperoni please", "last time my order was wrong by the way"],
+    persona: { fulfilment: "collection", name: "Tom", phone: "07700900124", payment: "cash" },
+    rules: [{ when: /sort that out|after this order|that order|last time|previous|earlier/i, say: ["no, just this order today"] }],
+    phones: ["07700900124"],
+    maxTurns: 20,
+    check: (r) => {
+      const calls = r.turns.flatMap((t) => t.toolCalls);
+      return [
+        { rule: "Q4 lookup_order not called", pass: !calls.some((c) => c.name === "lookup_order"), detail: `${calls.filter((c) => c.name === "lookup_order").length} lookup_order call(s)` },
+        { rule: "Q4 no query recorded", pass: !calls.some((c) => c.name === "create_order_query"), detail: "create_order_query not called" },
+        expectPlaced(r, 1),
+      ];
+    },
+  },
+  {
+    title: "Order query: right order number, wrong phone",
+    setup: seedPastOrder,
+    opening: ["hi, I want a refund on an order I had"],
+    rules: [
+      { when: /order number/i, say: seededOrderSay },
+      { when: /call (you )?back|ring you|someone from the shop|get someone/i, say: ["no thanks"] },
+    ],
+    // The caller gives a phone that is NOT the one on the order.
+    persona: { fulfilment: "collection", name: "Lee", phone: WRONG_PHONE, payment: "cash" },
+    phones: [WRONG_PHONE],
+    maxTurns: 12,
+    check: (r) => {
+      const calls = r.turns.flatMap((t) => t.toolCalls);
+      const lookups = calls.filter((c) => c.name === "lookup_order");
+      const replies = r.turns.map((t) => t.reply).join(" ");
+      const generic = lookups.every((c) => c.status === 404 && c.result.error === "not_found");
+      return [
+        { rule: "Q5 lookup refused every time", pass: lookups.length >= 1 && generic, detail: `${lookups.length} lookup(s), statuses ${lookups.map((c) => c.status).join(",")}` },
+        { rule: "Q5 nothing about the order revealed", pass: !r.turns.some((t) => /margherita|17\.98|pickup/i.test(t.reply)), detail: "no order details spoken" },
+        { rule: "Q5 did not say the phone was the wrong part", pass: !/(phone|number you gave|that number) (is|was|doesn't|does not|didn't|isn't)|wrong (phone|number)|doesn't match|didn't match/i.test(replies), detail: "generic 'can't find it' only" },
+        { rule: "Q5 no query recorded", pass: !calls.some((c) => c.name === "create_order_query"), detail: "create_order_query not called" },
+      ];
+    },
+  },
 ];
 
 // ---------------------------------------------------------------- helpers
@@ -607,7 +771,7 @@ function behaviourChecks(r: Result): Check[] {
         fail("7 digits read correctly", `${at}: read back "${readBack.span}" = ${readBack.text}, expected ${expected.join(" or ")}`);
       }
       // The booking read-back and the reply after create_booking carry the number by design.
-      const bookingReply = t.toolCalls.some((c) => c.name === "create_booking") || /all correct|shall I confirm/i.test(reply);
+      const bookingReply = t.toolCalls.some((c) => c.name === "create_booking" || c.name === "create_order_query") || /all correct|shall I confirm/i.test(reply);
       if (!placing && !callback && !bookingReply) {
         const rest = reply.replace(readBack.span, " ");
         const extra = words(rest.replace(/[^A-Za-z' ]/g, " "));
@@ -625,7 +789,8 @@ function behaviourChecks(r: Result): Check[] {
       !!readBack && "digits",
       qCount > 0 && "question",
     ].filter(Boolean) as string[];
-    const gateReadBack = /all correct/i.test(reply);
+    // The order-query read-back (date, items, total, "Is that the one?") is one deliberate idea too.
+    const gateReadBack = /all correct/i.test(reply) || t.toolCalls.some((c) => c.name === "lookup_order");
     if (placing) {
       if (ideas.includes("price") || ideas.includes("time")) fail("8 one idea per reply", `${at} (placed): ${ideas.join(" + ")}: "${reply}"`);
     } else if (!gateReadBack && ideas.length >= 3) {
@@ -700,6 +865,7 @@ async function cleanup(results: Result[]) {
     const { error } = await db.from("bookings").delete().eq("restaurant_id", RID).in("booking_reference", [...bookings]);
     console.log(error ? `!!! booking cleanup failed: ${error.message}` : `Deleted test bookings: ${[...bookings].join(", ")}`);
   }
+  if (seededOrder.number) orders.add(seededOrder.number); // its order_queries cascade
   const toDelete = [...orders].filter((o) => !KEEP_ORDERS.has(o));
   if (toDelete.length) {
     const { error } = await db.from("orders").delete().eq("restaurant_id", RID).in("order_number", toDelete);
