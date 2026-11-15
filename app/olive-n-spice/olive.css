@@ -1,0 +1,602 @@
+/* =====================================================================
+   OLIVE 'N SPICE: design system for the public website
+   ---------------------------------------------------------------------
+   Everything here is scoped to the `.ons` wrapper (set in
+   app/olive-n-spice/layout.tsx), so it cannot leak into the dashboard.
+
+   Contents
+     1. Brand tokens (colours, fonts, sizes)      <- change colours HERE
+     2. Base + typography
+     3. Buttons, links, ornaments
+     4. Header, mobile menu, footer
+     5. Page hero (inner pages) + scroll reveal
+     6. Home hero (interactive menu carousel)
+     7. Explore panel (sheet / side panel)
+     8. Home sections
+     9. Menu page
+    10. Events + Reserve pages
+    11. Reduced motion
+   ===================================================================== */
+
+/* Same layer order Tailwind declares; repeating it is harmless and keeps
+   our component classes BELOW Tailwind utilities (so `mt-6` etc. still win). */
+@layer theme, base, components, utilities;
+
+/* ---------------------------------------------------------------------
+   1. BRAND TOKENS
+   --------------------------------------------------------------------- */
+.ons {
+  /* Brand colours */
+  --ons-olive: #556b3f;        /* deep olive green (primary) */
+  --ons-olive-deep: #2f3d22;   /* darkest olive: dark sections, headings */
+  --ons-olive-night: #232e19;  /* footer */
+  --ons-gold: #c9a227;         /* gold (accent) */
+  --ons-gold-soft: #e3cb7a;    /* light gold: on dark backgrounds */
+  --ons-gold-ink: #7d640d;     /* dark gold: small gold text on cream (readable) */
+  --ons-sage: #8fa377;         /* sage green (secondary) */
+  --ons-sage-soft: #dde5cf;    /* pale sage: soft panels */
+  --ons-cream: #faf6ec;        /* page background */
+  --ons-cream-deep: #f2ead7;   /* slightly darker cream: alternating sections */
+  --ons-white: #ffffff;
+  --ons-ink: #1a1a1a;          /* main text */
+  --ons-ink-soft: #55574f;     /* secondary text */
+  --ons-spice: #d64545;        /* ONLY for the chilli (spicy) marks */
+
+  /* Lines and shadows */
+  --ons-line: rgb(47 61 34 / 0.14);
+  --ons-line-strong: rgb(47 61 34 / 0.28);
+  --ons-shadow: 0 24px 60px -28px rgb(35 46 25 / 0.35);
+
+  /* Fonts (loaded with next/font in layout.tsx) */
+  --ons-serif: var(--font-ons-serif), "Cormorant Garamond", "Playfair Display", Georgia, serif;
+  --ons-sans: var(--font-ons-sans), "Jost", ui-sans-serif, system-ui, sans-serif;
+
+  /* Sizes */
+  --ons-header-h: 4.25rem;
+  --ons-gutter: 1.25rem;
+  --ons-ease: cubic-bezier(0.22, 0.8, 0.2, 1);
+
+  /* Focus ring colour; dark sections switch it to light gold. */
+  --ons-focus: var(--ons-gold-ink);
+
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--ons-cream);
+  color: var(--ons-ink);
+  font-family: var(--ons-sans);
+  font-size: 1rem;
+  line-height: 1.65;
+  color-scheme: light;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+@media (min-width: 640px) {
+  .ons { --ons-gutter: 2rem; }
+}
+@media (min-width: 1024px) {
+  .ons { --ons-header-h: 5.25rem; --ons-gutter: 3rem; }
+}
+
+/* The root layout paints <body> white/black; behind this site it must be cream. */
+body:has(.ons) { background: #faf6ec; }
+/* Stop the page scrolling behind an open panel or the mobile menu. */
+html:has(.ons dialog[open]) { overflow: hidden; }
+
+@layer components {
+  /* -------------------------------------------------------------------
+     2. BASE + TYPOGRAPHY
+     ------------------------------------------------------------------- */
+  .ons ::selection { background: rgb(201 162 39 / 0.3); }
+  .ons :focus-visible {
+    outline: 2px solid var(--ons-focus);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+  .ons-on-dark { --ons-focus: var(--ons-gold-soft); }
+
+  .ons-container {
+    width: 100%;
+    max-width: 78rem;
+    margin-inline: auto;
+    padding-inline: var(--ons-gutter);
+  }
+  .ons-container-narrow { max-width: 54rem; }
+  .ons-section { padding-block: clamp(4.5rem, 11vw, 8.5rem); }
+
+  .ons-skip {
+    position: fixed;
+    left: 1rem;
+    top: 1rem;
+    z-index: 200;
+    padding: 0.75rem 1.25rem;
+    border-radius: 999px;
+    background: var(--ons-olive-deep);
+    color: var(--ons-cream);
+    font-size: 0.875rem;
+    transform: translateY(-200%);
+  }
+  .ons-skip:focus-visible { transform: none; }
+
+  /* Small spaced-out label above a heading. */
+  .ons-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-family: var(--ons-sans);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--ons-gold-ink);
+  }
+  .ons-eyebrow::before {
+    content: "";
+    width: 2rem;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.6;
+  }
+  .ons-eyebrow-center::after {
+    content: "";
+    width: 2rem;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.6;
+  }
+  .ons-on-dark .ons-eyebrow { color: var(--ons-gold-soft); }
+
+  .ons-display {
+    font-family: var(--ons-serif);
+    font-weight: 500;
+    line-height: 0.98;
+    letter-spacing: -0.012em;
+    text-wrap: balance;
+  }
+  .ons-h1 { font-size: clamp(2.9rem, 9.5vw, 6rem); }
+  .ons-h2 { font-size: clamp(2.3rem, 6.2vw, 4.1rem); line-height: 1.04; }
+  .ons-h3 { font-size: clamp(1.5rem, 3.2vw, 2rem); line-height: 1.15; }
+  .ons-display em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ons-olive);
+  }
+  .ons-on-dark .ons-display em { color: var(--ons-gold-soft); }
+
+  .ons-lead {
+    font-size: clamp(1.06rem, 1.6vw, 1.2rem);
+    line-height: 1.75;
+    color: var(--ons-ink-soft);
+    text-wrap: pretty;
+  }
+  .ons-on-dark .ons-lead { color: rgb(250 246 236 / 0.78); }
+  .ons-quote {
+    font-family: var(--ons-serif);
+    font-style: italic;
+    font-size: clamp(1.5rem, 3.4vw, 2.3rem);
+    line-height: 1.3;
+    text-wrap: balance;
+  }
+
+  /* -------------------------------------------------------------------
+     3. BUTTONS, LINKS, ORNAMENTS
+     ------------------------------------------------------------------- */
+  .ons-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    min-height: 3rem;
+    padding: 0 1.6rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-family: var(--ons-sans);
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.3s ease,
+      transform 0.3s var(--ons-ease),
+      box-shadow 0.3s ease;
+  }
+  .ons-btn:hover { transform: translateY(-1px); }
+  .ons-btn:active { transform: translateY(0); }
+  .ons-btn svg { flex: none; transition: transform 0.3s var(--ons-ease); }
+  .ons-btn:hover svg.ons-btn-arrow { transform: translateX(3px); }
+
+  .ons-btn-gold {
+    background: var(--ons-gold);
+    color: #1c1703;
+    box-shadow: 0 10px 24px -14px rgb(125 100 13 / 0.9);
+  }
+  .ons-btn-gold:hover { background: #d6b13a; }
+  .ons-btn-olive { background: var(--ons-olive-deep); color: var(--ons-cream); }
+  .ons-btn-olive:hover { background: var(--ons-olive); }
+  .ons-btn-cream { background: var(--ons-cream); color: var(--ons-olive-deep); }
+  .ons-btn-cream:hover { background: var(--ons-white); }
+  .ons-btn-ghost {
+    border-color: color-mix(in srgb, currentColor 38%, transparent);
+    background: transparent;
+    color: inherit;
+  }
+  .ons-btn-ghost:hover {
+    border-color: currentColor;
+    background: color-mix(in srgb, currentColor 8%, transparent);
+  }
+  .ons-btn-sm { min-height: 2.75rem; padding: 0 1.15rem; font-size: 0.72rem; letter-spacing: 0.16em; }
+  /* A button that cannot be used yet ("Coming soon"). */
+  .ons-btn[aria-disabled="true"] {
+    cursor: default;
+    border-color: var(--ons-line-strong);
+    border-style: dashed;
+    background: transparent;
+    color: var(--ons-ink-soft);
+    box-shadow: none;
+    transform: none;
+  }
+  .ons-on-dark .ons-btn[aria-disabled="true"] {
+    border-color: rgb(250 246 236 / 0.3);
+    color: rgb(250 246 236 / 0.7);
+  }
+
+  /* Text link with a thin gold underline that grows on hover. */
+  .ons-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-block: 0.25rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    background: linear-gradient(currentColor, currentColor) left bottom / 100% 1px no-repeat;
+    transition: background-size 0.4s var(--ons-ease), color 0.3s ease;
+  }
+  .ons-link:hover { background-size: 0 1px; background-position: right bottom; }
+  .ons-link svg { transition: transform 0.3s var(--ons-ease); }
+  .ons-link:hover svg { transform: translateX(3px); }
+
+  /* Thin line, small diamond, thin line. */
+  .ons-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.9rem;
+    color: var(--ons-gold);
+  }
+  .ons-divider::before,
+  .ons-divider::after {
+    content: "";
+    width: min(5.5rem, 18vw);
+    height: 1px;
+    background: linear-gradient(90deg, transparent, currentColor);
+  }
+  .ons-divider::after { transform: scaleX(-1); }
+  .ons-divider svg { width: 1.1rem; height: 1.1rem; flex: none; }
+
+  .ons-branch { color: var(--ons-sage); pointer-events: none; }
+
+  /* Wordmark (text logo). Replaced by an image when config.brand.logoSrc is set. */
+  .ons-wordmark {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1;
+    color: var(--ons-wordmark, #94760f);
+    transition: color 0.4s ease;
+  }
+  .ons-on-dark .ons-wordmark { --ons-wordmark: var(--ons-gold-soft); }
+  .ons-wordmark-name {
+    font-family: var(--ons-serif);
+    font-weight: 600;
+    font-size: 1.22rem;
+    letter-spacing: 0.2em;
+    margin-right: -0.2em; /* cancel the trailing letter-spacing so it stays centred */
+    white-space: nowrap;
+  }
+  .ons-wordmark-n {
+    font-style: italic;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    margin-inline: 0.05em 0.22em;
+  }
+  .ons-wordmark-tag {
+    margin-top: 0.42em;
+    font-family: var(--ons-sans);
+    font-size: 0.5rem;
+    font-weight: 500;
+    letter-spacing: 0.4em;
+    margin-right: -0.4em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    opacity: 0.9;
+  }
+  .ons-wordmark-by {
+    margin-top: 0.7em;
+    font-family: var(--ons-serif);
+    font-style: italic;
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    opacity: 0.8;
+  }
+  .ons-wordmark[data-size="lg"] .ons-wordmark-name { font-size: clamp(1.9rem, 7.4vw, 3.4rem); }
+  .ons-wordmark[data-size="lg"] .ons-wordmark-tag { font-size: clamp(0.58rem, 1.9vw, 0.8rem); margin-top: 0.9em; }
+  .ons-wordmark[data-size="lg"] .ons-wordmark-by { font-size: clamp(0.95rem, 2.4vw, 1.15rem); margin-top: 1em; }
+  .ons-wordmark-logo { display: block; height: 2.6rem; width: auto; }
+  .ons-wordmark[data-size="lg"] .ons-wordmark-logo { height: clamp(4rem, 14vw, 6.5rem); }
+
+  /* -------------------------------------------------------------------
+     4. HEADER, MOBILE MENU, FOOTER
+     ------------------------------------------------------------------- */
+  .ons-header {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 60;
+    height: var(--ons-header-h);
+    color: var(--ons-olive-deep);
+    transition: color 0.4s ease;
+  }
+  /* Frosted cream bar that fades in once the page is scrolled. */
+  .ons-header::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: rgb(250 246 236 / 0.86);
+    -webkit-backdrop-filter: blur(16px) saturate(1.3);
+    backdrop-filter: blur(16px) saturate(1.3);
+    border-bottom: 1px solid var(--ons-line);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .ons-header[data-scrolled="true"]::before { opacity: 1; }
+  /* Sitting on a dark hero slide (and not scrolled yet): light text + light gold wordmark. */
+  .ons:has(.ons-hero[data-tone="dark"]) .ons-header:not([data-scrolled="true"]) {
+    color: var(--ons-cream);
+    --ons-wordmark: var(--ons-gold-soft);
+    --ons-focus: var(--ons-gold-soft);
+  }
+  .ons-header-inner {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .ons-header .ons-wordmark { align-items: flex-start; }
+  .ons-header .ons-wordmark-name { font-size: 0.92rem; letter-spacing: 0.14em; }
+  .ons-header .ons-wordmark-tag { display: none; }
+  .ons-header .ons-btn-sm { padding-inline: 0.85rem; }
+  @media (min-width: 400px) {
+    .ons-header .ons-wordmark-name { font-size: 1.12rem; letter-spacing: 0.17em; }
+    .ons-header .ons-btn-sm { padding-inline: 1.15rem; }
+  }
+  @media (min-width: 640px) {
+    .ons-header .ons-wordmark-name { font-size: 1.3rem; letter-spacing: 0.2em; }
+    .ons-header .ons-wordmark-tag { display: block; font-size: 0.47rem; letter-spacing: 0.37em; }
+  }
+  .ons-nav { display: none; align-items: center; gap: 2.4rem; }
+  @media (min-width: 900px) {
+    .ons-nav { display: flex; }
+  }
+  .ons-nav-link {
+    position: relative;
+    padding-block: 0.6rem;
+    font-size: 0.76rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .ons-nav-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0.3rem;
+    height: 1px;
+    background: var(--ons-gold);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.4s var(--ons-ease);
+  }
+  .ons-nav-link:hover::after,
+  .ons-nav-link[aria-current="page"]::after { transform: scaleX(1); }
+  .ons-header-actions { display: flex; align-items: center; gap: 0.5rem; }
+  .ons-menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  .ons-menu-toggle:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+  @media (min-width: 900px) {
+    .ons-menu-toggle { display: none; }
+  }
+
+  /* Full-screen menu on phones (a native <dialog>, so focus stays inside and Esc closes it). */
+  .ons-mobile-menu {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: var(--ons-olive-deep);
+    color: var(--ons-cream);
+    opacity: 0;
+    transition:
+      opacity 0.35s ease,
+      overlay 0.35s allow-discrete,
+      display 0.35s allow-discrete;
+  }
+  .ons-mobile-menu[open] { display: flex; flex-direction: column; opacity: 1; }
+  @starting-style {
+    .ons-mobile-menu[open] { opacity: 0; }
+  }
+  .ons-mobile-menu::backdrop { background: transparent; }
+  .ons-mobile-menu-top {
+    height: var(--ons-header-h);
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-inline: var(--ons-gutter);
+  }
+  .ons-mobile-menu-top .ons-wordmark { align-items: flex-start; }
+  .ons-mobile-menu-top .ons-wordmark-name { font-size: 1.02rem; letter-spacing: 0.17em; }
+  .ons-mobile-menu-top .ons-wordmark-tag { display: none; }
+  .ons-mobile-menu-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2.5rem;
+    padding: 1rem var(--ons-gutter) 3rem;
+    overflow-y: auto;
+  }
+  .ons-mobile-menu-links { display: flex; flex-direction: column; }
+  .ons-mobile-menu-link {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    padding-block: 0.6rem;
+    border-bottom: 1px solid rgb(250 246 236 / 0.12);
+    font-family: var(--ons-serif);
+    font-size: clamp(2.4rem, 11vw, 3.4rem);
+    line-height: 1.1;
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  .ons-mobile-menu-link span {
+    font-family: var(--ons-sans);
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: var(--ons-gold-soft);
+  }
+  .ons-mobile-menu-link[aria-current="page"] { color: var(--ons-gold-soft); }
+  .ons-mobile-menu[open] .ons-mobile-menu-link {
+    animation: ons-rise 0.6s var(--ons-ease) both;
+    animation-delay: calc(80ms + var(--i, 0) * 70ms);
+  }
+
+  .ons-footer {
+    position: relative;
+    overflow: hidden;
+    background: var(--ons-olive-night);
+    color: rgb(250 246 236 / 0.82);
+  }
+  .ons-footer-top {
+    display: grid;
+    gap: 3rem;
+    padding-block: clamp(3.5rem, 8vw, 5.5rem) 3rem;
+  }
+  @media (min-width: 860px) {
+    .ons-footer-top { grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 2.5rem; }
+  }
+  .ons-footer .ons-wordmark { align-items: flex-start; }
+  .ons-footer-title {
+    margin-bottom: 1.1rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--ons-gold-soft);
+  }
+  .ons-footer-list { display: grid; gap: 0.6rem; font-size: 0.98rem; }
+  .ons-footer-list a {
+    width: fit-content;
+    transition: color 0.3s ease;
+  }
+  .ons-footer-list a:hover { color: var(--ons-gold-soft); }
+  .ons-footer-bottom {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    justify-content: space-between;
+    padding-block: 1.5rem 2rem;
+    border-top: 1px solid rgb(250 246 236 / 0.12);
+    font-size: 0.82rem;
+    color: rgb(250 246 236 / 0.6);
+  }
+  .ons-footer-branch {
+    position: absolute;
+    right: -3rem;
+    bottom: -1.5rem;
+    width: min(30rem, 80vw);
+    color: rgb(143 163 119 / 0.16);
+  }
+  .ons-tbc {
+    font-style: italic;
+    opacity: 0.75;
+  }
+
+  /* -------------------------------------------------------------------
+     5. PAGE HERO (inner pages) + SCROLL REVEAL
+     ------------------------------------------------------------------- */
+  .ons-page-hero {
+    position: relative;
+    overflow: hidden;
+    padding-top: calc(var(--ons-header-h) + clamp(2.5rem, 7vw, 5rem));
+    padding-bottom: clamp(2.5rem, 7vw, 4.5rem);
+    background:
+      radial-gradient(90rem 30rem at 85% -10%, rgb(221 229 207 / 0.75), transparent 60%),
+      linear-gradient(180deg, var(--ons-cream-deep), var(--ons-cream));
+  }
+  .ons-page-hero-branch {
+    position: absolute;
+    right: -4rem;
+    top: calc(var(--ons-header-h) - 0.5rem);
+    width: min(34rem, 95vw);
+    color: rgb(85 107 63 / 0.2);
+  }
+  .ons-page-hero-inner { position: relative; display: grid; gap: 1.4rem; max-width: 46rem; }
+
+  /* Fade-up on scroll. The observer (reveal-observer.tsx) adds data-visible. */
+  .ons [data-reveal] {
+    opacity: 0;
+    transform: translateY(26px);
+    transition:
+      opacity 0.9s ease,
+      transform 0.9s var(--ons-ease);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+  .ons [data-reveal][data-visible] { opacity: 1; transform: none; }
+
+  @keyframes ons-rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+/* ---------------------------------------------------------------------
+   11. REDUCED MOTION
+   People who ask their device for less motion get no animation at all.
+   --------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .ons *,
+  .ons *::before,
+  .ons *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+  .ons [data-reveal] { opacity: 1 !important; transform: none !important; }
+}
