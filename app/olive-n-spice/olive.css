@@ -1470,6 +1470,234 @@ html:has(.ons dialog[open]) { overflow: hidden; }
   .ons-reserve-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem 2rem; margin-top: 0.5rem; }
 }
 
+@layer components {
+  /* -------------------------------------------------------------------
+     9. MENU PAGE
+     ------------------------------------------------------------------- */
+  .ons-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.4rem;
+    font-size: 0.88rem;
+    color: var(--ons-ink-soft);
+  }
+  .ons-legend li { display: inline-flex; align-items: center; gap: 0.45rem; }
+  .ons-legend .ons-spice,
+  .ons-legend .ons-chef { margin: 0; }
+
+  /* The bar that sticks under the header: category tabs + search. */
+  .ons-menu-bar {
+    position: sticky;
+    top: var(--ons-header-h);
+    z-index: 40;
+    background: rgb(250 246 236 / 0.92);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--ons-line);
+  }
+  .ons-menu-bar-inner { display: flex; align-items: center; gap: 0.6rem; height: 3.75rem; }
+  .ons-menu-tabs {
+    flex: 1;
+    min-width: 0;
+    padding: 0 var(--ons-gutter) 0 0;
+    margin-right: calc(var(--ons-gutter) * -1); /* let the row run to the screen edge */
+  }
+  /* A small gold dot where a new group of categories starts. */
+  .ons-menu-tabs .ons-chip[data-group-start] { position: relative; margin-left: 1rem; }
+  .ons-menu-tabs .ons-chip[data-group-start]::before {
+    content: "";
+    position: absolute;
+    left: -1rem;
+    top: 50%;
+    width: 0.3rem;
+    height: 0.3rem;
+    translate: -50% -50%;
+    border-radius: 50%;
+    background: var(--ons-gold);
+  }
+  .ons-menu-search-toggle {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--ons-line-strong);
+    border-radius: 50%;
+    color: var(--ons-olive-deep);
+    cursor: pointer;
+  }
+  .ons-menu-search {
+    display: none;
+    align-items: center;
+    gap: 0.55rem;
+    height: 2.75rem;
+    padding: 0 0.3rem 0 0.9rem;
+    border: 1px solid var(--ons-line-strong);
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.7);
+    color: var(--ons-olive-deep);
+    transition:
+      border-color 0.3s ease,
+      box-shadow 0.3s ease;
+  }
+  .ons-menu-search:focus-within { border-color: var(--ons-olive); box-shadow: 0 0 0 3px rgb(201 162 39 / 0.3); }
+  .ons-menu-search input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    background: transparent;
+    font-size: 1rem; /* 16px: stops iPhones zooming in on focus */
+    color: var(--ons-ink);
+  }
+  .ons-menu-search input:focus-visible { outline: none; } /* the ring is drawn on the pill instead */
+  .ons-menu-search input::placeholder { color: var(--ons-ink-soft); }
+  .ons-menu-search input::-webkit-search-cancel-button { display: none; }
+  .ons-menu-search-clear {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .ons-menu-search-clear:hover { background: var(--ons-cream-deep); }
+  /* Phones: the search box takes the place of the tabs while it is open. */
+  .ons-menu-bar[data-search="true"] .ons-menu-search { display: flex; flex: 1; }
+  .ons-menu-bar[data-search="true"] .ons-menu-search-toggle,
+  .ons-menu-bar[data-search="true"] .ons-menu-tabs { display: none; }
+  @media (min-width: 900px) {
+    /* Wide screens: tabs and search side by side, always. */
+    .ons-menu-search-toggle { display: none; }
+    .ons-menu-search,
+    .ons-menu-bar[data-search="true"] .ons-menu-search { display: flex; flex: none; width: 17rem; }
+    .ons-menu-bar[data-search="true"] .ons-menu-tabs { display: flex; }
+    .ons-menu-tabs { margin-right: 0; padding-right: 0.5rem; }
+    .ons-menu-search-clear[data-idle] { visibility: hidden; }
+  }
+
+  .ons-menu-body { padding-block: clamp(1.5rem, 4vw, 2.5rem) clamp(3rem, 8vw, 5rem); }
+  .ons-menu-status { margin-bottom: 1rem; font-size: 0.98rem; color: var(--ons-ink-soft); }
+  .ons-menu-status:empty { display: none; }
+
+  .ons-menu-group {
+    padding-top: clamp(1.5rem, 4vw, 2.5rem);
+    scroll-margin-top: calc(var(--ons-header-h) + 4rem);
+  }
+  .ons-menu-group-head { display: grid; gap: 0.6rem; margin-bottom: 2rem; }
+  .ons-menu-group-head .ons-h2 { color: var(--ons-olive-deep); }
+  .ons-menu-group-art { width: 5.5rem; height: 5.5rem; margin-left: -0.4rem; }
+  @media (min-width: 1024px) {
+    /* Group title stays put on the left while its dishes scroll on the right. */
+    .ons-menu-group { display: grid; grid-template-columns: 16rem minmax(0, 1fr); column-gap: 4.5rem; }
+    .ons-menu-group-head {
+      position: sticky;
+      top: calc(var(--ons-header-h) + 5.75rem);
+      align-self: start;
+      margin-bottom: 0;
+    }
+    .ons-menu-group-head .ons-h2 { font-size: 2.9rem; }
+    .ons-menu-group-art { width: 8rem; height: 8rem; }
+    .ons-menu-rule { grid-column: 1 / -1; }
+  }
+  .ons-menu-cats { display: grid; gap: clamp(2.5rem, 6vw, 3.5rem); min-width: 0; }
+  .ons-menu-cat { scroll-margin-top: calc(var(--ons-header-h) + 4.75rem); }
+  .ons-menu-cat-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.25rem 1.5rem;
+    padding-bottom: 0.8rem;
+    border-bottom: 1px solid var(--ons-olive-deep);
+  }
+  .ons-menu-cat-head h3 { color: var(--ons-olive-deep); }
+  .ons-menu-cat-note {
+    font-size: 0.74rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ons-gold-ink);
+  }
+  .ons-menu-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.4rem 1.5rem;
+    align-items: start;
+    padding-block: 1.05rem;
+    border-bottom: 1px solid var(--ons-line);
+  }
+  .ons-menu-item-name {
+    font-family: var(--ons-serif);
+    font-size: 1.34rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--ons-olive-deep);
+  }
+  .ons-menu-item-desc { max-width: 38rem; margin-top: 0.25rem; font-size: 0.95rem; line-height: 1.55; color: var(--ons-ink-soft); }
+  .ons-menu-item-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.55rem; }
+  .ons-tag {
+    padding: 0.15rem 0.65rem;
+    border-radius: 999px;
+    background: var(--ons-sage-soft);
+    color: var(--ons-olive-deep);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .ons-menu-item-prices { display: flex; align-items: flex-end; gap: 1.25rem; padding-top: 0.2rem; }
+  .ons-price { display: grid; justify-items: end; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ons-price-label {
+    font-size: 0.66rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ons-ink-soft);
+  }
+  .ons-price-amount { font-size: 1.02rem; font-weight: 500; }
+  @media (max-width: 639px) {
+    /* Phones: sizes drop under the dish name as small tiles (easy to read and tap past). */
+    .ons-menu-item[data-many] { grid-template-columns: minmax(0, 1fr); }
+    .ons-menu-item[data-many] .ons-menu-item-prices { flex-wrap: wrap; gap: 0.5rem; margin-top: 0.3rem; }
+    .ons-menu-item[data-many] .ons-price {
+      justify-items: start;
+      padding: 0.35rem 0.8rem;
+      border: 1px solid var(--ons-line);
+      border-radius: 0.75rem;
+      background: rgb(255 255 255 / 0.55);
+    }
+  }
+  .ons-menu-extra {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.25rem 1.5rem;
+    margin-top: 1rem;
+    padding: 0.85rem 1.1rem;
+    border-radius: 1rem;
+    background: var(--ons-cream-deep);
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .ons-menu-extra span:first-child { font-weight: 500; color: var(--ons-olive-deep); }
+  .ons-menu-rule {
+    height: 1px;
+    margin-top: clamp(2.5rem, 6vw, 4rem);
+    border: 0;
+    background: linear-gradient(90deg, transparent, var(--ons-gold), transparent);
+  }
+  .ons-menu-end { padding-bottom: clamp(4rem, 9vw, 6rem); text-align: center; }
+  .ons-menu-end > div { display: grid; justify-items: center; gap: 1.5rem; }
+  .ons-menu-footnote {
+    font-family: var(--ons-serif);
+    font-style: italic;
+    font-size: clamp(1.15rem, 2.6vw, 1.4rem);
+    color: var(--ons-olive-deep);
+    text-wrap: balance;
+  }
+}
+
 /* ---------------------------------------------------------------------
    11. REDUCED MOTION
    People who ask their device for less motion get no animation at all.
