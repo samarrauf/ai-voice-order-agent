@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Armchair, ArrowRight, CircleAlert, Clock, Inbox, Phone, Store } from "lucide-react";
 import { Badge, Button, Card, EmptyState, FilterChips, PageHeader, StatusBadge, cn } from "@/components/ui";
+import { formatMoney } from "@/lib/money";
+import { NewOrderLink } from "./new-order-link";
 
 export type BoardOrder = {
   id: string;
@@ -89,6 +91,7 @@ export function OrdersBoard({ orders }: { orders: BoardOrder[] }) {
     <div>
       <PageHeader
         title="Orders"
+        actions={<NewOrderLink />}
         subtitle={
           <span className="inline-flex items-center gap-2">
             <span aria-hidden className="dot-pulse size-2 rounded-full bg-status-ready" />
@@ -170,7 +173,7 @@ export function OrdersBoard({ orders }: { orders: BoardOrder[] }) {
 
                 <div className="mt-4 flex items-baseline justify-between border-t border-line pt-4">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint">Total</span>
-                  <span className="text-2xl font-bold tabular-nums">£{o.total.toFixed(2)}</span>
+                  <span className="text-2xl font-bold tabular-nums">{formatMoney(o.total)}</span>
                 </div>
 
                 {next && (

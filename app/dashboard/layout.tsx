@@ -9,6 +9,7 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/dashboard-auth";
 import { cn } from "@/components/ui";
 import { logout } from "./actions";
 import { BottomNav, MainTabs, SecondaryLinks } from "./nav-links";
+import { NewOrderLink } from "./new-order-link";
 import { Splash } from "./splash";
 import { TodayDate } from "./today-date";
 
@@ -81,6 +82,7 @@ function Frame({ branding, children }: { branding: Branding; children: React.Rea
           </div>
 
           <div className="ml-auto flex items-center gap-1 sm:gap-2 lg:justify-self-end">
+            <NewOrderLink compact />
             <SecondaryLinks />
             <form action={logout}>
               <button
@@ -89,7 +91,8 @@ function Frame({ branding, children }: { branding: Branding; children: React.Rea
                 className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-line bg-raised px-3 text-sm font-semibold transition-colors duration-200 hover:border-line-strong sm:px-4"
               >
                 <LogOut size={16} aria-hidden />
-                <span className="hidden sm:inline">Log out</span>
+                {/* Icon only between lg and xl: the centred tabs leave no room for the words there. */}
+                <span className="hidden whitespace-nowrap sm:inline lg:hidden xl:inline">Log out</span>
               </button>
             </form>
           </div>

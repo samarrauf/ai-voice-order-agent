@@ -109,6 +109,20 @@ body:has(.dash) { background: var(--color-canvas); }
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
+/* ---- POS item tiles (app/dashboard/pos) ----
+   Each menu category sets --tile to one of the design-system colours; the
+   tile is the card surface with a light wash of that colour. */
+.pos-tile {
+  --tile-tint: var(--tile, var(--color-accent));
+  background: color-mix(in oklab, var(--tile-tint) 9%, var(--color-surface));
+  border-color: color-mix(in oklab, var(--tile-tint) 22%, var(--color-line));
+}
+.pos-tile:enabled:hover { border-color: color-mix(in oklab, var(--tile-tint) 55%, var(--color-line)); }
+.pos-tile-icon {
+  background: color-mix(in oklab, var(--tile-tint) 20%, transparent);
+  color: color-mix(in oklab, var(--tile-tint) 75%, white);
+}
+
 /* ---- Animations (all CSS, all switched off for reduced motion) ---- */
 .anim-rise { animation: rise 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 /* A freshly arrived order: slides in, then its ring glows three times. */

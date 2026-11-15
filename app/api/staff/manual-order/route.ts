@@ -13,18 +13,38 @@ import {
   type DbOption,
 } from "@/lib/order-pricing";
 
-// Staff action: add a dine-in order to a seated table.
+// Staff action: an order typed in by staff (the POS screen). Two kinds:
+//   - dine_in (the default): added to a seated table. table_session_id is
+//     required and the session must still be open.
+//   - takeaway: a walk-in customer taking food away. No table needed.
 //
 // THE MONEY RULE still applies: staff send only item ids, sizes, options and
 // quantities. Every price is calculated by the same shared pricing code the
 // phone-order tool uses (lib/order-pricing.ts), from the menu tables. zod strips
-// any "price"/"total" keys. The order's source is copied from the table session.
+// any "price"/"total" keys. A dine-in order's source is copied from the table session.
 
-const bodySchema = z.object({
-  restaurant_id: z.guid(),
-  table_session_id: z.guid(),
-  items: z.array(itemSchema).min(1).max(30),
-});
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullish()
+    .transform((v) => v || null);
+
+const bodySchema = z
+  .object({
+    restaurant_id: z.guid(),
+    order_type: z.enum(["dine_in", "takeaway"]).default("dine_in"),
+    table_session_id: z.guid().nullish(),
+    customer_name: optionalText(80),
+    customer_phone: optionalText(30),
+    notes: optionalText(300),
+    items: z.array(itemSchema).min(1).max(30),
+  })
+  .refine((b) => b.order_type === "takeaway" || !!b.table_session_id, {
+    path: ["table_session_id"],
+    message: "is required for a dine-in order",
+  });
 
 const fail = (error: string, status: number) => NextResponse.json({ success: false, error }, { status });
 
@@ -37,15 +57,19 @@ export async function POST(request: Request) {
     return fail(`invalid body: ${parsed.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}`, 400);
   }
   const body = parsed.data;
+  // A takeaway order never belongs to a table, even if a session id was sent.
+  const sessionId = body.order_type === "dine_in" ? body.table_session_id! : null;
 
   const itemIds = [...new Set(body.items.map((i) => i.menu_item_id))];
   const [sessionRes, itemsRes, optionsRes] = await Promise.all([
-    supabaseAdmin
-      .from("table_sessions")
-      .select("id, source, cleared_at")
-      .eq("id", body.table_session_id)
-      .eq("restaurant_id", body.restaurant_id)
-      .maybeSingle(),
+    sessionId
+      ? supabaseAdmin
+          .from("table_sessions")
+          .select("id, source, cleared_at")
+          .eq("id", sessionId)
+          .eq("restaurant_id", body.restaurant_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from("menu_items").select(MENU_ITEM_SELECT).eq("restaurant_id", body.restaurant_id).in("id", itemIds),
     supabaseAdmin.from("item_options").select(OPTION_SELECT).eq("restaurant_id", body.restaurant_id),
   ]);
@@ -54,32 +78,34 @@ export async function POST(request: Request) {
     return fail("database lookup failed", 500);
   }
   const session = sessionRes.data;
-  if (!session) return fail("table session not found for this restaurant", 404);
-  if (session.cleared_at) return fail("table is already cleared; seat the table first", 409);
+  if (sessionId) {
+    if (!session) return fail("table session not found for this restaurant", 404);
+    if (session.cleared_at) return fail("table is already cleared; seat the table first", 409);
+  }
 
   const menuById = new Map((itemsRes.data as unknown as DbItem[]).map((m) => [m.id, m]));
   const priced = priceLines(body.items, menuById, optionsRes.data as DbOption[]);
   if (!priced.ok) return fail(priced.error, 400);
   const { lines, subtotalPence } = priced;
 
-  // Dine-in orders are stored as 'pickup' (the orders table only allows
-  // delivery/pickup); `source` + `table_session_id` is what marks them dine-in.
+  // Both kinds are stored as 'pickup' (the orders table only allows
+  // delivery/pickup); `source` + `table_session_id` is what marks an order dine-in.
   const { data: order, error: rpcError } = await supabaseAdmin.rpc("create_order_tx", {
     p_order: {
       restaurant_id: body.restaurant_id,
       call_id: null,
       fulfilment_type: "pickup",
-      customer_name: null,
-      customer_phone: null,
+      customer_name: body.customer_name,
+      customer_phone: body.customer_phone,
       subtotal: pounds(subtotalPence),
       delivery_fee: 0,
       total: pounds(subtotalPence),
       payment_method: null,
       requested_time: null,
-      notes: null,
-      source: session.source === "booking" ? "table_booking" : "walk_in",
-      // Saved in the same insert as the order (create_order_tx, migration 0009).
-      table_session_id: session.id,
+      notes: body.notes,
+      source: session?.source === "booking" ? "table_booking" : "walk_in",
+      // Saved in the same insert as the order (create_order_tx, migration 0009). Null for takeaway.
+      table_session_id: session?.id ?? null,
     },
     p_items: toOrderItemsPayload(lines),
   });
@@ -93,8 +119,9 @@ export async function POST(request: Request) {
     {
       success: true,
       order_number: saved.order_number,
+      order_type: body.order_type,
       source: saved.source,
-      table_session_id: session.id,
+      table_session_id: session?.id ?? null,
       subtotal: pounds(subtotalPence),
       total: pounds(subtotalPence),
     },
