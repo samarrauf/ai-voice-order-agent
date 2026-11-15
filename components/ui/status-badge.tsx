@@ -49,13 +49,20 @@ const ORDER_STATUS: Record<string, { label: string; tone: Tone }> = {
   ready: { label: "Ready", tone: "ready" },
   completed: { label: "Completed", tone: "done" },
   cancelled: { label: "Cancelled", tone: "danger" },
+  // Booking statuses (dashboard Bookings tab).
+  confirmed: { label: "Confirmed", tone: "new" },
+  seated: { label: "Seated", tone: "ready" },
+  no_show: { label: "No-show", tone: "hot" },
 };
 
-/** The coloured status label on an order: blue New, amber Preparing, green Ready, grey Completed. */
+/**
+ * The coloured status label on an order or booking: blue New / Confirmed, amber Preparing,
+ * green Ready / Seated, grey Completed, red Cancelled, orange No-show.
+ */
 export function StatusBadge({ status }: { status: string }) {
   const s = ORDER_STATUS[status] ?? { label: status, tone: "neutral" as Tone };
   return (
-    <Badge tone={s.tone} dot live={s.tone === "new"}>
+    <Badge tone={s.tone} dot live={status === "new" || status === "accepted"}>
       {s.label}
     </Badge>
   );

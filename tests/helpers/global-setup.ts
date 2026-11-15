@@ -22,7 +22,13 @@ export default async function selfHeal() {
     db.from("callback_requests").delete().like("details", MARKER).select("id"),
   ]);
   for (const r of leftovers) if (r.error) throw r.error;
-  const removed = leftovers.reduce((n, r) => n + (r.data?.length ?? 0), 0);
+  // After the bookings are gone: the throwaway tables (their seating sessions go
+  // with them) and the throwaway restaurant made by tests/update-booking-status.test.ts.
+  const tables = await db.from("restaurant_tables").delete().like("table_number", MARKER).select("id");
+  if (tables.error) throw tables.error;
+  const restaurants = await db.from("restaurants").delete().like("name", MARKER).select("id");
+  if (restaurants.error) throw restaurants.error;
+  const removed = [...leftovers, tables, restaurants].reduce((n, r) => n + (r.data?.length ?? 0), 0);
 
   const fee = await db
     .from("restaurants")
