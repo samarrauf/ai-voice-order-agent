@@ -111,7 +111,7 @@ function PanelContent({ group, onClose }: { group: MenuGroup; onClose: () => voi
         </ul>
         {category.extras?.map((extra) => (
           <p key={extra.name} className="ons-panel-note">
-            {extra.name}: {extra.prices.map((p) => (p.label ? `${p.label} ${formatRs(p.amount)}` : formatRs(p.amount))).join(" / ")}
+            {extra.label ? `${extra.label}: ${extra.name}` : extra.name}: {extra.prices.map((p) => (p.label ? `${p.label} ${formatRs(p.amount)}` : formatRs(p.amount))).join(" / ")}
           </p>
         ))}
       </div>

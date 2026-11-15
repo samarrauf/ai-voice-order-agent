@@ -238,7 +238,7 @@ export function MenuBrowser() {
 
                     {category.extras?.map((extra) => (
                       <p key={extra.name} className="ons-menu-extra">
-                        <span>{extra.name}</span>
+                        <span>{extra.label ? `${extra.label}: ${extra.name}` : extra.name}</span>
                         <span>
                           {extra.prices.map((price) => (price.label ? `${price.label} ${formatRs(price.amount)}` : formatRs(price.amount))).join("  /  ")}
                         </span>

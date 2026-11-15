@@ -93,7 +93,6 @@ html:has(.ons dialog[open]) { overflow: hidden; }
   .ons :focus-visible {
     outline: 2px solid var(--ons-focus);
     outline-offset: 3px;
-    border-radius: 4px;
   }
   .ons-on-dark { --ons-focus: var(--ons-gold-soft); }
 
@@ -256,6 +255,7 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     font-weight: 500;
     letter-spacing: 0.18em;
     text-transform: uppercase;
+    white-space: nowrap;
     background: linear-gradient(currentColor, currentColor) left bottom / 100% 1px no-repeat;
     transition: background-size 0.4s var(--ons-ease), color 0.3s ease;
   }
@@ -1181,8 +1181,10 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     border-top: 1px solid var(--ons-line);
     background: var(--ons-cream);
   }
+  .ons-panel-foot .ons-btn { min-width: 0; padding-inline: 1.1rem; }
   @media (min-width: 768px) {
     .ons-panel-foot { padding: 1.1rem 2rem 1.5rem; }
+    .ons-panel-foot .ons-btn { padding-inline: 1.6rem; }
   }
 
   /* Chilli and star marks next to dish names. */

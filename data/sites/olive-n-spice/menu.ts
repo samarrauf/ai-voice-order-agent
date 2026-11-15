@@ -41,6 +41,8 @@ export type MenuItem = {
 };
 
 export type MenuExtra = {
+  /** What kind of add-on this is, as printed on the menu, e.g. "Side option". */
+  label?: string;
   /** e.g. "Extra topping", "Fish Crackers". */
   name: string;
   prices: MenuPrice[];
@@ -117,7 +119,7 @@ export const menu: MenuGroup[] = [
         id: "soup",
         name: "Soup",
         priceLabels: ["2 Person", "4 Person"],
-        extras: [{ name: "Fish Crackers", prices: [{ amount: 350 }] }],
+        extras: [{ label: "Side option", name: "Fish Crackers", prices: [{ amount: 350 }] }],
         items: [
           { id: "soup-olive-n-spice-b-19-soup", name: "Olive n Spice B-19 Soup", description: "Minced chicken, shrimp, fish and black mushroom with dark soy sauce.", prices: [{ label: "2 Person", amount: 899 }, { label: "4 Person", amount: 1649 }], spiceLevel: 0, chefSpecial: true },
           { id: "soup-hot-szechuan-soup", name: "Hot Szechuan Soup", description: "Minced chicken, fish & black mushroom with hot sauce.", prices: [{ label: "2 Person", amount: 899 }, { label: "4 Person", amount: 1499 }], spiceLevel: 1, chefSpecial: false },
