@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import { cn } from "./cn";
 
-type Tone = "new" | "preparing" | "ready" | "done" | "danger" | "neutral";
+type Tone = "new" | "preparing" | "ready" | "done" | "danger" | "neutral" | "hot";
 
 const TONE: Record<Tone, string> = {
+  hot: "border-lead-hot/30 bg-lead-hot/12 text-lead-hot",
   new: "border-status-new/30 bg-status-new/12 text-status-new",
   preparing: "border-status-preparing/30 bg-status-preparing/12 text-status-preparing",
   ready: "border-status-ready/30 bg-status-ready/12 text-status-ready",

@@ -37,6 +37,12 @@
   --color-status-preparing: #fbbf24;
   --color-status-ready: #34d399;
   --color-danger: #f87171;
+
+  /* --- Conversation lead badges ------------------------------------------
+     Warm = amber (status-preparing), Follow-up = blue (status-new) and
+     Converted = green (status-ready) reuse the colours above. Hot is the
+     only new one: a warm orange. */
+  --color-lead-hot: #fb923c;
 }
 
 @theme inline {

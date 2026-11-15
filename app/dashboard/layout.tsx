@@ -66,17 +66,21 @@ function Frame({ branding, children }: { branding: Branding; children: React.Rea
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-canvas/85 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-3 px-4 sm:px-6">
-          <InitialBadge name={branding.name} />
-          <div className="min-w-0">
-            <p className="truncate font-display text-lg font-semibold leading-tight">{branding.name}</p>
-            <p className="truncate text-xs text-ink-faint"><TodayDate /></p>
+        {/* Three parts on desktop: badge + name (left), tabs (exactly centred), links (right). */}
+        <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-3 px-4 sm:px-6 lg:grid lg:h-20 lg:grid-cols-[1fr_auto_1fr]">
+          <div className="flex min-w-0 items-center gap-3">
+            <InitialBadge name={branding.name} />
+            <div className="min-w-0">
+              <p className="truncate font-display text-lg font-semibold leading-tight">{branding.name}</p>
+              <p className="truncate text-xs text-ink-faint"><TodayDate /></p>
+            </div>
           </div>
 
-          <div className="ml-auto flex items-center gap-1 sm:gap-2">
-            <div className="hidden lg:block">
-              <MainTabs />
-            </div>
+          <div className="hidden lg:block">
+            <MainTabs />
+          </div>
+
+          <div className="ml-auto flex items-center gap-1 sm:gap-2 lg:justify-self-end">
             <SecondaryLinks />
             <form action={logout}>
               <button

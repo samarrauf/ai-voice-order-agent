@@ -7,8 +7,8 @@ import { PillTabs, cn, isActiveTab } from "@/components/ui";
 
 // The five main sections. Orders stays at /dashboard (where login lands).
 const TABS = [
-  { href: "/dashboard/overview", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard", label: "Orders", icon: ReceiptText, exact: true },
+  { href: "/dashboard/overview", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/bookings", label: "Bookings", icon: CalendarDays },
   { href: "/dashboard/conversations", label: "Conversations", short: "Calls", icon: MessagesSquare },
   { href: "/dashboard/customers", label: "Customers", icon: Users },
