@@ -43,10 +43,6 @@ export default function OliveLayout({ children }: { children: React.ReactNode })
       <SiteFooter />
       <RevealObserver />
       <JsonLd />
-      {/* If JavaScript is switched off, never leave "fade-up" content invisible. */}
-      <noscript>
-        <style>{".ons [data-reveal]{opacity:1!important;transform:none!important}"}</style>
-      </noscript>
     </div>
   );
 }

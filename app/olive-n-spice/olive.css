@@ -567,16 +567,7 @@ html:has(.ons dialog[open]) { overflow: hidden; }
   }
   .ons-page-hero-inner { position: relative; display: grid; gap: 1.4rem; max-width: 46rem; }
 
-  /* Fade-up on scroll. The observer (reveal-observer.tsx) adds data-visible. */
-  .ons [data-reveal] {
-    opacity: 0;
-    transform: translateY(26px);
-    transition:
-      opacity 0.9s ease,
-      transform 0.9s var(--ons-ease);
-    transition-delay: var(--reveal-delay, 0ms);
-  }
-  .ons [data-reveal][data-visible] { opacity: 1; transform: none; }
+  /* Fade-up on scroll is done in reveal-observer.tsx (no CSS needed: content is visible by default). */
 
   @keyframes ons-rise {
     from { opacity: 0; transform: translateY(14px); }
@@ -1698,6 +1689,194 @@ html:has(.ons dialog[open]) { overflow: hidden; }
   }
 }
 
+@layer components {
+  /* -------------------------------------------------------------------
+     10. EVENTS + RESERVE PAGES
+     ------------------------------------------------------------------- */
+  .ons-card {
+    padding: clamp(1.4rem, 4vw, 2.5rem);
+    border: 1px solid var(--ons-line);
+    border-radius: 1.5rem;
+    background: rgb(255 255 255 / 0.65);
+    box-shadow: var(--ons-shadow);
+  }
+  .ons-inline-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-weight: 500;
+    color: var(--ons-olive);
+    text-decoration: underline;
+    text-decoration-color: var(--ons-gold);
+    text-underline-offset: 0.25em;
+  }
+  .ons-inline-link:hover { color: var(--ons-olive-deep); }
+
+  /* Enquiry form */
+  .ons-enquiry { background: var(--ons-cream-deep); }
+  .ons-enquiry-grid { display: grid; gap: clamp(2rem, 5vw, 4rem); align-items: start; }
+  @media (min-width: 960px) {
+    .ons-enquiry-grid { grid-template-columns: 0.85fr 1.15fr; }
+  }
+  .ons-form { display: grid; gap: 1.15rem; }
+  .ons-form-hint {
+    padding: 0.7rem 1rem;
+    border-radius: 0.85rem;
+    background: var(--ons-sage-soft);
+    font-size: 0.9rem;
+    color: var(--ons-olive-deep);
+  }
+  .ons-form-row { display: grid; gap: 1.15rem; }
+  @media (min-width: 640px) {
+    .ons-form-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .ons-field { display: grid; gap: 0.45rem; min-width: 0; }
+  .ons-field label {
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ons-olive-deep);
+  }
+  .ons-input {
+    width: 100%;
+    min-width: 0;
+    min-height: 3rem;
+    padding: 0.7rem 0.95rem;
+    border: 1px solid var(--ons-line-strong);
+    border-radius: 0.85rem;
+    background: rgb(255 255 255 / 0.8);
+    font-family: inherit;
+    font-size: 1rem; /* 16px: stops iPhones zooming in on focus */
+    color: var(--ons-ink);
+    transition:
+      border-color 0.3s ease,
+      box-shadow 0.3s ease;
+  }
+  .ons-input:hover { border-color: var(--ons-sage); }
+  .ons-input:focus-visible {
+    outline: none;
+    border-color: var(--ons-olive);
+    border-radius: 0.85rem;
+    box-shadow: 0 0 0 3px rgb(201 162 39 / 0.35);
+  }
+  textarea.ons-input { min-height: 7.5rem; resize: vertical; }
+  /* The message shown after pressing Submit. */
+  .ons-notice {
+    display: grid;
+    gap: 0.85rem;
+    padding: 1.25rem 1.35rem;
+    border: 1px solid var(--ons-gold);
+    border-left-width: 4px;
+    border-radius: 1rem;
+    background: rgb(201 162 39 / 0.1);
+    animation: ons-rise 0.5s var(--ons-ease) both;
+  }
+  .ons-notice-title {
+    font-family: var(--ons-serif);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--ons-olive-deep);
+  }
+  .ons-notice-actions { justify-content: flex-start; }
+
+  /* Reserve: the two big ways to book */
+  .ons-reserve-actions { padding-bottom: 0; }
+  .ons-action-grid { display: grid; gap: 1rem; }
+  @media (min-width: 720px) {
+    .ons-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
+  }
+  .ons-action-card {
+    display: grid;
+    justify-items: start;
+    gap: 1.25rem;
+    padding: clamp(1.5rem, 4vw, 2.25rem);
+    border: 1px solid var(--ons-line);
+    border-radius: 1.5rem;
+    background: rgb(255 255 255 / 0.65);
+    box-shadow: var(--ons-shadow);
+  }
+  .ons-action-icon,
+  .ons-info-icon,
+  .ons-map-pin {
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--ons-olive-deep);
+    color: var(--ons-gold-soft);
+  }
+  .ons-action-icon { width: 3.25rem; height: 3.25rem; }
+  .ons-action-title {
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--ons-gold-ink);
+  }
+  .ons-action-value {
+    margin-top: 0.35rem;
+    font-family: var(--ons-serif);
+    font-size: clamp(1.7rem, 5vw, 2.3rem);
+    font-weight: 500;
+    line-height: 1.1;
+    color: var(--ons-olive-deep);
+  }
+
+  /* Reserve: address, hours, social and the map */
+  .ons-visit-head { display: grid; gap: 1.25rem; margin-bottom: clamp(2rem, 5vw, 3rem); }
+  .ons-info-grid { display: grid; gap: 1.25rem; }
+  @media (min-width: 960px) {
+    .ons-info-grid { grid-template-columns: 1fr 1.15fr; gap: 1.5rem; }
+  }
+  .ons-info-list { display: grid; gap: 1rem; align-content: start; }
+  .ons-info-item {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    gap: 1rem;
+    padding: 1.25rem;
+    border: 1px solid var(--ons-line);
+    border-radius: 1.25rem;
+    background: rgb(255 255 255 / 0.55);
+  }
+  .ons-info-icon { width: 2.75rem; height: 2.75rem; }
+  .ons-info-title {
+    margin-bottom: 0.3rem;
+    font-family: var(--ons-serif);
+    font-size: 1.35rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--ons-olive-deep);
+  }
+  .ons-hours > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 1rem; }
+  .ons-map {
+    position: relative;
+    min-height: 20rem;
+    overflow: hidden;
+    border: 1px solid var(--ons-line);
+    border-radius: 1.5rem;
+    /* A soft street-grid pattern until the real map is switched on. */
+    background:
+      radial-gradient(22rem 14rem at 50% 45%, rgb(250 246 236 / 0.9), transparent 70%),
+      linear-gradient(rgb(47 61 34 / 0.09) 1px, transparent 1px) 0 0 / 100% 2.75rem,
+      linear-gradient(90deg, rgb(47 61 34 / 0.09) 1px, transparent 1px) 0 0 / 2.75rem 100%,
+      var(--ons-sage-soft);
+  }
+  .ons-map iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .ons-map-empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 0.4rem;
+    text-align: center;
+  }
+  .ons-map-pin { width: 3.5rem; height: 3.5rem; margin-bottom: 0.5rem; box-shadow: 0 0 0 0.6rem rgb(47 61 34 / 0.1); }
+  .ons-map-title { font-family: var(--ons-serif); font-size: 1.6rem; font-weight: 500; color: var(--ons-olive-deep); }
+}
+
 /* ---------------------------------------------------------------------
    11. REDUCED MOTION
    People who ask their device for less motion get no animation at all.
@@ -1712,8 +1891,6 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     transition-duration: 0.01ms !important;
     transition-delay: 0ms !important;
   }
-  .ons [data-reveal] { opacity: 1 !important; transform: none !important; }
-
   /* Hero: no carousel and no intro; show the six groups as a simple grid. */
   .ons-hero-carousel,
   .ons-intro { display: none !important; }
