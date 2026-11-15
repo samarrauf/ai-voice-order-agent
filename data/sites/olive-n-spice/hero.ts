@@ -47,6 +47,6 @@ export const heroSlides: HeroSlide[] = [
   { groupId: "pasta-continental", tone: "light", background: "#e2e9d5", art: ["steak", "pasta", "cloche"] },
   { groupId: "chinese", tone: "dark", background: "#2f3d22", art: ["rice-bowl", "wok", "noodle-box"] },
   { groupId: "fast-food", tone: "light", background: "#f1e3b5", art: ["burger", "pizza", "wrap"] },
-  { groupId: "mughlai-bbq", tone: "dark", background: "#4a5e36", art: ["skewers", "handi", "naan"] },
+  { groupId: "mughlai-bbq", tone: "dark", background: "#43552f", art: ["skewers", "handi", "naan"] },
   { groupId: "desserts-drinks", tone: "light", background: "#f5ebd6", art: ["mint-drink", "lava-cake", "lime-drink"] },
 ];

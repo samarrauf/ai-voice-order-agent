@@ -63,7 +63,7 @@ export function SiteHeader() {
 
         <div className="ons-header-actions">
           <Link href={routes.reserve} className="ons-btn ons-btn-gold ons-btn-sm">
-            Reserve<span className="hidden sm:inline">&nbsp;a table</span>
+            Reserve<span className="hidden sm:inline"> a table</span>
           </Link>
           <button
             type="button"

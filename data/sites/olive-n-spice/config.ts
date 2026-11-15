@@ -26,6 +26,18 @@ export type SiteConfig = {
   description: string;
   cuisines: string[];
 
+  /** Words shown on the pages (kept here so wording changes need no code change). */
+  content: {
+    /** The restaurant in one sentence (Home, "about" section). */
+    about: string;
+    events: {
+      heading: string;
+      /** The kinds of events hosted. */
+      occasions: string[];
+      promise: string;
+    };
+  };
+
   /** Where every page of this site lives. */
   basePath: string;
   /** The final public address, e.g. "https://www.example.com". `null` until a domain is chosen. */
@@ -93,6 +105,16 @@ export const site: SiteConfig = {
   description:
     "Olive 'n Spice, Sargodha. Authentic Chinese, Continental, Fast Food and Desi cuisine with warm vibes inside and a serene courtyard.",
   cuisines: ["Chinese", "Continental", "Fast Food", "Desi"],
+
+  content: {
+    about: "Authentic Chinese, Continental, Fast Food & Desi with warm vibes inside & serene courtyard.",
+    events: {
+      heading: "Celebrate your special events with us",
+      occasions: ["Corporate gathering", "Birthday", "Bridal shower", "Anniversary"],
+      // Wording exactly as supplied by the restaurant.
+      promise: "We make every get-together memorable and every celebration a more special.",
+    },
+  },
 
   basePath: "/olive-n-spice",
   siteUrl: null,
