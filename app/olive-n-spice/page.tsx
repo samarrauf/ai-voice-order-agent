@@ -1,14 +1,13 @@
-import { cityLine, site } from "@/data/sites/olive-n-spice/config";
-import { PageHero } from "./_components/page-hero";
+import { HeroIntro } from "./_components/hero/hero-intro";
+import { MenuHero } from "./_components/hero/menu-hero";
 
-// Home page. (Temporary: the interactive hero and the sections below it are
-// added in the next steps.)
+// Home page: the intro curtain, then the interactive menu hero.
+// (The sections below the hero are added in the next step.)
 export default function OliveHomePage() {
   return (
-    <PageHero
-      eyebrow={cityLine}
-      title={site.name}
-      intro={site.tagline}
-    />
+    <>
+      <HeroIntro />
+      <MenuHero />
+    </>
   );
 }

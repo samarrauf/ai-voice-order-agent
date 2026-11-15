@@ -584,6 +584,629 @@ html:has(.ons dialog[open]) { overflow: hidden; }
   }
 }
 
+@layer components {
+  /* -------------------------------------------------------------------
+     6. HOME HERO (interactive menu carousel)
+     Only transform / opacity / colour are animated, so it stays at 60fps.
+     ------------------------------------------------------------------- */
+  .ons-hero {
+    /* Colours that flip between light and dark slides. */
+    --hero-fg: var(--ons-olive-deep);
+    --hero-muted: rgb(47 61 34 / 0.76);
+    --hero-accent: var(--ons-gold-ink);
+    --hero-line: rgb(47 61 34 / 0.2);
+    /* Sizes shared by the dishes, the title and the ring behind them. */
+    --hero-s: clamp(8.75rem, min(44vw, 30svh), 19rem);
+    --hero-title: clamp(2.9rem, min(12.6vw, 13svh), 7.25rem);
+    --hero-text-h: calc(var(--hero-title) * 1.95 + 5rem);
+
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background-color: var(--hero-bg, var(--ons-cream));
+    color: var(--hero-fg);
+    transition:
+      background-color 1.1s ease,
+      color 0.7s ease;
+  }
+  @media (min-width: 1100px) {
+    /* Every group name fits on one line here. */
+    .ons-hero { --hero-text-h: calc(var(--hero-title) + 5rem); }
+  }
+  .ons-hero[data-tone="dark"] {
+    --hero-fg: var(--ons-cream);
+    --hero-muted: rgb(250 246 236 / 0.78);
+    --hero-accent: var(--ons-gold-soft);
+    --hero-line: rgb(250 246 236 / 0.2);
+    --ons-focus: var(--ons-gold-soft);
+  }
+
+  .ons-hero-carousel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100svh;
+    padding-top: var(--ons-header-h);
+  }
+  .ons-hero-eyebrow {
+    margin-top: clamp(0.25rem, 1.5svh, 1.25rem);
+    padding-inline: var(--ons-gutter);
+    text-align: center;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: var(--hero-accent);
+    transition: color 0.7s ease;
+  }
+  .ons-hero-branch {
+    position: absolute;
+    z-index: -1;
+    color: var(--hero-line);
+    transition: color 0.7s ease;
+  }
+  .ons-hero-branch-a { left: -3.5rem; bottom: 4.5rem; width: min(22rem, 62vw); rotate: -6deg; }
+  .ons-hero-branch-b { right: -3.5rem; top: calc(var(--ons-header-h) + 0.5rem); width: min(24rem, 64vw); rotate: 174deg; }
+
+  /* The stage: slides are stacked on top of each other inside it. */
+  .ons-hero-stage {
+    position: relative;
+    flex: 1;
+    min-height: calc(var(--hero-text-h) + var(--hero-s) + 3rem);
+    touch-action: pan-y; /* sideways = our swipe, up/down = normal page scroll */
+    cursor: grab;
+    -webkit-user-select: none;
+    user-select: none;
+    animation: ons-hero-enter 1.2s var(--ons-ease) 0.1s backwards;
+  }
+  /* While the intro curtain is still down, wait for it to lift. */
+  .ons-intro:not([data-seen]) ~ .ons-hero .ons-hero-stage { animation-delay: 2.25s; }
+  .ons-hero-stage[data-dragging] { cursor: grabbing; }
+
+  .ons-hero-deco {
+    position: absolute;
+    inset: 0 0 var(--hero-text-h) 0;
+    z-index: -1;
+    container-type: size;
+    pointer-events: none;
+  }
+  .ons-hero-glow {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: min(130vw, 54rem);
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    border-radius: 50%;
+    transition: opacity 1.1s ease;
+  }
+  .ons-hero-glow-light { background: radial-gradient(closest-side, rgb(255 255 255 / 0.85), rgb(255 255 255 / 0) 72%); }
+  .ons-hero-glow-dark { background: radial-gradient(closest-side, rgb(201 162 39 / 0.24), rgb(201 162 39 / 0) 72%); opacity: 0; }
+  .ons-hero[data-tone="dark"] .ons-hero-glow-light { opacity: 0; }
+  .ons-hero[data-tone="dark"] .ons-hero-glow-dark { opacity: 1; }
+  /* A hairline "plate" behind the dishes; it turns one step with every slide. */
+  .ons-hero-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: min(94cqw, 112cqh);
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    rotate: calc(var(--hero-index, 0) * 60deg);
+    border: 1px solid var(--hero-line);
+    border-radius: 50%;
+    transition:
+      rotate 1.4s var(--ons-ease),
+      border-color 0.7s ease;
+  }
+  .ons-hero-ring::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 0.5rem;
+    height: 0.5rem;
+    translate: -50% -50%;
+    border-radius: 50%;
+    background: var(--ons-gold);
+  }
+  .ons-hero-ring::after {
+    content: "";
+    position: absolute;
+    inset: 7%;
+    border: 1px dashed var(--hero-line);
+    border-radius: 50%;
+  }
+
+  .ons-slide {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) var(--hero-text-h);
+    justify-items: center;
+    visibility: hidden;
+    pointer-events: none;
+    transition: visibility 0s linear 1.1s;
+  }
+  .ons-slide[data-state="active"] {
+    visibility: visible;
+    pointer-events: auto;
+    transition-delay: 0s;
+  }
+
+  /* The three dishes. `--drag` makes them follow the finger while swiping. */
+  .ons-cluster {
+    align-self: center;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    max-width: 100%;
+    border-radius: 2rem;
+    cursor: inherit;
+    -webkit-tap-highlight-color: transparent;
+    transform: translate3d(var(--drag, 0px), 0, 0);
+    transition: transform 0.7s var(--ons-ease);
+  }
+  .ons-hero-stage[data-dragging] .ons-cluster { transition: none; }
+  .ons-cluster-item {
+    position: relative;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: var(--hero-s);
+    transition:
+      transform 1s var(--ons-ease),
+      opacity 0.7s ease;
+    transition-delay: calc(var(--i) * 80ms);
+    will-change: transform, opacity;
+  }
+  .ons-cluster-item[data-pos="center"] { z-index: 2; }
+  .ons-cluster-item[data-pos="left"],
+  .ons-cluster-item[data-pos="right"] {
+    width: calc(var(--hero-s) * 0.66);
+    margin-bottom: calc(var(--hero-s) * 0.05);
+  }
+  .ons-cluster-item[data-pos="left"] { margin-right: calc(var(--hero-s) * -0.1); }
+  .ons-cluster-item[data-pos="right"] { margin-left: calc(var(--hero-s) * -0.1); }
+  .ons-slide[data-state="before"] .ons-cluster-item { transform: translate3d(-90vw, 0, 0) rotate(-14deg); opacity: 0; }
+  .ons-slide[data-state="after"] .ons-cluster-item { transform: translate3d(90vw, 0, 0) rotate(14deg); opacity: 0; }
+
+  .ons-float {
+    display: block;
+    width: 100%;
+    animation: ons-float 7s ease-in-out infinite;
+    animation-delay: calc(var(--i) * -2.3s);
+  }
+  .ons-float svg,
+  .ons-float img {
+    display: block;
+    width: 100%;
+    height: auto;
+    -webkit-user-drag: none;
+    pointer-events: none;
+  }
+  .ons-shadow {
+    width: 62%;
+    height: 0.7rem;
+    margin-top: 0.35rem;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgb(20 28 12 / 0.34), rgb(20 28 12 / 0));
+    animation: ons-shadow 7s ease-in-out infinite;
+    animation-delay: calc(var(--i) * -2.3s);
+  }
+  /* Slides that are off screen do not animate (saves battery). */
+  .ons-slide:not([data-state="active"]) .ons-float,
+  .ons-slide:not([data-state="active"]) .ons-shadow { animation-play-state: paused; }
+
+  .ons-slide-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+    padding-inline: var(--ons-gutter);
+    text-align: center;
+  }
+  .ons-slide-text > * {
+    transition:
+      transform 0.8s var(--ons-ease),
+      opacity 0.6s ease;
+  }
+  .ons-slide[data-state="before"] .ons-slide-text > * { transform: translate3d(-2.5rem, 0, 0); opacity: 0; }
+  .ons-slide[data-state="after"] .ons-slide-text > * { transform: translate3d(2.5rem, 0, 0); opacity: 0; }
+  .ons-slide-count {
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.3em;
+    color: var(--hero-accent);
+  }
+  .ons-slide-count span { margin-inline: 0.3em; opacity: 0.5; }
+  .ons-slide-title {
+    font-family: var(--ons-serif);
+    font-weight: 500;
+    font-size: var(--hero-title);
+    line-height: 0.95;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    transition-delay: 60ms;
+  }
+  .ons-slide-cats {
+    max-width: 36rem;
+    font-size: 0.74rem;
+    font-weight: 500;
+    line-height: 1.7;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    text-wrap: balance;
+    color: var(--hero-muted);
+    transition-delay: 120ms;
+  }
+
+  .ons-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.5rem var(--ons-gutter) 0;
+  }
+  /* Explore takes the slide's own colours, so it always stands out. */
+  .ons-hero-explore { background: var(--hero-fg); color: var(--hero-bg); }
+
+  .ons-hero-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.75rem var(--ons-gutter) max(1.1rem, env(safe-area-inset-bottom));
+  }
+  .ons-hero-arrow {
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--hero-line);
+    border-radius: 50%;
+    cursor: pointer;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.7s ease;
+  }
+  .ons-hero-arrow:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
+  .ons-dots { display: flex; align-items: center; padding-inline: 0.5rem; }
+  .ons-dot {
+    display: grid;
+    place-items: center;
+    min-width: 1.75rem;
+    height: 2.75rem;
+    padding-inline: 0.3rem;
+    cursor: pointer;
+  }
+  .ons-dot::before {
+    content: "";
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.38;
+    transition:
+      width 0.6s var(--ons-ease),
+      opacity 0.3s ease,
+      background-color 0.3s ease;
+  }
+  .ons-dot:hover::before { opacity: 0.8; }
+  .ons-dot[aria-current="true"]::before { width: 2rem; opacity: 1; background: var(--ons-gold); }
+  .ons-hero-hint { display: none; }
+  @media (min-width: 1024px) and (hover: hover) {
+    .ons-hero-hint {
+      display: block;
+      position: absolute;
+      right: var(--ons-gutter);
+      bottom: 1.9rem;
+      font-size: 0.66rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--hero-muted);
+    }
+  }
+
+  /* Reduced-motion version: six plain cards (switched on at the bottom of this file). */
+  .ons-hero-grid {
+    display: none;
+    padding-top: calc(var(--ons-header-h) + 2.5rem);
+    padding-bottom: 4rem;
+    text-align: center;
+  }
+  .ons-hero-grid-list { display: grid; gap: 1rem; margin-top: 2.5rem; text-align: left; }
+  @media (min-width: 640px) {
+    .ons-hero-grid-list { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (min-width: 1024px) {
+    .ons-hero-grid-list { grid-template-columns: repeat(3, 1fr); }
+  }
+  .ons-hero-card {
+    display: grid;
+    grid-template-columns: 5rem 1fr;
+    column-gap: 1.1rem;
+    align-items: center;
+    padding: 1.25rem;
+    border: 1px solid var(--ons-line);
+    border-radius: 1.25rem;
+    background: rgb(255 255 255 / 0.6);
+  }
+  .ons-hero-card-art { grid-row: span 3; width: 5rem; }
+  .ons-hero-card-cats { margin-top: 0.25rem; font-size: 0.85rem; color: var(--ons-ink-soft); }
+  .ons-hero-card-actions { display: flex; align-items: center; gap: 1.1rem; margin-top: 0.85rem; }
+
+  /* The intro curtain (first visit only; see hero-intro.tsx). */
+  .ons-intro {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    background: var(--ons-olive-night);
+    animation: ons-intro-out 0.95s cubic-bezier(0.7, 0, 0.2, 1) 2s both;
+  }
+  .ons-intro[data-seen] { display: none; }
+  .ons-intro-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.6rem;
+    padding: 2rem;
+  }
+  .ons-intro .ons-wordmark-name { animation: ons-intro-name 1.3s var(--ons-ease) 0.15s both; }
+  .ons-intro .ons-wordmark-tag { animation: ons-rise 0.8s var(--ons-ease) 0.7s both; }
+  .ons-intro .ons-wordmark-by { animation: ons-rise 0.8s var(--ons-ease) 0.95s both; }
+  .ons-intro-line {
+    width: min(14rem, 52vw);
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--ons-gold), transparent);
+    animation: ons-intro-line 1.2s var(--ons-ease) 0.45s both;
+  }
+
+  @keyframes ons-float {
+    0%, 100% { transform: translate3d(0, 0, 0) rotate(-1.2deg); }
+    50% { transform: translate3d(0, -12px, 0) rotate(1.2deg); }
+  }
+  @keyframes ons-shadow {
+    0%, 100% { transform: scaleX(1); opacity: 1; }
+    50% { transform: scaleX(0.8); opacity: 0.55; }
+  }
+  @keyframes ons-hero-enter {
+    from { opacity: 0; transform: translate3d(0, 28px, 0) scale(0.97); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes ons-intro-name {
+    from { opacity: 0; transform: translate3d(0, 12px, 0) scale(1.06); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes ons-intro-line {
+    from { opacity: 0; transform: scaleX(0); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes ons-intro-out {
+    to { transform: translate3d(0, -100%, 0); visibility: hidden; }
+  }
+
+  /* -------------------------------------------------------------------
+     7. EXPLORE PANEL
+     Phones: a sheet rising from the bottom. Wider screens: a panel from
+     the right. It is a native <dialog>; the open/close slide uses
+     @starting-style and falls back to simply appearing in older browsers.
+     ------------------------------------------------------------------- */
+  .ons-panel {
+    position: fixed;
+    inset: auto 0 0 0;
+    width: 100%;
+    max-width: none;
+    height: auto;
+    max-height: 88dvh;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 1.6rem 1.6rem 0 0;
+    overflow: hidden;
+    background: var(--ons-cream);
+    color: var(--ons-ink);
+    box-shadow: 0 -20px 60px -20px rgb(20 28 12 / 0.45);
+    transform: translate3d(0, 100%, 0);
+    transition:
+      transform 0.55s var(--ons-ease),
+      overlay 0.55s allow-discrete,
+      display 0.55s allow-discrete;
+    --ons-focus: var(--ons-gold-ink);
+  }
+  .ons-panel[open] { display: flex; transform: none; }
+  @starting-style {
+    .ons-panel[open] { transform: translate3d(0, 100%, 0); }
+  }
+  .ons-panel::backdrop {
+    background: rgb(26 34 18 / 0);
+    transition:
+      background-color 0.55s ease,
+      overlay 0.55s allow-discrete,
+      display 0.55s allow-discrete;
+  }
+  .ons-panel[open]::backdrop { background: rgb(26 34 18 / 0.55); }
+  @starting-style {
+    .ons-panel[open]::backdrop { background: rgb(26 34 18 / 0); }
+  }
+  @media (min-width: 768px) {
+    .ons-panel {
+      inset: 0 0 0 auto;
+      width: min(31rem, 92vw);
+      height: 100dvh;
+      max-height: none;
+      border-radius: 0;
+      box-shadow: -30px 0 70px -30px rgb(20 28 12 / 0.5);
+      transform: translate3d(100%, 0, 0);
+    }
+    @starting-style {
+      .ons-panel[open] { transform: translate3d(100%, 0, 0); }
+    }
+  }
+  .ons-panel-inner {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: 0;
+    max-height: inherit;
+  }
+  .ons-panel-grip {
+    flex: none;
+    width: 2.75rem;
+    height: 0.25rem;
+    margin: 0.7rem auto 0;
+    border-radius: 999px;
+    background: var(--ons-line-strong);
+  }
+  @media (min-width: 768px) {
+    .ons-panel-grip { display: none; }
+  }
+  .ons-panel-head {
+    flex: none;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.1rem 1.5rem 0.9rem;
+  }
+  @media (min-width: 768px) {
+    .ons-panel-head { padding: 2rem 2rem 1rem; }
+  }
+  .ons-panel-title { margin-top: 0.5rem; font-size: clamp(2rem, 7vw, 2.75rem); line-height: 1.02; color: var(--ons-olive-deep); }
+  .ons-panel-close {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--ons-line-strong);
+    border-radius: 50%;
+    color: var(--ons-olive-deep);
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  .ons-panel-close:hover { background: var(--ons-cream-deep); }
+
+  /* Chips: a row that scrolls sideways (also used on the menu page). */
+  .ons-chips {
+    flex: none;
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.25rem 1.5rem 0.9rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .ons-chips::-webkit-scrollbar { display: none; }
+  @media (min-width: 768px) {
+    .ons-panel .ons-chips { padding-inline: 2rem; flex-wrap: wrap; }
+  }
+  .ons-chip {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+    padding: 0 1rem;
+    border: 1px solid var(--ons-line-strong);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    color: var(--ons-olive-deep);
+    cursor: pointer;
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.3s ease;
+  }
+  .ons-chip:hover { border-color: var(--ons-olive); }
+  .ons-chip[aria-pressed="true"],
+  .ons-chip[aria-current="true"] {
+    border-color: var(--ons-olive-deep);
+    background: var(--ons-olive-deep);
+    color: var(--ons-cream);
+  }
+
+  .ons-panel-body {
+    flex: 1;
+    min-height: 0;
+    padding: 0.25rem 1.5rem 1.25rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-top: 1px solid var(--ons-line);
+  }
+  @media (min-width: 768px) {
+    .ons-panel-body { padding-inline: 2rem; }
+  }
+  .ons-panel-note {
+    padding-top: 0.9rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    color: var(--ons-ink-soft);
+  }
+  .ons-panel-list { padding-top: 0.4rem; }
+  .ons-panel-item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-block: 0.8rem;
+    border-bottom: 1px solid var(--ons-line);
+  }
+  .ons-panel-item:last-child { border-bottom: 0; }
+  .ons-panel-item-name {
+    font-family: var(--ons-serif);
+    font-size: 1.22rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--ons-olive-deep);
+  }
+  .ons-panel-item-serving {
+    margin-left: 0.5rem;
+    font-family: var(--ons-sans);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ons-ink-soft);
+  }
+  .ons-panel-item-price {
+    flex: none;
+    font-size: 0.92rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .ons-panel-foot {
+    flex: none;
+    display: flex;
+    gap: 0.6rem;
+    padding: 0.9rem 1.5rem max(1rem, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--ons-line);
+    background: var(--ons-cream);
+  }
+  @media (min-width: 768px) {
+    .ons-panel-foot { padding: 1.1rem 2rem 1.5rem; }
+  }
+
+  /* Chilli and star marks next to dish names. */
+  .ons-spice,
+  .ons-chef {
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+    margin-left: 0.45rem;
+    vertical-align: 0.05em;
+  }
+  .ons-spice { color: var(--ons-spice); }
+  .ons-chef { color: var(--ons-gold); }
+}
+
 /* ---------------------------------------------------------------------
    11. REDUCED MOTION
    People who ask their device for less motion get no animation at all.
@@ -599,4 +1222,10 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     transition-delay: 0ms !important;
   }
   .ons [data-reveal] { opacity: 1 !important; transform: none !important; }
+
+  /* Hero: no carousel and no intro; show the six groups as a simple grid. */
+  .ons-hero-carousel,
+  .ons-intro { display: none !important; }
+  .ons-hero-grid { display: block; }
+  .ons-hero { background-color: var(--ons-cream); color: var(--ons-ink); }
 }
