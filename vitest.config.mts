@@ -15,6 +15,8 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     environment: "node",
     setupFiles: ["tests/helpers/setup.ts"],
+    // Before the run: clear leftovers from an interrupted earlier run.
+    globalSetup: ["tests/helpers/global-setup.ts"],
     // Some tests temporarily change shared rows (an item's availability, the
     // delivery fee). Run files one at a time so they never collide.
     fileParallelism: false,
