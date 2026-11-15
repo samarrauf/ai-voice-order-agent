@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
-import { ArrowUpRight, Clock, MapPin, MessageCircle, Phone, Share2 } from "lucide-react";
+import { ArrowUpRight, Clock, MapPin, MessageCircle, Navigation, Phone, Share2 } from "lucide-react";
 import { cityLine, phoneHref, routes, site, whatsappHref } from "@/data/sites/olive-n-spice/config";
 import { hasDirectContact } from "../_components/contact-actions";
 import { PageHero } from "../_components/page-hero";
 import { pageMetadata } from "../_lib/seo";
 
 // Reserve & Contact. Bookings are taken by phone or WhatsApp; there is NO
-// online booking system connected here (that comes later). Every detail is
-// read from config.ts, and anything not known yet says "Coming soon" /
-// "To be confirmed" instead of showing a made-up value.
+// online booking system connected here (that comes later). Every detail
+// (phone, WhatsApp, hours, social pages, the Google Maps link) is read from
+// config.ts. Anything still `null` there (today: the street address) says
+// "To be confirmed" / "Coming soon" instead of showing a made-up value.
 
 export const metadata: Metadata = pageMetadata({
   title: "Reserve & Contact",
@@ -82,14 +83,14 @@ export default function ReservePage() {
           <ActionCard
             icon={<Phone size={22} strokeWidth={1.4} />}
             title="Call us"
-            value={site.contact.phone}
+            value={site.contact.phone?.display ?? null}
             href={phoneHref()}
             cta="Call now"
           />
           <ActionCard
             icon={<MessageCircle size={22} strokeWidth={1.4} />}
             title="WhatsApp"
-            value={site.contact.whatsapp}
+            value={site.contact.whatsapp?.display ?? null}
             href={whatsappHref(`Hello ${site.name}, I would like to reserve a table.`)}
             cta="Message us"
             newTab
@@ -174,7 +175,12 @@ export default function ReservePage() {
               )}
             </ul>
 
-            {/* The map. Paste a Google Maps embed link into config.ts (location.mapEmbedUrl) to switch it on. */}
+            {/*
+              The map box. A short Google Maps link cannot be shown inside a page,
+              so this is a card with a "Get directions" button that opens Google
+              Maps. If a long "embed" link is ever added to config.ts
+              (location.mapEmbedUrl), the live map shows here instead.
+            */}
             <div className="ons-map" data-reveal>
               {location.mapEmbedUrl ? (
                 <iframe
@@ -184,12 +190,27 @@ export default function ReservePage() {
                   referrerPolicy="no-referrer-when-downgrade"
                 />
               ) : (
-                <div className="ons-map-empty">
+                <div className="ons-map-card">
+                  <span className="ons-map-route" aria-hidden="true" />
                   <span className="ons-map-pin" aria-hidden="true">
                     <MapPin size={24} strokeWidth={1.4} />
                   </span>
-                  <p className="ons-map-title">{cityLine}</p>
-                  <p className="ons-tbc">Map coming soon</p>
+                  <p className="ons-map-title">{site.name}</p>
+                  <p className="ons-map-place">{cityLine}</p>
+                  {location.mapLinkUrl ? (
+                    <>
+                      <a href={location.mapLinkUrl} target="_blank" rel="noopener noreferrer" className="ons-btn ons-btn-olive">
+                        <Navigation size={16} aria-hidden />
+                        Get directions
+                        <span className="sr-only">(opens Google Maps in a new tab)</span>
+                      </a>
+                      <p className="ons-map-note" aria-hidden="true">
+                        Opens in Google Maps
+                      </p>
+                    </>
+                  ) : (
+                    <p className="ons-tbc">Map coming soon</p>
+                  )}
                 </div>
               )}
             </div>

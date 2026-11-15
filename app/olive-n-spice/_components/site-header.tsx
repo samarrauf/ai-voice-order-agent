@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useState, useSyncExternalStore } from "react";
-import { Menu, X } from "lucide-react";
-import { cityLine, routes, site } from "@/data/sites/olive-n-spice/config";
+import { Menu, Phone, X } from "lucide-react";
+import { cityLine, phoneHref, routes, site } from "@/data/sites/olive-n-spice/config";
 import { Wordmark } from "./wordmark";
 
 // The bar at the top of every page: wordmark, the three page links and a
@@ -18,6 +18,10 @@ const NAV = [
   { href: routes.events, label: "Events" },
   { href: routes.reserve, label: "Reserve" },
 ];
+
+// The call link (from config.ts). On tablets and computers it is a small round
+// phone button in the bar; on phones it is a full button inside the menu.
+const tel = phoneHref();
 
 function subscribeToScroll(onChange: () => void) {
   window.addEventListener("scroll", onChange, { passive: true });
@@ -62,6 +66,11 @@ export function SiteHeader() {
         </nav>
 
         <div className="ons-header-actions">
+          {tel && (
+            <a href={tel} className="ons-header-call" aria-label={`Call ${site.contact.phone?.display}`} title={`Call ${site.contact.phone?.display}`}>
+              <Phone size={18} strokeWidth={1.5} aria-hidden />
+            </a>
+          )}
           <Link href={routes.reserve} className="ons-btn ons-btn-gold ons-btn-sm">
             Reserve<span className="hidden sm:inline"> a table</span>
           </Link>
@@ -112,6 +121,12 @@ export function SiteHeader() {
             <Link href={routes.reserve} onClick={closeMenu} className="ons-btn ons-btn-gold w-full">
               Reserve a table
             </Link>
+            {tel && (
+              <a href={tel} className="ons-btn ons-btn-ghost w-full">
+                <Phone size={16} aria-hidden />
+                Call {site.contact.phone?.display}
+              </a>
+            )}
             <p className="text-center text-sm opacity-70">
               {site.tagline} · {cityLine}
             </p>

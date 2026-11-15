@@ -422,6 +422,21 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     transition: background-color 0.3s ease;
   }
   .ons-menu-toggle:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+  /* Round "call" button in the bar. Phones have no room for it, so there it lives inside the menu. */
+  .ons-header-call {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+    transition: background-color 0.3s ease;
+  }
+  .ons-header-call:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+  @media (min-width: 640px) {
+    .ons-header-call { display: inline-flex; }
+  }
   @media (min-width: 900px) {
     .ons-menu-toggle { display: none; }
   }
@@ -1854,11 +1869,12 @@ html:has(.ons dialog[open]) { overflow: hidden; }
   .ons-hours > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 1rem; }
   .ons-map {
     position: relative;
-    min-height: 20rem;
+    isolation: isolate;
+    min-height: 22rem;
     overflow: hidden;
     border: 1px solid var(--ons-line);
     border-radius: 1.5rem;
-    /* A soft street-grid pattern until the real map is switched on. */
+    /* A soft street-grid pattern behind the "Get directions" card. */
     background:
       radial-gradient(22rem 14rem at 50% 45%, rgb(250 246 236 / 0.9), transparent 70%),
       linear-gradient(rgb(47 61 34 / 0.09) 1px, transparent 1px) 0 0 / 100% 2.75rem,
@@ -1866,17 +1882,51 @@ html:has(.ons dialog[open]) { overflow: hidden; }
       var(--ons-sage-soft);
   }
   .ons-map iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-  .ons-map-empty {
+  /* The "Get directions" card that stands in for a live map. */
+  .ons-map-card {
     position: absolute;
     inset: 0;
     display: grid;
     place-content: center;
     justify-items: center;
     gap: 0.4rem;
+    padding: 2rem 1.5rem;
     text-align: center;
   }
-  .ons-map-pin { width: 3.5rem; height: 3.5rem; margin-bottom: 0.5rem; box-shadow: 0 0 0 0.6rem rgb(47 61 34 / 0.1); }
-  .ons-map-title { font-family: var(--ons-serif); font-size: 1.6rem; font-weight: 500; color: var(--ons-olive-deep); }
+  /* A dashed gold "route" curving across the card, behind the pin. */
+  .ons-map-route {
+    position: absolute;
+    left: -12%;
+    top: 50%;
+    z-index: -1;
+    width: 124%;
+    aspect-ratio: 2.6;
+    translate: 0 -58%;
+    rotate: -9deg;
+    border: 2px dashed rgb(201 162 39 / 0.55);
+    border-radius: 50%;
+    -webkit-mask-image: linear-gradient(90deg, transparent 4%, #000 30%, #000 70%, transparent 96%);
+    mask-image: linear-gradient(90deg, transparent 4%, #000 30%, #000 70%, transparent 96%);
+  }
+  .ons-map-pin {
+    width: 3.75rem;
+    height: 3.75rem;
+    margin-bottom: 0.9rem;
+    box-shadow:
+      0 0 0 0.6rem rgb(47 61 34 / 0.1),
+      0 0 0 1.5rem rgb(47 61 34 / 0.05),
+      0 18px 30px -14px rgb(35 46 25 / 0.6);
+  }
+  .ons-map-title { font-family: var(--ons-serif); font-size: clamp(1.6rem, 4vw, 2rem); font-weight: 500; line-height: 1.1; color: var(--ons-olive-deep); }
+  .ons-map-place {
+    margin-bottom: 1.1rem;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--ons-gold-ink);
+  }
+  .ons-map-note { margin-top: 0.5rem; font-size: 0.8rem; color: var(--ons-ink-soft); }
 }
 
 /* ---------------------------------------------------------------------

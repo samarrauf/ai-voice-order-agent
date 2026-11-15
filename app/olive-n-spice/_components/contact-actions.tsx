@@ -21,7 +21,7 @@ export function ContactActions({ whatsappMessage, className }: Props) {
       {tel ? (
         <a href={tel} className="ons-btn ons-btn-gold">
           <Phone size={16} aria-hidden />
-          Call {site.contact.phone}
+          Call {site.contact.phone?.display}
         </a>
       ) : (
         <span className="ons-btn" aria-disabled="true">

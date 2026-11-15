@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
-import { cityLine, menuAnchor, routes, site } from "@/data/sites/olive-n-spice/config";
+import { cityLine, hoursSummary, menuAnchor, routes, site } from "@/data/sites/olive-n-spice/config";
 import type { HeroArt } from "@/data/sites/olive-n-spice/hero";
 import { formatPriceLine, getChefSpecials } from "@/data/sites/olive-n-spice/menu";
 import { ContactActions, hasDirectContact } from "./contact-actions";
@@ -160,7 +160,7 @@ export function ReserveSection() {
       <OliveBranch className="ons-reserve-branch" />
       <div className="ons-container ons-reserve-inner">
         <p className="ons-eyebrow ons-eyebrow-center" data-reveal>
-          {cityLine}
+          {hoursSummary ? `${cityLine} · ${hoursSummary}` : cityLine}
         </p>
         <h2 id="reserve-title" className="ons-display ons-h2" data-reveal style={delay(80)}>
           Reserve <em>your table.</em>
@@ -177,6 +177,12 @@ export function ReserveSection() {
           <Link href={routes.reserve} className="ons-link">
             Reserve &amp; contact <ArrowRight size={14} aria-hidden />
           </Link>
+          {site.location.mapLinkUrl && (
+            <a href={site.location.mapLinkUrl} target="_blank" rel="noopener noreferrer" className="ons-link">
+              Get directions <ArrowUpRight size={14} aria-hidden />
+              <span className="sr-only">(opens Google Maps in a new tab)</span>
+            </a>
+          )}
           {facebook && (
             <a href={facebook.url} target="_blank" rel="noopener noreferrer" className="ons-link">
               Facebook <ArrowUpRight size={14} aria-hidden />

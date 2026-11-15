@@ -1,15 +1,17 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
-import { cityLine, routes, site } from "@/data/sites/olive-n-spice/config";
+import { ArrowUpRight, Phone } from "lucide-react";
+import { cityLine, phoneHref, routes, site } from "@/data/sites/olive-n-spice/config";
 import { OliveBranch } from "./ornaments";
 import { Wordmark } from "./wordmark";
 
 // The dark band at the bottom of every page: logo, page links, where to
-// find us and social links. Anything we do not know yet (address, hours)
+// find us (directions, phone, hours) and social links, all read from
+// config.ts. Anything still unknown there (today: the street address)
 // shows "To be confirmed" instead of a made-up value.
 
 export function SiteFooter() {
   const { facebook, instagram } = site.social;
+  const tel = phoneHref();
 
   return (
     <footer className="ons-footer ons-on-dark">
@@ -39,6 +41,23 @@ export function SiteFooter() {
             <ul className="ons-footer-list">
               <li>{site.location.streetAddress ?? <span className="ons-tbc">Address to be confirmed</span>}</li>
               <li>{cityLine}</li>
+              {site.location.mapLinkUrl && (
+                <li>
+                  <a href={site.location.mapLinkUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5">
+                    Get directions <ArrowUpRight size={14} aria-hidden />
+                    <span className="sr-only">(opens Google Maps in a new tab)</span>
+                  </a>
+                </li>
+              )}
+              {tel && (
+                <li>
+                  <a href={tel} className="inline-flex items-center gap-1.5">
+                    <Phone size={14} aria-hidden />
+                    <span className="sr-only">Call </span>
+                    {site.contact.phone?.display}
+                  </a>
+                </li>
+              )}
               <li>
                 {site.openingHours ? (
                   site.openingHours.map((row) => (

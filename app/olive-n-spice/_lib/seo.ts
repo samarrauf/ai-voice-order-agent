@@ -52,10 +52,18 @@ export function restaurantJsonLd(): Record<string, unknown> {
   };
 
   if (sameAs.length > 0) data.sameAs = sameAs;
-  if (contact.phone) data.telephone = contact.phone;
+  if (contact.phone) data.telephone = contact.phone.international;
   if (contact.email) data.email = contact.email;
   if (location.mapLinkUrl) data.hasMap = location.mapLinkUrl;
-  if (openingHours) data.openingHours = openingHours.map((row) => `${row.days} ${row.hours}`);
+  if (openingHours) {
+    // Open all day is written as 00:00 to 23:59, the form Google asks for.
+    data.openingHoursSpecification = openingHours.map((row) => ({
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: row.schema.dayOfWeek,
+      opens: row.schema.opens,
+      closes: row.schema.closes,
+    }));
+  }
   if (site.siteUrl) {
     data.url = `${site.siteUrl}${routes.home}`;
     data.hasMenu = `${site.siteUrl}${routes.menu}`;
