@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Armchair, ArrowRight, CircleAlert, Clock, Inbox, Phone, Store } from "lucide-react";
+import { Badge, Button, Card, EmptyState, FilterChips, PageHeader, StatusBadge, cn } from "@/components/ui";
 
 export type BoardOrder = {
   id: string;
@@ -43,8 +45,8 @@ const sourceLabel = (o: BoardOrder) =>
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
 
-const itemsSummary = (o: BoardOrder) =>
-  o.items.map((i) => `${i.quantity}× ${i.name}${i.size ? ` (${i.size})` : ""}`).join(", ");
+// Icon shown next to where the order came from. Anything else is a table order.
+const SOURCE_ICON: Record<string, typeof Phone> = { phone: Phone, walk_in: Store };
 
 export function OrdersBoard({ orders }: { orders: BoardOrder[] }) {
   const router = useRouter();
@@ -84,52 +86,105 @@ export function OrdersBoard({ orders }: { orders: BoardOrder[] }) {
   }
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <h1 className="mb-4 text-2xl font-semibold">Live Orders</h1>
+    <div>
+      <PageHeader
+        title="Orders"
+        subtitle={
+          <span className="inline-flex items-center gap-2">
+            <span aria-hidden className="dot-pulse size-2 rounded-full bg-status-ready" />
+            Live. Updates every 15 seconds.
+          </span>
+        }
+      />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`rounded-full border px-4 py-1.5 text-sm ${tab === t.key ? "border-accent bg-accent text-accent-contrast" : "hover:bg-foreground/5"}`}
-          >
-            {t.label} ({count(t.key)})
-          </button>
-        ))}
-      </div>
+      <FilterChips
+        label="Order status"
+        chips={TABS.map((t) => ({ ...t, count: count(t.key) }))}
+        value={tab}
+        onChange={setTab}
+        className="mb-5"
+      />
 
-      {error && <p role="alert" className="mb-3 text-sm text-red-600">{error}</p>}
+      {error && (
+        <p role="alert" className="mb-4 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/12 px-4 py-3 text-sm text-danger">
+          <CircleAlert size={16} aria-hidden className="shrink-0" />
+          {error}
+        </p>
+      )}
 
       {visible.length === 0 ? (
-        <p className="py-12 text-center text-foreground/60">No orders here.</p>
+        <Card className="anim-rise">
+          <EmptyState
+            className="min-h-64"
+            icon={<Inbox size={20} />}
+            title={tab === "all" ? "No orders yet" : `No ${STATUS_LABEL[tab].toLowerCase()} orders`}
+            message="Phone, walk-in and table orders appear here by themselves as they come in."
+          />
+        </Card>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {visible.map((o) => {
             const next = NEXT[o.status];
+            const isNew = group(o) === "new";
+            const Source = SOURCE_ICON[o.source] ?? Armchair;
             return (
-              <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
-                <div className="min-w-0 flex-1">
-                  <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <span className="font-semibold">{o.order_number}</span>
-                    <span className="rounded bg-accent px-2 py-0.5 text-xs text-accent-contrast">{sourceLabel(o)}</span>
-                    <span className="rounded border px-2 py-0.5 text-xs">{STATUS_LABEL[o.status] ?? o.status}</span>
-                    <span className="text-sm text-foreground/60">{formatTime(o.created_at)}</span>
+              <li
+                key={o.id}
+                className={cn(
+                  "flex flex-col rounded-2xl border bg-surface p-5 transition-colors duration-200",
+                  isNew ? "order-new border-status-new/40" : "anim-rise border-line hover:border-line-strong",
+                  !next && "opacity-70",
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-xl font-bold tabular-nums">{o.order_number}</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-faint">
+                      <Clock size={13} aria-hidden />
+                      <span className="tabular-nums">{formatTime(o.created_at)}</span>
+                    </p>
                   </div>
-                  <p className="text-sm">{itemsSummary(o) || "No items"}</p>
+                  <StatusBadge status={o.status} />
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-semibold">£{o.total.toFixed(2)}</span>
-                  {next && (
-                    <button
-                      onClick={() => advance(o, next.status)}
-                      disabled={busyId === o.id}
-                      className="rounded bg-accent px-3 py-2 text-sm text-accent-contrast disabled:opacity-50"
-                    >
-                      {busyId === o.id ? "Saving..." : next.label}
-                    </button>
+
+                <Badge className="mt-3 self-start">
+                  <Source size={13} aria-hidden />
+                  {sourceLabel(o)}
+                </Badge>
+
+                <ul className="mt-4 flex-1 space-y-1.5 border-t border-line pt-4 text-sm">
+                  {o.items.length === 0 ? (
+                    <li className="text-ink-faint">No items</li>
+                  ) : (
+                    o.items.map((i, n) => (
+                      <li key={n} className="flex gap-2">
+                        <span className="w-7 shrink-0 font-bold tabular-nums text-accent-ink">{i.quantity}×</span>
+                        <span>
+                          {i.name}
+                          {i.size && <span className="text-ink-faint"> ({i.size})</span>}
+                        </span>
+                      </li>
+                    ))
                   )}
+                </ul>
+
+                <div className="mt-4 flex items-baseline justify-between border-t border-line pt-4">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint">Total</span>
+                  <span className="text-2xl font-bold tabular-nums">£{o.total.toFixed(2)}</span>
                 </div>
+
+                {next && (
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    onClick={() => advance(o, next.status)}
+                    disabled={busyId === o.id}
+                    className="mt-4 w-full"
+                  >
+                    {busyId === o.id ? "Saving..." : next.label}
+                    {busyId !== o.id && <ArrowRight size={18} aria-hidden />}
+                  </Button>
+                )}
               </li>
             );
           })}

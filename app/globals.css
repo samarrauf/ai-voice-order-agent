@@ -1,27 +1,56 @@
 @import "tailwindcss";
 
+/* =====================================================================
+   DESIGN SYSTEM
+   One place for every colour, font and animation the dashboard uses.
+   Components in components/ui/ are built only from these tokens.
+   ===================================================================== */
+
 :root {
+  /* Used by the non-dashboard pages (home, test-chat). */
   --background: #ffffff;
   --foreground: #171717;
-  /* Restaurant theme. These are only fallbacks: the dashboard layout overrides
-     them from the restaurants table (lib/branding.ts). --color-background and
-     --color-text-ish values are set there too, on the dashboard wrapper. */
+}
+
+@theme static {
+  /* --- Restaurant theme -------------------------------------------------
+     Fallbacks only. The dashboard layout overrides these three (plus
+     --color-on-accent) from the restaurants table (lib/branding.ts), so the
+     same dashboard re-skins itself for every restaurant. */
   --color-primary: #1e293b;
   --color-accent: #3b82f6;
   --color-secondary: #64748b;
-  --color-text: #1a1a1a;
-  /* Top bar and buttons use the restaurant's primary colour. */
-  --accent-color: var(--color-primary);
-  --accent-contrast: #ffffff;
+  --color-on-accent: #ffffff; /* readable text on top of the accent */
+
+  /* --- Neutral dark surfaces (same for every restaurant) ---------------- */
+  --color-canvas: #0b0b0b;      /* page background */
+  --color-surface: #111214;     /* cards */
+  --color-raised: #17181b;      /* things sitting on a card: chips, inputs */
+  --color-line: #222327;        /* thin borders */
+  --color-line-strong: #34363c; /* borders on hover */
+  --color-ink: #f4f4f5;         /* main text */
+  --color-ink-muted: #a3a3ad;   /* secondary text */
+  --color-ink-faint: #6e6f78;   /* labels, hints */
+
+  /* --- Meaning colours (order status, up/down arrows, errors) ----------- */
+  --color-status-new: #60a5fa;
+  --color-status-preparing: #fbbf24;
+  --color-status-ready: #34d399;
+  --color-danger: #f87171;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-accent: var(--accent-color);
-  --color-accent-contrast: var(--accent-contrast);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  /* Dashboard fonts (loaded with next/font in app/dashboard/layout.tsx). */
+  --font-display: var(--font-display-face), ui-serif, Georgia, serif;
+  --font-ui: var(--font-ui-face), ui-sans-serif, system-ui, sans-serif;
+  /* Shades of the accent, worked out in .dash below. */
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-line: var(--accent-line);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -35,6 +64,78 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ---- Dashboard wrapper ----
+   Everything under /dashboard sits inside .dash. The accent shades are
+   calculated here (not on :root) so they follow the restaurant's accent. */
+.dash {
+  --accent-ink: color-mix(in oklab, var(--color-accent) 78%, white); /* accent as text on dark */
+  --accent-soft: color-mix(in oklab, var(--color-accent) 14%, transparent);
+  --accent-line: color-mix(in oklab, var(--color-accent) 42%, transparent);
+  min-height: 100vh;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-ui-face), ui-sans-serif, system-ui, sans-serif;
+  color-scheme: dark;
+}
+body:has(.dash) { background: var(--color-canvas); }
+.dash :focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+.dash ::selection { background: var(--accent-line); }
+
+/* Soft glow behind the login card. */
+.login-glow {
+  position: absolute;
+  top: -18rem;
+  left: 50%;
+  width: 56rem;
+  height: 44rem;
+  max-width: 160vw;
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, var(--accent-soft), transparent);
+  pointer-events: none;
+}
+
+/* Scrollable rows (tabs, chips) without an ugly scrollbar. */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ---- Animations (all CSS, all switched off for reduced motion) ---- */
+.anim-rise { animation: rise 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+/* A freshly arrived order: slides in, then its ring glows three times. */
+.order-new {
+  animation:
+    rise 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both,
+    order-glow 1.8s ease-in-out 0.3s 3;
+}
+.dot-pulse { animation: dot-pulse 1.6s ease-in-out infinite; }
+.skeleton {
+  background: linear-gradient(100deg, var(--color-raised) 30%, var(--color-line) 50%, var(--color-raised) 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes order-glow {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50% { box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-status-new) 28%, transparent); }
+}
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-rise, .order-new, .dot-pulse, .skeleton { animation: none; }
+  .dash * { transition-duration: 0.01ms !important; }
 }
 
 /* ---- Dashboard splash screen (app/dashboard/splash.tsx) ----

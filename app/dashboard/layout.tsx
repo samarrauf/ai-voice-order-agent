@@ -1,19 +1,30 @@
 import { Suspense } from "react";
 import type { CSSProperties } from "react";
 import { cookies } from "next/headers";
+import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
+import { LogOut } from "lucide-react";
 import { DEMO_RESTAURANT_ID } from "@/lib/agent/tools";
-import { getBranding, readableOn } from "@/lib/branding";
+import { type Branding, getBranding, readableOn } from "@/lib/branding";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/dashboard-auth";
+import { cn } from "@/components/ui";
 import { logout } from "./actions";
-import { NavLinks } from "./nav-links";
+import { BottomNav, MainTabs, SecondaryLinks } from "./nav-links";
 import { Splash } from "./splash";
+import { TodayDate } from "./today-date";
 
-// Shared frame for every /dashboard page: a top bar with the nav links and a
-// logout button. Colours come from the restaurant's theme in the database
-// (lib/branding.ts), set below as CSS variables on the wrapper element.
+// Dashboard fonts: an elegant serif for headings, a modern sans for everything
+// else. next/font downloads them at build time and serves them from our own site.
+const displayFont = Fraunces({ subsets: ["latin"], variable: "--font-display-face" });
+const uiFont = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-ui-face" });
+
+// Shared frame for every /dashboard page: a slim header (restaurant badge, name,
+// date, tabs, log out) and, on phones, a bottom navigation bar.
+// The dashboard is always dark and neutral; only the accent comes from the
+// restaurant's theme in the database (lib/branding.ts), set below as CSS
+// variables on the wrapper. See the design tokens in app/globals.css.
 // Every full page load also plays the splash screen (./splash.tsx).
 // The login page lives under /dashboard too, so when nobody is logged in we
-// skip the bar and show the page on its own (still themed, with the splash).
+// skip the header and show the login frame instead (still themed, with the splash).
 async function Shell({ children }: { children: React.ReactNode }) {
   const loggedIn = verifySessionToken((await cookies()).get(SESSION_COOKIE)?.value);
   // One restaurant uses the dashboard for now (see CLAUDE.md "Dashboard auth"),
@@ -24,41 +35,88 @@ async function Shell({ children }: { children: React.ReactNode }) {
     "--color-primary": branding.primary,
     "--color-accent": branding.accent,
     "--color-secondary": branding.secondary,
-    "--color-background": branding.background,
-    "--color-text": branding.text,
-    // Aliases so the existing Tailwind classes (bg-background, text-foreground, bg-accent...) follow the theme too.
-    "--background": branding.background,
-    "--foreground": branding.text,
-    "--accent-color": branding.primary,
-    "--accent-contrast": readableOn(branding.primary),
+    "--color-on-accent": readableOn(branding.accent),
     "--splash-text": readableOn(branding.primary),
-    background: branding.background,
-    color: branding.text,
   } as CSSProperties;
 
   return (
-    <div style={themeVars} className="min-h-screen">
+    <div style={themeVars} className={cn("dash", displayFont.variable, uiFont.variable)}>
       <Splash branding={branding} />
-      {loggedIn ? <Frame name={branding.name}>{children}</Frame> : children}
+      {loggedIn ? <Frame branding={branding}>{children}</Frame> : <LoginFrame branding={branding}>{children}</LoginFrame>}
     </div>
   );
 }
 
-function Frame({ name, children }: { name: string; children: React.ReactNode }) {
+/** Round badge with the restaurant's first letter. Stands in for the logo until a real one is added. */
+function InitialBadge({ name, large }: { name: string; large?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-full bg-accent font-display font-semibold text-on-accent ring-1 ring-accent-line ring-offset-2 ring-offset-canvas",
+        large ? "size-16 text-3xl" : "size-10 text-lg",
+      )}
+    >
+      {name.trim().charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
+function Frame({ branding, children }: { branding: Branding; children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between gap-4 bg-accent px-4 py-2 text-accent-contrast">
-        <div className="flex items-center gap-6">
-          <span className="font-semibold">{name} POS</span>
-          <NavLinks />
+      <header className="sticky top-0 z-30 border-b border-line bg-canvas/85 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-3 px-4 sm:px-6">
+          <InitialBadge name={branding.name} />
+          <div className="min-w-0">
+            <p className="truncate font-display text-lg font-semibold leading-tight">{branding.name}</p>
+            <p className="truncate text-xs text-ink-faint"><TodayDate /></p>
+          </div>
+
+          <div className="ml-auto flex items-center gap-1 sm:gap-2">
+            <div className="hidden lg:block">
+              <MainTabs />
+            </div>
+            <SecondaryLinks />
+            <form action={logout}>
+              <button
+                type="submit"
+                aria-label="Log out"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-line bg-raised px-3 text-sm font-semibold transition-colors duration-200 hover:border-line-strong sm:px-4"
+              >
+                <LogOut size={16} aria-hidden />
+                <span className="hidden sm:inline">Log out</span>
+              </button>
+            </form>
+          </div>
         </div>
-        <form action={logout}>
-          <button type="submit" className="rounded border border-white/40 px-3 py-1.5 text-sm hover:bg-white/10">
-            Log out
-          </button>
-        </form>
       </header>
-      <main className="flex-1 p-4">{children}</main>
+
+      {/* Extra bottom padding below lg so the bottom navigation never covers content. */}
+      <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 pb-28 pt-6 sm:px-6 sm:pt-8 lg:pb-12">{children}</main>
+      <BottomNav />
+    </div>
+  );
+}
+
+/** What a logged-out visitor sees: the restaurant's name over a soft glow, with the login form below it. */
+function LoginFrame({ branding, children }: { branding: Branding; children: React.ReactNode }) {
+  return (
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-10">
+      <div aria-hidden className="login-glow" />
+      <div className="anim-rise relative w-full max-w-sm">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <InitialBadge name={branding.name} large />
+          <p className="mt-5 font-display text-3xl font-semibold tracking-tight sm:text-4xl">{branding.name}</p>
+          {branding.tagline && (
+            <p className="mt-2 text-xs font-medium uppercase tracking-[0.18em] text-ink-faint">{branding.tagline}</p>
+          )}
+        </div>
+        {children}
+        {branding.parentGroupName && (
+          <p className="mt-6 text-center text-xs italic text-ink-faint">by {branding.parentGroupName}</p>
+        )}
+      </div>
     </div>
   );
 }

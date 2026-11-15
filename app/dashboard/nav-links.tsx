@@ -2,29 +2,85 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CalendarDays, LayoutDashboard, LayoutGrid, MessagesSquare, ReceiptText, Users, UtensilsCrossed } from "lucide-react";
+import { PillTabs, cn, isActiveTab } from "@/components/ui";
 
-const LINKS = [
-  { href: "/dashboard", label: "Orders" },
-  { href: "/dashboard/bookings", label: "Bookings" },
-  { href: "/dashboard/stats", label: "Stats" },
+// The five main sections. Orders stays at /dashboard (where login lands).
+const TABS = [
+  { href: "/dashboard/overview", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Orders", icon: ReceiptText, exact: true },
+  { href: "/dashboard/bookings", label: "Bookings", icon: CalendarDays },
+  { href: "/dashboard/conversations", label: "Conversations", short: "Calls", icon: MessagesSquare },
+  { href: "/dashboard/customers", label: "Customers", icon: Users },
 ];
 
-export function NavLinks() {
+// Smaller, less-used pages.
+const SECONDARY = [
+  { href: "/dashboard/tables", label: "Tables", icon: LayoutGrid },
+  { href: "/dashboard/menu", label: "Menu", icon: UtensilsCrossed },
+];
+
+/** Desktop: the pill tabs in the header. */
+export function MainTabs() {
+  return <PillTabs tabs={TABS} />;
+}
+
+/** Tables + Menu: small text links on wide screens, icon buttons on narrow ones. */
+export function SecondaryLinks() {
   const pathname = usePathname();
   return (
-    <nav className="flex gap-1">
-      {LINKS.map((l) => {
-        const active = l.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(l.href);
+    <div className="flex items-center">
+      {SECONDARY.map((link) => {
+        const active = isActiveTab(pathname, link);
         return (
           <Link
-            key={l.href}
-            href={l.href}
-            className={`rounded px-3 py-1.5 text-sm font-medium ${active ? "bg-accent-contrast text-accent" : "text-accent-contrast/80 hover:bg-white/10"}`}
+            key={link.href}
+            href={link.href}
+            aria-label={link.label}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors duration-200",
+              active ? "text-accent-ink" : "text-ink-faint hover:text-ink",
+            )}
           >
-            {l.label}
+            <link.icon size={18} aria-hidden className="xl:hidden" />
+            <span className="hidden xl:inline">{link.label}</span>
           </Link>
         );
       })}
+    </div>
+  );
+}
+
+/** Phone and tablet: the same five sections as a bar fixed to the bottom of the screen. */
+export function BottomNav() {
+  const pathname = usePathname();
+  return (
+    <nav
+      aria-label="Sections"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-canvas/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
+    >
+      <ul className="mx-auto grid max-w-xl grid-cols-5">
+        {TABS.map((tab) => {
+          const active = isActiveTab(pathname, tab);
+          return (
+            <li key={tab.href}>
+              <Link
+                href={tab.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "relative flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-colors duration-200",
+                  active ? "text-accent-ink" : "text-ink-faint hover:text-ink",
+                )}
+              >
+                {active && <span aria-hidden className="absolute top-0 h-0.5 w-8 rounded-full bg-accent" />}
+                <tab.icon size={20} aria-hidden />
+                {tab.short ?? tab.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </nav>
   );
 }

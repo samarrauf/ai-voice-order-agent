@@ -1,7 +1,6 @@
+import { redirect } from "next/navigation";
+
+// "Stats" was renamed to "Overview". Old links and bookmarks still work.
 export default function StatsPage() {
-  return (
-    <div className="flex h-64 items-center justify-center">
-      <p className="text-xl text-foreground/60">Stats — coming soon</p>
-    </div>
-  );
+  redirect("/dashboard/overview");
 }
