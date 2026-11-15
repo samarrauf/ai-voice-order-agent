@@ -78,6 +78,8 @@ export async function POST(request: Request) {
       requested_time: null,
       notes: null,
       source: session.source === "booking" ? "table_booking" : "walk_in",
+      // Saved in the same insert as the order (create_order_tx, migration 0009).
+      table_session_id: session.id,
     },
     p_items: toOrderItemsPayload(lines),
   });
@@ -86,18 +88,6 @@ export async function POST(request: Request) {
     return fail("order insert failed", 500);
   }
   const saved = order as { id: string; order_number: string; source: string };
-
-  // create_order_tx doesn't take table_session_id, so link it right after. If
-  // that fails, remove the order so there is never an unlinked dine-in order.
-  const { error: linkError } = await supabaseAdmin
-    .from("orders")
-    .update({ table_session_id: session.id })
-    .eq("id", saved.id);
-  if (linkError) {
-    console.error("manual-order: linking table session failed", linkError);
-    await supabaseAdmin.from("orders").delete().eq("id", saved.id);
-    return fail("order insert failed", 500);
-  }
 
   return NextResponse.json(
     {

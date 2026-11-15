@@ -6,7 +6,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 // Staff action: seat a party at a table. Creates a table_sessions row
 // (seated_at = now). With a booking_id it's a booked customer arriving
 // (source 'booking'); without one it's a walk-in (source 'walk_in').
-// A table that already has an open session (cleared_at is null) can't be seated again.
+// A table that already has an open session (cleared_at is null) can't be seated again,
+// and a party can't be bigger than the table's seats.
 
 const bodySchema = z.object({
   restaurant_id: z.guid(),
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
 
   // Three independent lookups, in parallel.
   const [tableRes, openRes, bookingRes] = await Promise.all([
-    supabaseAdmin.from("restaurant_tables").select("id").eq("id", table_id).eq("restaurant_id", restaurant_id).maybeSingle(),
+    supabaseAdmin.from("restaurant_tables").select("id, seats").eq("id", table_id).eq("restaurant_id", restaurant_id).maybeSingle(),
     supabaseAdmin.from("table_sessions").select("id").eq("table_id", table_id).is("cleared_at", null).limit(1),
     booking_id
       ? supabaseAdmin.from("bookings").select("id, status").eq("id", booking_id).eq("restaurant_id", restaurant_id).maybeSingle()
@@ -40,6 +41,9 @@ export async function POST(request: Request) {
     return fail("database lookup failed", 500);
   }
   if (!tableRes.data) return fail("table not found for this restaurant", 404);
+  if (party_size > tableRes.data.seats) {
+    return fail(`party of ${party_size} is more than this table seats (${tableRes.data.seats})`, 400);
+  }
   if (booking_id && !bookingRes.data) return fail("booking not found for this restaurant", 404);
   if (bookingRes.data?.status === "cancelled") return fail("booking is cancelled", 409);
   if (openRes.data && openRes.data.length > 0) return fail("table is already occupied", 409);
@@ -56,6 +60,9 @@ export async function POST(request: Request) {
     })
     .select("id, restaurant_id, table_id, booking_id, party_size, source, seated_at")
     .single();
+  // The database allows one open session per table (migration 0009). If another
+  // staff member seated this table between our check and our insert, it says so here.
+  if (error?.code === "23505") return fail("table is already occupied", 409);
   if (error || !session) {
     console.error("seat-table: insert failed", error);
     return fail("could not seat the table", 500);

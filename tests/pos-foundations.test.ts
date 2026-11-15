@@ -59,6 +59,8 @@ describe("table_sessions", () => {
   });
 
   it.each(["walk_in", "booking"])("accepts source '%s'", async (source) => {
+    // Since migration 0009 a table can have only one open session, so free it first.
+    await db.from("table_sessions").update({ cleared_at: new Date().toISOString() }).eq("table_id", tableId).is("cleared_at", null);
     const { data, error } = await db
       .from("table_sessions")
       .insert(session({ source }))

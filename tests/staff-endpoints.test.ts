@@ -28,6 +28,8 @@ const pence = (v: number | string) => Math.round(Number(v) * 100);
 const sessionIds: string[] = [];
 let tableId: string;
 let secondTableId: string;
+let smallTableId: string; // a 2-seater
+let smallTableSeats: number;
 let bookingId: string;
 let expectedSubtotal: number;
 
@@ -55,12 +57,18 @@ const defaultItems = () => [
 
 beforeAll(async () => {
   // Two tables with nobody sitting at them right now, so real sessions are never touched.
-  const { data: tables } = await db.from("restaurant_tables").select("id").eq("restaurant_id", RID);
+  const { data: tables } = await db.from("restaurant_tables").select("id, seats").eq("restaurant_id", RID);
   const { data: open } = await db.from("table_sessions").select("table_id").is("cleared_at", null);
   const busy = new Set((open ?? []).map((o) => o.table_id));
-  const free = (tables ?? []).map((t) => t.id).filter((id) => !busy.has(id));
-  expect(free.length, "need two unoccupied tables for the staff tests").toBeGreaterThanOrEqual(2);
-  [tableId, secondTableId] = free;
+  const free = (tables ?? []).filter((t) => !busy.has(t.id));
+  // Two tables big enough for a party of 3, plus the smallest one for the capacity/race tests.
+  const big = free.filter((t) => t.seats >= 4);
+  const small = [...free].sort((a, b) => a.seats - b.seats)[0];
+  expect(big.length, "need two unoccupied tables with 4+ seats").toBeGreaterThanOrEqual(2);
+  expect(small, "need an unoccupied small table").toBeTruthy();
+  [tableId, secondTableId] = [big[0].id, big[1].id];
+  smallTableId = small.id;
+  smallTableSeats = small.seats;
 
   // A booking to "arrive" (removed afterwards).
   const { data: booking, error } = await db
@@ -155,6 +163,49 @@ describe("seat-table", () => {
     expect((await seat(secondTableId, { party_size: 0 })).status).toBe(400);
     const unknown = "00000000-0000-4000-8000-000000000000";
     expect((await seat(unknown)).status).toBe(404);
+  });
+});
+
+describe("table capacity", () => {
+  it("refuses a party bigger than the table's seats (400) and seats nobody", async () => {
+    const { status, json } = await seat(smallTableId, { party_size: smallTableSeats + 1 });
+    expect(status).toBe(400);
+    expect(json.error).toMatch(/seats/);
+    const { data } = await db.from("table_sessions").select("id").eq("table_id", smallTableId).is("cleared_at", null);
+    expect(data).toHaveLength(0);
+  });
+
+  it("allows a party exactly equal to the table's seats", async () => {
+    const { status } = await reseat(smallTableId, { party_size: smallTableSeats });
+    expect(status).toBe(201);
+  });
+});
+
+describe("double-seating race (needs migration 0009)", () => {
+  it("two staff seating the same table at the same moment: exactly one succeeds", async () => {
+    // Start from an empty table, then fire both requests together.
+    const { data: open } = await db.from("table_sessions").select("id").eq("table_id", smallTableId).is("cleared_at", null);
+    for (const o of open ?? []) await callStaff(clearTable, { table_session_id: o.id });
+
+    const results = await Promise.all(Array.from({ length: 5 }, () => seat(smallTableId, { party_size: 1 })));
+    const statuses = results.map((r) => r.status).sort();
+    expect(statuses).toEqual([201, 409, 409, 409, 409]);
+    const { data } = await db.from("table_sessions").select("id").eq("table_id", smallTableId).is("cleared_at", null);
+    expect(data).toHaveLength(1);
+  });
+
+  it("the database itself refuses a second open session (not just the route's check)", async () => {
+    const { data, error } = await db
+      .from("table_sessions")
+      .insert({ restaurant_id: RID, table_id: smallTableId, party_size: 1, source: "walk_in" })
+      .select("id")
+      .maybeSingle();
+    if (data) sessionIds.push(data.id); // only if it wrongly succeeded, so cleanup still works
+    expect(error?.code).toBe("23505");
+  });
+
+  it("a table can be seated again once the first session is cleared", async () => {
+    expect((await reseat(smallTableId, { party_size: 1 })).status).toBe(201);
   });
 });
 
@@ -257,6 +308,20 @@ describe("manual-order", () => {
     expect((await order(walkInSession, [])).status).toBe(400);
     expect((await order(walkInSession, [{ menu_item_id: ITEMS.pepperoni, size_name: "99 inch", quantity: 1 }])).status).toBe(400);
     expect((await order(walkInSession, [{ menu_item_id: ITEMS.garlicBread, quantity: 1, options: ["Unicorn dust"] }])).status).toBe(400);
+  });
+
+  it("saves the table link atomically: a bad session id leaves no order behind (needs migration 0009)", async () => {
+    const before = await db.from("orders").select("id", { count: "exact", head: true });
+    const { error } = await db.rpc("create_order_tx", {
+      p_order: {
+        restaurant_id: RID, fulfilment_type: "pickup", subtotal: 1, delivery_fee: 0, total: 1,
+        source: "walk_in", table_session_id: "00000000-0000-4000-8000-000000000000",
+      },
+      p_items: [{ menu_item_id: ITEMS.garlicBread, item_name: "x", quantity: 1, unit_price: 1, line_total: 1 }],
+    });
+    expect(error).not.toBeNull(); // foreign key rejects it...
+    const after = await db.from("orders").select("id", { count: "exact", head: true });
+    expect(after.count).toBe(before.count); // ...and the whole order rolled back
   });
 
   it("refuses an order for a cleared table or an unknown session", async () => {
