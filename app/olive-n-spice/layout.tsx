@@ -3,13 +3,14 @@ import { Cormorant_Garamond, Jost } from "next/font/google";
 import { routes, site } from "@/data/sites/olive-n-spice/config";
 import { JsonLd } from "./_components/json-ld";
 import { RevealObserver } from "./_components/reveal-observer";
+import { ScrollProgress } from "./_components/scroll-progress";
 import { SiteFooter } from "./_components/site-footer";
 import { SiteHeader } from "./_components/site-header";
 import { pageMetadata } from "./_lib/seo";
 import "./olive.css";
 
-// The shared frame for every Olive 'n Spice page: fonts, header, footer and
-// the search-engine data. These pages are public (no login). The dashboard
+// The shared frame for every Olive 'n Spice page: fonts, header, footer, the
+// scroll-progress line on the left edge and the search-engine data. These pages are public (no login). The dashboard
 // login in proxy.ts only guards /dashboard, so it is not involved here.
 
 // Fonts are downloaded at build time and served from our own site.
@@ -41,6 +42,7 @@ export default function OliveLayout({ children }: { children: React.ReactNode })
         {children}
       </main>
       <SiteFooter />
+      <ScrollProgress />
       <RevealObserver />
       <JsonLd />
     </div>

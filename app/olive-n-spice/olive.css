@@ -10,12 +10,13 @@
      3. Buttons, links, ornaments
      4. Header, mobile menu, footer
      5. Page hero (inner pages) + scroll reveal
-     6. Home hero (interactive menu carousel)
+     6. Home hero (the moving strip of menu groups)
      7. Explore panel (sheet / side panel)
      8. Home sections
      9. Menu page
     10. Events + Reserve pages
-    11. Reduced motion
+    11. Scroll progress (line on the left edge)
+    12. Reduced motion
    ===================================================================== */
 
 /* Same layer order Tailwind declares; repeating it is harmless and keeps
@@ -619,16 +620,17 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     isolation: isolate;
     overflow: clip; /* clip, not hidden: the side groups are cut off at the screen edge and nothing can scroll sideways */
     background-color: var(--ons-cream);
-    /* No colour transition here on purpose: this colour is inherited by everything
-       inside the hero, and fading it would repaint the whole hero on every frame.
-       The few small labels and buttons that flip fade their own colour instead. */
     color: var(--hero-fg);
   }
   @media (min-width: 1100px) {
     /* Every group name fits on one line here. */
     .ons-hero { --hero-text-h: calc(var(--hero-title) + 5rem); }
   }
-  .ons-hero[data-tone="dark"],
+  /* Dark colours. On the hero they are switched on ONLY for the few small pieces
+     listed here (tagline, the two big buttons, arrows + dots, the hint), not for
+     the whole hero: that keeps the flip cheap, because the browser re-styles a
+     handful of elements instead of several hundred (all the dish drawings). */
+  .ons-hero[data-tone="dark"] :is(.ons-hero-eyebrow, .ons-hero-actions, .ons-hero-controls, .ons-hero-hint),
   .ons-slide[data-tone="dark"] {
     --hero-fg: var(--ons-cream);
     --hero-muted: rgb(250 246 236 / 0.78);
@@ -753,8 +755,8 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     justify-items: center;
     pointer-events: none;
   }
-  /* The group in the middle sits in front and is the only one that can be pressed. */
-  .ons-slide[data-active] { z-index: 2; pointer-events: auto; }
+  /* The group in the middle sits in front. */
+  .ons-slide[data-active] { z-index: 2; }
   /* Until the engine has started, only the middle group shows. (Once it runs,
      it switches each group on and off itself, which overrides this rule.) */
   .ons-slide:not([data-active]) .ons-cluster,
@@ -768,6 +770,7 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     justify-content: center;
     border-radius: 2rem;
     cursor: inherit;
+    pointer-events: auto; /* the dishes can be pressed; the rest of a group's layer lets presses through */
     -webkit-tap-highlight-color: transparent;
     transform-origin: 50% 85%; /* shrink towards the ground, so every group stands on the same line */
     will-change: transform, opacity;
@@ -883,6 +886,7 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     justify-content: center;
     gap: 0.25rem;
     padding: 0.75rem var(--ons-gutter) max(1.1rem, env(safe-area-inset-bottom));
+    color: var(--hero-fg);
     transition: color 0.4s ease; /* the arrows and dots fade between their light and dark colours */
   }
   .ons-hero-arrow {
@@ -1948,9 +1952,81 @@ html:has(.ons dialog[open]) { overflow: hidden; }
   .ons-map-note { margin-top: 0.5rem; font-size: 0.8rem; color: var(--ons-ink-soft); }
 }
 
+@layer components {
+  /* -------------------------------------------------------------------
+     11. SCROLL PROGRESS (the thin line on the left edge of every page)
+     Filled and coloured by scroll-progress.tsx. It is drawn twice, one
+     copy exactly on top of the other: dark gold for cream sections and
+     light gold for dark olive sections. The light-gold copy is masked so
+     it only shows where a dark section is behind it.
+     ------------------------------------------------------------------- */
+  .ons-progress {
+    position: fixed;
+    left: max(0.3rem, env(safe-area-inset-left));
+    top: 50%;
+    z-index: 50; /* above the page, below the header; pop-up panels cover it */
+    translate: 0 -50%;
+    pointer-events: none; /* never blocks a tap or click */
+    transition: opacity 0.4s ease;
+  }
+  .ons-progress[data-idle] { opacity: 0; } /* a page too short to scroll */
+  .ons-progress-ink {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.7rem;
+    color: var(--ons-gold-ink);
+  }
+  .ons-progress-ink[data-on="dark"] {
+    position: absolute;
+    inset: 0;
+    color: var(--ons-gold-soft);
+    -webkit-mask-image: var(--ons-progress-mask, linear-gradient(transparent, transparent));
+    mask-image: var(--ons-progress-mask, linear-gradient(transparent, transparent));
+  }
+  .ons-progress-track {
+    position: relative;
+    display: block;
+    width: 2px;
+    height: clamp(4.5rem, 24vh, 11rem);
+    overflow: hidden;
+    border-radius: 2px;
+    background: color-mix(in srgb, currentColor 28%, transparent);
+  }
+  .ons-progress-fill {
+    position: absolute;
+    inset: 0;
+    background: currentColor;
+    transform: scaleY(0);
+    transform-origin: 50% 0; /* grows downwards from the top */
+    transition: transform 0.16s linear; /* a touch of smoothing between scroll steps */
+    will-change: transform;
+  }
+  .ons-progress-ink[data-on="dark"] .ons-progress-fill { background: var(--ons-gold); }
+  /* Phones: just the line. The number appears from tablet size up. */
+  .ons-progress-label {
+    display: none;
+    font-size: 0.58rem;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.18em;
+    margin-right: -0.18em; /* cancel the trailing letter-spacing so the number stays centred under the line */
+    font-variant-numeric: tabular-nums;
+  }
+  @media (min-width: 768px) {
+    .ons-progress { left: max(0px, env(safe-area-inset-left)); width: 2rem; }
+    .ons-progress-label { display: block; }
+  }
+  @media (min-width: 1024px) {
+    .ons-progress { left: max(0.5rem, env(safe-area-inset-left)); }
+  }
+}
+
 /* ---------------------------------------------------------------------
-   11. REDUCED MOTION
+   12. REDUCED MOTION
    People who ask their device for less motion get no animation at all.
+   (The scroll-progress number and line still show the right value; they
+   just jump instead of gliding.)
    --------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   .ons *,

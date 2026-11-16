@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { menuAnchor, routes, site } from "@/data/sites/olive-n-spice/config";
 import { heroSlides } from "@/data/sites/olive-n-spice/hero";
@@ -166,41 +166,53 @@ export function MenuHero() {
         </p>
       </div>
 
-      {/* ---------- Reduced motion: a plain grid of the six groups ---------- */}
-      <div className="ons-hero-grid">
-        <div className="ons-container">
-          <p className="ons-eyebrow ons-eyebrow-center">{site.tagline}</p>
-          <p className="ons-display ons-h2 mt-4">Explore the menu</p>
-          <ul className="ons-hero-grid-list">
-            {SLIDES.map(({ slide, group }) => (
-              <li key={group.id} className="ons-hero-card">
-                <FoodArt name={slide.art[1]} className="ons-hero-card-art" />
-                <h2 className="ons-display ons-h3">{group.name}</h2>
-                <p className="ons-hero-card-cats">{group.categories.map((c) => c.shortName ?? c.name).join(" · ")}</p>
-                <div className="ons-hero-card-actions">
-                  <button
-                    type="button"
-                    className="ons-btn ons-btn-olive ons-btn-sm"
-                    aria-haspopup="dialog"
-                    aria-label={`Explore the ${group.name} menu`}
-                    onClick={() => openPanel(group.id)}
-                  >
-                    Explore
-                  </button>
-                  <Link href={menuAnchor(group.id)} className="ons-link" aria-label={`${group.name} on the full menu`}>
-                    Full menu
-                  </Link>
-                </div>
-              </li>
-            ))}
-          </ul>
-          <Link href={routes.reserve} className="ons-btn ons-btn-gold mt-10">
-            Reserve a table
-          </Link>
-        </div>
-      </div>
-
-      <GroupPanel group={panelGroup} open={panel.open} onClose={closePanel} />
+      <HeroGrid onExplore={openPanel} />
+      <Panel group={panelGroup} open={panel.open} onClose={closePanel} />
     </section>
   );
 }
+
+// The two pieces below never change while the strip moves. `memo` tells
+// React to skip them then, so passing from one group to the next only
+// re-checks the small things that really change (dots, labels).
+
+/** The Explore panel (group-panel.tsx), skipped unless it is opened, closed or shown another group. */
+const Panel = memo(GroupPanel);
+
+/** Reduced motion: a plain grid of the six groups instead of the moving strip. */
+const HeroGrid = memo(function HeroGrid({ onExplore }: { onExplore: (groupId: string) => void }) {
+  return (
+    <div className="ons-hero-grid">
+      <div className="ons-container">
+        <p className="ons-eyebrow ons-eyebrow-center">{site.tagline}</p>
+        <p className="ons-display ons-h2 mt-4">Explore the menu</p>
+        <ul className="ons-hero-grid-list">
+          {SLIDES.map(({ slide, group }) => (
+            <li key={group.id} className="ons-hero-card">
+              <FoodArt name={slide.art[1]} className="ons-hero-card-art" />
+              <h2 className="ons-display ons-h3">{group.name}</h2>
+              <p className="ons-hero-card-cats">{group.categories.map((c) => c.shortName ?? c.name).join(" · ")}</p>
+              <div className="ons-hero-card-actions">
+                <button
+                  type="button"
+                  className="ons-btn ons-btn-olive ons-btn-sm"
+                  aria-haspopup="dialog"
+                  aria-label={`Explore the ${group.name} menu`}
+                  onClick={() => onExplore(group.id)}
+                >
+                  Explore
+                </button>
+                <Link href={menuAnchor(group.id)} className="ons-link" aria-label={`${group.name} on the full menu`}>
+                  Full menu
+                </Link>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <Link href={routes.reserve} className="ons-btn ons-btn-gold mt-10">
+          Reserve a table
+        </Link>
+      </div>
+    </div>
+  );
+});

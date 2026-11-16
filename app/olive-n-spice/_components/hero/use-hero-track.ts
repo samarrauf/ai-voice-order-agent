@@ -407,7 +407,7 @@ export function useHeroTrack(carouselRef: RefObject<HTMLElement | null>, options
 
     /** A click on a side group brings it to the middle. (A click on the middle group opens the panel.) */
     const onClick = (event: MouseEvent) => {
-      if (gap === 0 || (event.target as Element).closest(".ons-cluster")) return;
+      if (gap === 0 || (event.target as Element).closest(".ons-slide[data-active] .ons-cluster")) return;
       const box = stage.getBoundingClientRect();
       const fromMiddle = event.clientX - (box.left + box.width / 2);
       if (Math.abs(fromMiddle) > gap - groupWidth * NEIGHBOUR_SCALE * 0.5 - 8) api.current?.go(fromMiddle > 0 ? 1 : -1);

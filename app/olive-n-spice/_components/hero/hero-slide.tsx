@@ -28,13 +28,47 @@ type Props = {
   group: MenuGroup;
   index: number;
   total: number;
-  /** True for the group in the middle. The others are only decoration: screen readers and the keyboard skip them. */
+  /** True for the group in the middle. The others are scenery: screen readers and the Tab key skip them. */
   active: boolean;
   onExplore: (groupId: string) => void;
 };
 
-// `memo` = React leaves this alone unless its own details change, so the
-// strip never waits for 18 drawings to be re-checked while it is moving.
+// `memo` = React leaves a piece alone unless its own details change. The
+// three dishes (the heavy part: the drawings) never change, so they are
+// skipped completely when a different group becomes the middle one. That
+// keeps the strip from stuttering as it passes from one group to the next.
+const SlideDishes = memo(function SlideDishes({ slide, first }: { slide: HeroSlide; first: boolean }) {
+  return (
+    <>
+      {POSITIONS.map((position, i) => {
+        const image = slide.images?.[i];
+        return (
+          <span key={position} className="ons-cluster-item" data-pos={position} style={{ "--i": i } as React.CSSProperties}>
+            <span className="ons-float">
+              {image ? (
+                <Image
+                  src={image.src}
+                  alt={image.alt}
+                  width={640}
+                  height={640}
+                  sizes="(min-width: 768px) 320px, 40vw"
+                  priority={first}
+                  draggable={false}
+                />
+              ) : (
+                <FoodArt name={slide.art[i]} />
+              )}
+            </span>
+            <span className="ons-shadow-wrap" aria-hidden="true">
+              <span className="ons-shadow" />
+            </span>
+          </span>
+        );
+      })}
+    </>
+  );
+});
+
 export const HeroSlideView = memo(function HeroSlideView({ slide, group, index, total, active, onExplore }: Props) {
   const number = String(index + 1).padStart(2, "0");
 
@@ -47,34 +81,20 @@ export const HeroSlideView = memo(function HeroSlideView({ slide, group, index, 
       aria-roledescription="slide"
       aria-label={`${index + 1} of ${total}: ${group.name}`}
       aria-hidden={!active}
-      inert={!active}
     >
-      <button type="button" className="ons-cluster" onClick={() => onExplore(group.id)} aria-label={`Explore ${group.name}`}>
-        {POSITIONS.map((position, i) => {
-          const image = slide.images?.[i];
-          return (
-            <span key={position} className="ons-cluster-item" data-pos={position} style={{ "--i": i } as React.CSSProperties}>
-              <span className="ons-float">
-                {image ? (
-                  <Image
-                    src={image.src}
-                    alt={image.alt}
-                    width={640}
-                    height={640}
-                    sizes="(min-width: 768px) 320px, 40vw"
-                    priority={index === 0}
-                    draggable={false}
-                  />
-                ) : (
-                  <FoodArt name={slide.art[i]} />
-                )}
-              </span>
-              <span className="ons-shadow-wrap" aria-hidden="true">
-                <span className="ons-shadow" />
-              </span>
-            </span>
-          );
-        })}
+      {/*
+        Only the middle group's dishes open the panel. A side group is hidden from
+        screen readers (aria-hidden above) and skipped by the Tab key (tabIndex -1);
+        a click on it is handled by the strip, which brings that group to the middle.
+      */}
+      <button
+        type="button"
+        className="ons-cluster"
+        tabIndex={active ? undefined : -1}
+        onClick={active ? () => onExplore(group.id) : undefined}
+        aria-label={`Explore ${group.name}`}
+      >
+        <SlideDishes slide={slide} first={index === 0} />
       </button>
 
       <div className="ons-slide-text">
