@@ -10,24 +10,34 @@ import { FoodArt } from "../food-art";
 import { OliveBranch } from "../ornaments";
 import { GroupPanel } from "./group-panel";
 import { HeroSlideView } from "./hero-slide";
+import { useHeroTrack } from "./use-hero-track";
 
 // =====================================================================
 // The home page hero: an interactive tour of the menu.
 // ---------------------------------------------------------------------
-// Six slides, one per menu group. Ways to move between them:
-//   - drag / swipe sideways
-//   - mouse wheel or trackpad (only while the page is at the very top;
-//     at the last slide the wheel goes back to scrolling the page)
+// The six menu groups sit on ONE moving strip (it loops round like a ring).
+// The group in the middle is large and sharp; its two neighbours peek in
+// at the edges of the screen, smaller, fainter and slightly blurred.
+//
+// Ways to move the strip:
+//   - drag / swipe sideways (it follows the finger, keeps its speed when
+//     you let go, then a soft spring settles it on the nearest group)
+//   - a sideways trackpad scroll
 //   - left / right arrow keys
 //   - the small previous / next buttons
 //   - the six-dot progress bar at the bottom
-// The background colour glides between brand tones as slides change.
-// "Explore" (or a tap on the dishes) opens a panel with that group's
-// dishes and prices.
+//   - a click on a side group
+// The mouse wheel is NOT used: an up/down wheel scrolls the page as normal.
 //
-// Only cheap properties are animated (transform, opacity, colour), so it
-// stays smooth on phones. With "reduce motion" switched on, the carousel
-// is replaced by a plain grid of six cards (done in CSS, see olive.css).
+// The background colour and the group's name change gradually as the
+// strip moves. "Explore" (or a tap on the middle dishes) opens a panel
+// with that group's dishes and prices.
+//
+// The movement itself lives in use-hero-track.ts. This file is the
+// furniture around it: buttons, dots, the panel, screen-reader text.
+//
+// With "reduce motion" switched on, the strip is replaced by a plain grid
+// of six cards (done in CSS, see olive.css).
 // =====================================================================
 
 // Join each slide with its menu group once.
@@ -36,84 +46,26 @@ const SLIDES = heroSlides.flatMap((slide) => {
   return group ? [{ slide, group }] : [];
 });
 const TOTAL = SLIDES.length;
-
-/** Where a slide waits relative to the one on screen (the row wraps around like a ring). */
-function slideState(i: number, current: number): "active" | "before" | "after" {
-  const distance = (i - current + TOTAL) % TOTAL;
-  if (distance === 0) return "active";
-  return distance <= TOTAL / 2 ? "after" : "before";
-}
+/** 0 = light background, 1 = dark background, for each group. */
+const TONES = SLIDES.map(({ slide }) => (slide.tone === "dark" ? 1 : 0));
 
 export function MenuHero() {
+  // The group nearest the middle right now (changes while the strip is still moving).
   const [index, setIndex] = useState(0);
+  // The group the strip last came to rest on (what screen readers are told).
+  const [rested, setRested] = useState(0);
   const [panel, setPanel] = useState<{ groupId: string | null; open: boolean }>({ groupId: null, open: false });
 
   const carouselRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
-  // Mirrors of state for the event listeners below (they must not re-attach on every change).
-  const indexRef = useRef(index);
+  // Mirror of state for the key listener below (it must not re-attach on every change).
   const panelOpenRef = useRef(panel.open);
   useEffect(() => {
-    indexRef.current = index;
     panelOpenRef.current = panel.open;
-  }, [index, panel.open]);
+  }, [panel.open]);
 
-  const go = useCallback((step: number) => setIndex((i) => (i + step + TOTAL) % TOTAL), []);
+  const { go, goTo } = useHeroTrack(carouselRef, { tones: TONES, onNearest: setIndex, onRest: setRested });
   const openPanel = useCallback((groupId: string) => setPanel({ groupId, open: true }), []);
   const closePanel = useCallback(() => setPanel((p) => ({ ...p, open: false })), []);
-
-  // ---- Mouse wheel / trackpad -------------------------------------------
-  useEffect(() => {
-    const carousel = carouselRef.current;
-    if (!carousel) return;
-
-    let lastWheelAt = 0; // time of the previous wheel event
-    let lastChangeAt = -Infinity; // time we last changed slide
-    let lastPageScrollAt = -Infinity; // time the PAGE last scrolled
-    let travelled = 0;
-
-    const onPageScroll = () => {
-      lastPageScrollAt = performance.now();
-    };
-
-    const onWheel = (event: WheelEvent) => {
-      if (event.ctrlKey) return; // pinch-zoom
-      if (carousel.offsetParent === null) return; // hidden (reduced-motion grid is showing)
-      if (window.scrollY > 4) return; // page is scrolled: behave like a normal page
-      if (event.timeStamp - lastPageScrollAt < 400) return; // the tail of a scroll back up to the top
-
-      const sideways = Math.abs(event.deltaX) > Math.abs(event.deltaY);
-      const delta = sideways ? event.deltaX : event.deltaY;
-      if (delta === 0) return;
-      const step = delta > 0 ? 1 : -1;
-
-      // A trackpad flick sends events for a second or so. Treat a burst as ONE gesture.
-      const sameGesture = event.timeStamp - lastWheelAt < 140;
-      lastWheelAt = event.timeStamp;
-      if (sameGesture && event.timeStamp - lastChangeAt < 1100) {
-        event.preventDefault();
-        return;
-      }
-
-      // At either end, an up/down wheel is handed back to the page so it can scroll on.
-      const current = indexRef.current;
-      if (!sideways && ((step > 0 && current === TOTAL - 1) || (step < 0 && current === 0))) return;
-
-      event.preventDefault();
-      travelled = sameGesture ? travelled + delta : delta;
-      if (Math.abs(travelled) < 24) return;
-      travelled = 0;
-      lastChangeAt = event.timeStamp;
-      go(step);
-    };
-
-    carousel.addEventListener("wheel", onWheel, { passive: false });
-    window.addEventListener("scroll", onPageScroll, { passive: true });
-    return () => {
-      carousel.removeEventListener("wheel", onWheel);
-      window.removeEventListener("scroll", onPageScroll);
-    };
-  }, [go]);
 
   // ---- Arrow keys --------------------------------------------------------
   useEffect(() => {
@@ -122,9 +74,9 @@ export function MenuHero() {
       if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
       if (panelOpenRef.current) return;
       const carousel = carouselRef.current;
-      if (!carousel || carousel.offsetParent === null) return;
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, dialog, [contenteditable='true']")) return;
+      if (!carousel || carousel.offsetParent === null) return; // hidden (reduced-motion grid is showing)
+      const target = event.target;
+      if (target instanceof Element && target.closest("input, textarea, select, dialog, [contenteditable='true']")) return;
       // Only while the hero is still the main thing on screen.
       if (carousel.getBoundingClientRect().bottom < window.innerHeight * 0.5) return;
       event.preventDefault();
@@ -134,62 +86,19 @@ export function MenuHero() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [go]);
 
-  // ---- Drag / swipe ------------------------------------------------------
-  // The dishes follow the finger (a CSS variable, no React re-render), then
-  // either move on to the next slide or spring back.
-  const drag = useRef<{ id: number; x: number; y: number; dx: number; active: boolean } | null>(null);
-  const justDragged = useRef(false);
-
-  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, dx: 0, active: false };
-    justDragged.current = false;
-  };
-
-  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const d = drag.current;
-    const stage = stageRef.current;
-    if (!d || !stage || event.pointerId !== d.id) return;
-    const dx = event.clientX - d.x;
-    const dy = event.clientY - d.y;
-    if (!d.active) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      if (Math.abs(dy) > Math.abs(dx)) {
-        drag.current = null; // an up/down move: let the page scroll
-        return;
-      }
-      d.active = true;
-      stage.setPointerCapture(event.pointerId);
-      stage.setAttribute("data-dragging", "");
-    }
-    d.dx = dx;
-    stage.style.setProperty("--drag", `${Math.round(dx * 0.6)}px`);
-  };
-
-  const onPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
-    const d = drag.current;
-    const stage = stageRef.current;
-    if (!d || event.pointerId !== d.id) return;
-    drag.current = null;
-    if (!stage || !d.active) return;
-    stage.removeAttribute("data-dragging");
-    stage.style.removeProperty("--drag");
-    justDragged.current = true;
-    if (event.type === "pointerup" && Math.abs(d.dx) > 56) go(d.dx < 0 ? 1 : -1);
-  };
-
   const current = SLIDES[index];
   const panelGroup = SLIDES.find((s) => s.group.id === panel.groupId)?.group ?? null;
 
   return (
-    <section
-      className="ons-hero"
-      data-tone={current.slide.tone}
-      style={{ "--hero-bg": current.slide.background, "--hero-index": index } as React.CSSProperties}
-      aria-label="Explore the menu"
-    >
-      {/* ---------- The carousel (hidden when reduced motion is on) ---------- */}
+    <section className="ons-hero" data-tone={current.slide.tone} aria-label="Explore the menu">
+      {/* ---------- The strip (hidden when reduced motion is on) ---------- */}
       <div ref={carouselRef} className="ons-hero-carousel" role="group" aria-roledescription="carousel" aria-label="Menu groups">
+        {/* One sheet of colour per group; the engine fades between them as the strip moves. */}
+        <div className="ons-hero-bg" aria-hidden="true">
+          {SLIDES.map(({ slide, group }) => (
+            <span key={group.id} style={{ backgroundColor: slide.background }} />
+          ))}
+        </div>
         <OliveBranch className="ons-hero-branch ons-hero-branch-a" />
         <OliveBranch className="ons-hero-branch ons-hero-branch-b" />
 
@@ -198,36 +107,15 @@ export function MenuHero() {
           {site.tagline}
         </h1>
 
-        <div
-          ref={stageRef}
-          className="ons-hero-stage"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerEnd}
-          onPointerCancel={onPointerEnd}
-          onClickCapture={(event) => {
-            // A drag must not count as a click on the dishes.
-            if (!justDragged.current) return;
-            justDragged.current = false;
-            event.preventDefault();
-            event.stopPropagation();
-          }}
-        >
+        {/* The stage: drags, swipes and clicks on it are handled in use-hero-track.ts. */}
+        <div className="ons-hero-stage">
           <div className="ons-hero-deco" aria-hidden="true">
             <span className="ons-hero-glow ons-hero-glow-light" />
             <span className="ons-hero-glow ons-hero-glow-dark" />
             <span className="ons-hero-ring" />
           </div>
           {SLIDES.map(({ slide, group }, i) => (
-            <HeroSlideView
-              key={group.id}
-              slide={slide}
-              group={group}
-              index={i}
-              total={TOTAL}
-              state={slideState(i, index)}
-              onExplore={() => openPanel(group.id)}
-            />
+            <HeroSlideView key={group.id} slide={slide} group={group} index={i} total={TOTAL} active={i === index} onExplore={openPanel} />
           ))}
         </div>
 
@@ -235,6 +123,7 @@ export function MenuHero() {
           <button
             type="button"
             className="ons-btn ons-hero-explore"
+            style={{ "--hero-bg": current.slide.background } as React.CSSProperties}
             aria-haspopup="dialog"
             aria-label={`Explore the ${current.group.name} menu`}
             onClick={() => openPanel(current.group.id)}
@@ -259,7 +148,7 @@ export function MenuHero() {
                 className="ons-dot"
                 aria-label={`${group.name} (${i + 1} of ${TOTAL})`}
                 aria-current={i === index ? "true" : undefined}
-                onClick={() => setIndex(i)}
+                onClick={() => goTo(i)}
               />
             ))}
           </div>
@@ -268,12 +157,12 @@ export function MenuHero() {
           </button>
         </div>
         <p className="ons-hero-hint" aria-hidden="true">
-          Drag, scroll or use the arrow keys
+          Drag or use the arrow keys
         </p>
 
-        {/* Tells screen readers which slide is showing after each change. */}
+        {/* Tells screen readers which group is showing, once the strip has stopped. */}
         <p className="sr-only" aria-live="polite" aria-atomic="true">
-          {current.group.name}, slide {index + 1} of {TOTAL}
+          {SLIDES[rested].group.name}, slide {rested + 1} of {TOTAL}
         </p>
       </div>
 

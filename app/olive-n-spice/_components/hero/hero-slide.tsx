@@ -1,11 +1,21 @@
 import Image from "next/image";
+import { memo } from "react";
 import type { HeroSlide } from "@/data/sites/olive-n-spice/hero";
 import type { MenuGroup } from "@/data/sites/olive-n-spice/menu";
 import { FoodArt } from "../food-art";
 
-// One slide of the hero: three dishes floating in the middle (a soft
-// shadow under each), and below them the group's name in big serif type
-// with its categories on one small line.
+// One group on the hero strip: three dishes with a soft shadow on the
+// ground under each, and the group's name in big serif type with its
+// categories on one small line.
+//
+// This file only describes the pieces. It does not move anything: the
+// engine in use-hero-track.ts finds these pieces by their class names and
+// positions them as the strip moves:
+//   .ons-cluster       the three dishes together (slides, shrinks, fades, blurs)
+//   .ons-cluster-item  one dish (its own speed, turn, lean and lift = depth)
+//   .ons-shadow-wrap   the shadow under a dish (shrinks when the dish lifts)
+//   .ons-slide-text    the name and category line (fades and slides)
+// The gentle "floating" while nothing moves is plain CSS (see olive.css).
 //
 // THE `images` SLOT: if the slide has `images` (see hero.ts), each real
 // photo replaces the illustration in the same position. Nothing else in
@@ -18,26 +28,28 @@ type Props = {
   group: MenuGroup;
   index: number;
   total: number;
-  /** "active" = on screen; "before"/"after" = waiting off to the left/right. */
-  state: "active" | "before" | "after";
-  onExplore: () => void;
+  /** True for the group in the middle. The others are only decoration: screen readers and the keyboard skip them. */
+  active: boolean;
+  onExplore: (groupId: string) => void;
 };
 
-export function HeroSlideView({ slide, group, index, total, state, onExplore }: Props) {
-  const active = state === "active";
+// `memo` = React leaves this alone unless its own details change, so the
+// strip never waits for 18 drawings to be re-checked while it is moving.
+export const HeroSlideView = memo(function HeroSlideView({ slide, group, index, total, active, onExplore }: Props) {
   const number = String(index + 1).padStart(2, "0");
 
   return (
     <div
       className="ons-slide"
-      data-state={state}
+      data-tone={slide.tone}
+      data-active={active ? "" : undefined}
       role="group"
       aria-roledescription="slide"
       aria-label={`${index + 1} of ${total}: ${group.name}`}
       aria-hidden={!active}
       inert={!active}
     >
-      <button type="button" className="ons-cluster" onClick={onExplore} aria-label={`Explore ${group.name}`}>
+      <button type="button" className="ons-cluster" onClick={() => onExplore(group.id)} aria-label={`Explore ${group.name}`}>
         {POSITIONS.map((position, i) => {
           const image = slide.images?.[i];
           return (
@@ -49,7 +61,7 @@ export function HeroSlideView({ slide, group, index, total, state, onExplore }: 
                     alt={image.alt}
                     width={640}
                     height={640}
-                    sizes="(min-width: 768px) 320px, 46vw"
+                    sizes="(min-width: 768px) 320px, 40vw"
                     priority={index === 0}
                     draggable={false}
                   />
@@ -57,7 +69,9 @@ export function HeroSlideView({ slide, group, index, total, state, onExplore }: 
                   <FoodArt name={slide.art[i]} />
                 )}
               </span>
-              <span className="ons-shadow" aria-hidden="true" />
+              <span className="ons-shadow-wrap" aria-hidden="true">
+                <span className="ons-shadow" />
+              </span>
             </span>
           );
         })}
@@ -72,4 +86,4 @@ export function HeroSlideView({ slide, group, index, total, state, onExplore }: 
       </div>
     </div>
   );
-}
+});

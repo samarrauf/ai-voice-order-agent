@@ -592,40 +592,64 @@ html:has(.ons dialog[open]) { overflow: hidden; }
 
 @layer components {
   /* -------------------------------------------------------------------
-     6. HOME HERO (interactive menu carousel)
-     Only transform / opacity / colour are animated, so it stays at 60fps.
+     6. HOME HERO (the moving strip of menu groups)
+     The movement is done by use-hero-track.ts, which sets `transform`,
+     `opacity` and `filter` directly on the pieces below many times a
+     second. So this section has NO transitions on those pieces: it only
+     says what they look like and where they sit when nothing is moving.
      ------------------------------------------------------------------- */
   .ons-hero {
-    /* Colours that flip between light and dark slides. */
+    /* Colours of the buttons and small labels. They flip between light and
+       dark when the strip crosses the halfway point between two groups. */
     --hero-fg: var(--ons-olive-deep);
     --hero-muted: rgb(47 61 34 / 0.76);
     --hero-accent: var(--ons-gold-ink);
     --hero-line: rgb(47 61 34 / 0.2);
-    /* Sizes shared by the dishes, the title and the ring behind them. */
-    --hero-s: clamp(8.75rem, min(44vw, 30svh), 19rem);
+    /* The big decorations (olive branches, the ring) use ONE soft sage that
+       reads on both the cream and the dark olive backgrounds, so they never
+       need repainting while the strip moves. */
+    --hero-decor: rgb(143 163 119 / 0.45);
+    /* Sizes shared by the dishes, the title and the ring behind them.
+       The dishes leave room at the sides for the neighbouring groups. */
+    --hero-s: clamp(7.25rem, min(37vw, 30svh), 19rem);
     --hero-title: clamp(2.9rem, min(12.6vw, 13svh), 7.25rem);
     --hero-text-h: calc(var(--hero-title) * 1.95 + 5rem);
 
     position: relative;
     isolation: isolate;
-    overflow: clip; /* clip, not hidden: nothing (not even focus) can scroll the slides sideways */
-    background-color: var(--hero-bg, var(--ons-cream));
+    overflow: clip; /* clip, not hidden: the side groups are cut off at the screen edge and nothing can scroll sideways */
+    background-color: var(--ons-cream);
+    /* No colour transition here on purpose: this colour is inherited by everything
+       inside the hero, and fading it would repaint the whole hero on every frame.
+       The few small labels and buttons that flip fade their own colour instead. */
     color: var(--hero-fg);
-    transition:
-      background-color 1.1s ease,
-      color 0.7s ease;
   }
   @media (min-width: 1100px) {
     /* Every group name fits on one line here. */
     .ons-hero { --hero-text-h: calc(var(--hero-title) + 5rem); }
   }
-  .ons-hero[data-tone="dark"] {
+  .ons-hero[data-tone="dark"],
+  .ons-slide[data-tone="dark"] {
     --hero-fg: var(--ons-cream);
     --hero-muted: rgb(250 246 236 / 0.78);
     --hero-accent: var(--ons-gold-soft);
     --hero-line: rgb(250 246 236 / 0.2);
     --ons-focus: var(--ons-gold-soft);
   }
+  /* A group's own name always uses the colours for ITS background, whatever the buttons are doing. */
+  .ons-slide[data-tone="light"] {
+    --hero-fg: var(--ons-olive-deep);
+    --hero-muted: rgb(47 61 34 / 0.76);
+    --hero-accent: var(--ons-gold-ink);
+    --hero-line: rgb(47 61 34 / 0.2);
+    --ons-focus: var(--ons-gold-ink);
+  }
+
+  /* Background: one sheet of colour per group, stacked. The engine fades
+     the next one in over the current one as the strip moves. */
+  .ons-hero-bg { position: absolute; inset: 0; z-index: -2; pointer-events: none; }
+  .ons-hero-bg > span { position: absolute; inset: 0; opacity: 0; will-change: opacity; }
+  .ons-hero-bg > span:first-child { opacity: 1; }
 
   .ons-hero-carousel {
     position: relative;
@@ -644,23 +668,23 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     letter-spacing: 0.34em;
     text-transform: uppercase;
     color: var(--hero-accent);
-    transition: color 0.7s ease;
+    transition: color 0.4s ease;
   }
   .ons-hero-branch {
     position: absolute;
     z-index: -1;
-    color: var(--hero-line);
-    transition: color 0.7s ease;
+    color: var(--hero-decor);
   }
   .ons-hero-branch-a { left: -3.5rem; bottom: 4.5rem; width: min(22rem, 62vw); rotate: -6deg; }
   .ons-hero-branch-b { right: -3.5rem; top: calc(var(--ons-header-h) + 0.5rem); width: min(24rem, 64vw); rotate: 174deg; }
 
-  /* The stage: slides are stacked on top of each other inside it. */
+  /* The stage: the strip of groups moves sideways inside it. */
   .ons-hero-stage {
     position: relative;
     flex: 1;
     min-height: calc(var(--hero-text-h) + var(--hero-s) + 3rem);
     touch-action: pan-y; /* sideways = our swipe, up/down = normal page scroll */
+    overscroll-behavior-x: contain; /* a sideways trackpad scroll moves the strip, not the browser's "back" */
     cursor: grab;
     -webkit-user-select: none;
     user-select: none;
@@ -685,13 +709,12 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     aspect-ratio: 1;
     translate: -50% -50%;
     border-radius: 50%;
-    transition: opacity 1.1s ease;
+    will-change: opacity;
   }
+  /* A white glow on light backgrounds, a gold one on dark; the engine fades between the two. */
   .ons-hero-glow-light { background: radial-gradient(closest-side, rgb(255 255 255 / 0.85), rgb(255 255 255 / 0) 72%); }
   .ons-hero-glow-dark { background: radial-gradient(closest-side, rgb(201 162 39 / 0.24), rgb(201 162 39 / 0) 72%); opacity: 0; }
-  .ons-hero[data-tone="dark"] .ons-hero-glow-light { opacity: 0; }
-  .ons-hero[data-tone="dark"] .ons-hero-glow-dark { opacity: 1; }
-  /* A hairline "plate" behind the dishes; it turns one step with every slide. */
+  /* A hairline "plate" behind the dishes; the engine turns it as the strip moves (one sixth of a turn per group). */
   .ons-hero-ring {
     position: absolute;
     left: 50%;
@@ -699,12 +722,9 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     width: min(94cqw, 112cqh);
     aspect-ratio: 1;
     translate: -50% -50%;
-    rotate: calc(var(--hero-index, 0) * 60deg);
-    border: 1px solid var(--hero-line);
+    border: 1px solid var(--hero-decor);
     border-radius: 50%;
-    transition:
-      rotate 1.4s var(--ons-ease),
-      border-color 0.7s ease;
+    will-change: rotate;
   }
   .ons-hero-ring::before {
     content: "";
@@ -721,7 +741,7 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     content: "";
     position: absolute;
     inset: 7%;
-    border: 1px dashed var(--hero-line);
+    border: 1px dashed var(--hero-decor);
     border-radius: 50%;
   }
 
@@ -731,30 +751,28 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     display: grid;
     grid-template-rows: minmax(0, 1fr) var(--hero-text-h);
     justify-items: center;
-    visibility: hidden;
     pointer-events: none;
-    transition: visibility 0s linear 1.1s;
   }
-  .ons-slide[data-state="active"] {
-    visibility: visible;
-    pointer-events: auto;
-    transition-delay: 0s;
-  }
+  /* The group in the middle sits in front and is the only one that can be pressed. */
+  .ons-slide[data-active] { z-index: 2; pointer-events: auto; }
+  /* Until the engine has started, only the middle group shows. (Once it runs,
+     it switches each group on and off itself, which overrides this rule.) */
+  .ons-slide:not([data-active]) .ons-cluster,
+  .ons-slide:not([data-active]) .ons-slide-text { visibility: hidden; }
 
-  /* The three dishes. `--drag` makes them follow the finger while swiping. */
+  /* The three dishes of one group. The engine slides, shrinks, fades and blurs this as a whole. */
   .ons-cluster {
     align-self: center;
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    max-width: 100%;
     border-radius: 2rem;
     cursor: inherit;
     -webkit-tap-highlight-color: transparent;
-    transform: translate3d(var(--drag, 0px), 0, 0);
-    transition: transform 0.7s var(--ons-ease);
+    transform-origin: 50% 85%; /* shrink towards the ground, so every group stands on the same line */
+    will-change: transform, opacity;
   }
-  .ons-hero-stage[data-dragging] .ons-cluster { transition: none; }
+  /* One dish. The engine gives each its own slide, turn, lean and lift (that is the depth). */
   .ons-cluster-item {
     position: relative;
     flex: none;
@@ -762,11 +780,8 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     flex-direction: column;
     align-items: center;
     width: var(--hero-s);
-    transition:
-      transform 1s var(--ons-ease),
-      opacity 0.7s ease;
-    transition-delay: calc(var(--i) * 80ms);
-    will-change: transform, opacity;
+    transform-origin: 50% 88%; /* lean from the base, like something standing on a table */
+    will-change: transform;
   }
   .ons-cluster-item[data-pos="center"] { z-index: 2; }
   .ons-cluster-item[data-pos="left"],
@@ -776,9 +791,8 @@ html:has(.ons dialog[open]) { overflow: hidden; }
   }
   .ons-cluster-item[data-pos="left"] { margin-right: calc(var(--hero-s) * -0.1); }
   .ons-cluster-item[data-pos="right"] { margin-left: calc(var(--hero-s) * -0.1); }
-  .ons-slide[data-state="before"] .ons-cluster-item { transform: translate3d(-90vw, 0, 0) rotate(-14deg); opacity: 0; }
-  .ons-slide[data-state="after"] .ons-cluster-item { transform: translate3d(90vw, 0, 0) rotate(14deg); opacity: 0; }
 
+  /* Idle float: while nothing is being dragged, each dish drifts gently up and down. */
   .ons-float {
     display: block;
     width: 100%;
@@ -793,19 +807,29 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     -webkit-user-drag: none;
     pointer-events: none;
   }
-  .ons-shadow {
+  /* The shadow on the ground under a dish. The outer piece is shrunk by the
+     engine when the dish lifts off during a fast move; the inner piece
+     breathes in time with the idle float (smaller when the dish is higher). */
+  .ons-shadow-wrap {
+    display: block;
     width: 62%;
-    height: 0.7rem;
     margin-top: 0.35rem;
+    will-change: transform, opacity;
+  }
+  .ons-shadow {
+    display: block;
+    height: 0.7rem;
     border-radius: 50%;
     background: radial-gradient(closest-side, rgb(20 28 12 / 0.34), rgb(20 28 12 / 0));
     animation: ons-shadow 7s ease-in-out infinite;
     animation-delay: calc(var(--i) * -2.3s);
   }
-  /* Slides that are off screen do not animate (saves battery). */
-  .ons-slide:not([data-state="active"]) .ons-float,
-  .ons-slide:not([data-state="active"]) .ons-shadow { animation-play-state: paused; }
+  /* Only the middle group floats; the side groups hold still (saves battery). */
+  .ons-slide:not([data-active]) .ons-float,
+  .ons-slide:not([data-active]) .ons-shadow { animation-play-state: paused; }
 
+  /* The group's name and category line. It stays in the middle of the screen;
+     the engine fades and slides it as its group arrives or leaves. */
   .ons-slide-text {
     display: flex;
     flex-direction: column;
@@ -814,14 +838,9 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     gap: 0.7rem;
     padding-inline: var(--ons-gutter);
     text-align: center;
+    color: var(--hero-fg);
+    will-change: transform, opacity;
   }
-  .ons-slide-text > * {
-    transition:
-      transform 0.8s var(--ons-ease),
-      opacity 0.6s ease;
-  }
-  .ons-slide[data-state="before"] .ons-slide-text > * { transform: translate3d(-2.5rem, 0, 0); opacity: 0; }
-  .ons-slide[data-state="after"] .ons-slide-text > * { transform: translate3d(2.5rem, 0, 0); opacity: 0; }
   .ons-slide-count {
     font-size: 0.7rem;
     font-weight: 500;
@@ -836,7 +855,6 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     line-height: 0.95;
     letter-spacing: -0.015em;
     text-wrap: balance;
-    transition-delay: 60ms;
   }
   .ons-slide-cats {
     max-width: 36rem;
@@ -847,7 +865,6 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     text-transform: uppercase;
     text-wrap: balance;
     color: var(--hero-muted);
-    transition-delay: 120ms;
   }
 
   .ons-hero-actions {
@@ -866,6 +883,7 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     justify-content: center;
     gap: 0.25rem;
     padding: 0.75rem var(--ons-gutter) max(1.1rem, env(safe-area-inset-bottom));
+    transition: color 0.4s ease; /* the arrows and dots fade between their light and dark colours */
   }
   .ons-hero-arrow {
     display: grid;
@@ -877,7 +895,7 @@ html:has(.ons dialog[open]) { overflow: hidden; }
     cursor: pointer;
     transition:
       background-color 0.3s ease,
-      border-color 0.7s ease;
+      border-color 0.4s ease;
   }
   .ons-hero-arrow:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
   .ons-dots { display: flex; align-items: center; padding-inline: 0.5rem; }
@@ -914,6 +932,7 @@ html:has(.ons dialog[open]) { overflow: hidden; }
       letter-spacing: 0.22em;
       text-transform: uppercase;
       color: var(--hero-muted);
+      transition: color 0.4s ease;
     }
   }
 
