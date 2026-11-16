@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
+import { SiteLink } from "./site-link";
 import { usePathname } from "next/navigation";
 import { useRef, useState, useSyncExternalStore } from "react";
 import { Menu, Phone, X } from "lucide-react";
 import { cityLine, phoneHref, routes, site } from "@/data/sites/olive-n-spice/config";
+import { toSitePath } from "@/lib/hosts";
 import { Wordmark } from "./wordmark";
 
 // The bar at the top of every page: wordmark, the three page links and a
@@ -29,7 +30,8 @@ function subscribeToScroll(onChange: () => void) {
 }
 
 export function SiteHeader() {
-  const pathname = usePathname();
+  // On olive-n-spice.vercel.app the address bar says "/menu"; toSitePath() turns it back into "/olive-n-spice/menu".
+  const pathname = toSitePath(usePathname());
   const scrolled = useSyncExternalStore(
     subscribeToScroll,
     () => window.scrollY > 16,
@@ -48,20 +50,20 @@ export function SiteHeader() {
   return (
     <header className="ons-header" data-scrolled={scrolled}>
       <div className="ons-container ons-header-inner">
-        <Link href={routes.home} aria-label={`${site.name}, home`} className="min-w-0 shrink">
+        <SiteLink href={routes.home} aria-label={`${site.name}, home`} className="min-w-0 shrink">
           <Wordmark />
-        </Link>
+        </SiteLink>
 
         <nav className="ons-nav" aria-label="Main">
           {NAV.map((item) => (
-            <Link
+            <SiteLink
               key={item.href}
               href={item.href}
               className="ons-nav-link"
               aria-current={isCurrent(item.href) ? "page" : undefined}
             >
               {item.label}
-            </Link>
+            </SiteLink>
           ))}
         </nav>
 
@@ -71,9 +73,9 @@ export function SiteHeader() {
               <Phone size={18} strokeWidth={1.5} aria-hidden />
             </a>
           )}
-          <Link href={routes.reserve} className="ons-btn ons-btn-gold ons-btn-sm">
+          <SiteLink href={routes.reserve} className="ons-btn ons-btn-gold ons-btn-sm">
             Reserve<span className="hidden sm:inline"> a table</span>
-          </Link>
+          </SiteLink>
           <button
             type="button"
             className="ons-menu-toggle"
@@ -94,9 +96,9 @@ export function SiteHeader() {
         onClose={() => setMenuOpen(false)}
       >
         <div className="ons-mobile-menu-top">
-          <Link href={routes.home} onClick={closeMenu} aria-label={`${site.name}, home`}>
+          <SiteLink href={routes.home} onClick={closeMenu} aria-label={`${site.name}, home`}>
             <Wordmark />
-          </Link>
+          </SiteLink>
           <button type="button" className="ons-menu-toggle" aria-label="Close menu" onClick={closeMenu}>
             <X size={20} strokeWidth={1.5} aria-hidden />
           </button>
@@ -104,7 +106,7 @@ export function SiteHeader() {
         <div className="ons-mobile-menu-body">
           <nav className="ons-mobile-menu-links" aria-label="Main">
             {[{ href: routes.home, label: "Home" }, ...NAV].map((item, i) => (
-              <Link
+              <SiteLink
                 key={item.href}
                 href={item.href}
                 onClick={closeMenu}
@@ -114,13 +116,13 @@ export function SiteHeader() {
               >
                 <span aria-hidden>0{i + 1}</span>
                 {item.label}
-              </Link>
+              </SiteLink>
             ))}
           </nav>
           <div className="flex flex-col gap-4">
-            <Link href={routes.reserve} onClick={closeMenu} className="ons-btn ons-btn-gold w-full">
+            <SiteLink href={routes.reserve} onClick={closeMenu} className="ons-btn ons-btn-gold w-full">
               Reserve a table
-            </Link>
+            </SiteLink>
             {tel && (
               <a href={tel} className="ons-btn ons-btn-ghost w-full">
                 <Phone size={16} aria-hidden />

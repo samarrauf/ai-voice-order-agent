@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { SiteLink } from "../site-link";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, X } from "lucide-react";
 import { menuAnchor, routes } from "@/data/sites/olive-n-spice/config";
@@ -117,13 +117,13 @@ function PanelContent({ group, onClose }: { group: MenuGroup; onClose: () => voi
       </div>
 
       <footer className="ons-panel-foot">
-        <Link href={menuAnchor(category.id)} className="ons-btn ons-btn-olive flex-1" onClick={onClose}>
+        <SiteLink href={menuAnchor(category.id)} className="ons-btn ons-btn-olive flex-1" onClick={onClose}>
           View full menu
           <ArrowRight size={16} className="ons-btn-arrow" aria-hidden />
-        </Link>
-        <Link href={routes.reserve} className="ons-btn ons-btn-gold" onClick={onClose}>
+        </SiteLink>
+        <SiteLink href={routes.reserve} className="ons-btn ons-btn-gold" onClick={onClose}>
           Reserve
-        </Link>
+        </SiteLink>
       </footer>
     </div>
   );

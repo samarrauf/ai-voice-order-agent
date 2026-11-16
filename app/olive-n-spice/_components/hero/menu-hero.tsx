@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { SiteLink } from "../site-link";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { menuAnchor, routes, site } from "@/data/sites/olive-n-spice/config";
@@ -131,9 +131,9 @@ export function MenuHero() {
             Explore
             <ArrowRight size={16} className="ons-btn-arrow" aria-hidden />
           </button>
-          <Link href={routes.reserve} className="ons-btn ons-btn-gold">
+          <SiteLink href={routes.reserve} className="ons-btn ons-btn-gold">
             Reserve a table
-          </Link>
+          </SiteLink>
         </div>
 
         <div className="ons-hero-controls">
@@ -202,16 +202,16 @@ const HeroGrid = memo(function HeroGrid({ onExplore }: { onExplore: (groupId: st
                 >
                   Explore
                 </button>
-                <Link href={menuAnchor(group.id)} className="ons-link" aria-label={`${group.name} on the full menu`}>
+                <SiteLink href={menuAnchor(group.id)} className="ons-link" aria-label={`${group.name} on the full menu`}>
                   Full menu
-                </Link>
+                </SiteLink>
               </div>
             </li>
           ))}
         </ul>
-        <Link href={routes.reserve} className="ons-btn ons-btn-gold mt-10">
+        <SiteLink href={routes.reserve} className="ons-btn ons-btn-gold mt-10">
           Reserve a table
-        </Link>
+        </SiteLink>
       </div>
     </div>
   );

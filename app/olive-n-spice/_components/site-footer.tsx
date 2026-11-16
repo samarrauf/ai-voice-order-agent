@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { SiteLink } from "./site-link";
 import { ArrowUpRight, Phone } from "lucide-react";
 import { cityLine, phoneHref, routes, site } from "@/data/sites/olive-n-spice/config";
 import { OliveBranch } from "./ornaments";
@@ -29,10 +29,10 @@ export function SiteFooter() {
           <nav aria-label="Footer">
             <p className="ons-footer-title">Explore</p>
             <ul className="ons-footer-list">
-              <li><Link href={routes.home}>Home</Link></li>
-              <li><Link href={routes.menu}>Menu</Link></li>
-              <li><Link href={routes.events}>Events</Link></li>
-              <li><Link href={routes.reserve}>Reserve &amp; Contact</Link></li>
+              <li><SiteLink href={routes.home}>Home</SiteLink></li>
+              <li><SiteLink href={routes.menu}>Menu</SiteLink></li>
+              <li><SiteLink href={routes.events}>Events</SiteLink></li>
+              <li><SiteLink href={routes.reserve}>Reserve &amp; Contact</SiteLink></li>
             </ul>
           </nav>
 

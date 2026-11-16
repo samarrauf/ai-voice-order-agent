@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { SiteLink } from "./site-link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { cityLine, hoursSummary, menuAnchor, routes, site } from "@/data/sites/olive-n-spice/config";
 import type { HeroArt } from "@/data/sites/olive-n-spice/hero";
@@ -46,10 +46,10 @@ export function AboutSection() {
             ))}
           </ul>
           <div data-reveal style={delay(320)}>
-            <Link href={routes.menu} className="ons-btn ons-btn-olive">
+            <SiteLink href={routes.menu} className="ons-btn ons-btn-olive">
               View the menu
               <ArrowRight size={16} className="ons-btn-arrow" aria-hidden />
-            </Link>
+            </SiteLink>
           </div>
         </div>
 
@@ -85,7 +85,7 @@ export function SpecialsSection() {
       <ul className="ons-specials-list">
         {specials.map(({ item, category }, i) => (
           <li key={item.id} data-reveal style={delay(i * 70)}>
-            <Link href={menuAnchor(category.id)} className="ons-special-card">
+            <SiteLink href={menuAnchor(category.id)} className="ons-special-card">
               <span className="ons-special-top">
                 <span className="ons-special-category">{category.name}</span>
                 <ChefMark size={16} />
@@ -98,7 +98,7 @@ export function SpecialsSection() {
                   See on menu <ArrowRight size={14} aria-hidden />
                 </span>
               </span>
-            </Link>
+            </SiteLink>
           </li>
         ))}
       </ul>
@@ -125,10 +125,10 @@ export function EventsSection() {
             {promise}
           </p>
           <div data-reveal>
-            <Link href={routes.events} className="ons-btn ons-btn-olive">
+            <SiteLink href={routes.events} className="ons-btn ons-btn-olive">
               Plan your event
               <ArrowRight size={16} className="ons-btn-arrow" aria-hidden />
-            </Link>
+            </SiteLink>
           </div>
         </div>
       </div>
@@ -174,9 +174,9 @@ export function ReserveSection() {
           <ContactActions whatsappMessage={`Hello ${site.name}, I would like to reserve a table.`} />
         </div>
         <div className="ons-reserve-links" data-reveal style={delay(320)}>
-          <Link href={routes.reserve} className="ons-link">
+          <SiteLink href={routes.reserve} className="ons-link">
             Reserve &amp; contact <ArrowRight size={14} aria-hidden />
-          </Link>
+          </SiteLink>
           {site.location.mapLinkUrl && (
             <a href={site.location.mapLinkUrl} target="_blank" rel="noopener noreferrer" className="ons-link">
               Get directions <ArrowUpRight size={14} aria-hidden />

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { SiteLink } from "../_components/site-link";
 import { ArrowRight } from "lucide-react";
 import { routes, site } from "@/data/sites/olive-n-spice/config";
 import { menuFootnote } from "@/data/sites/olive-n-spice/menu";
@@ -52,10 +52,10 @@ export default function MenuPage() {
         <div className="ons-container ons-container-narrow">
           <Divider />
           <p className="ons-menu-footnote">{menuFootnote}</p>
-          <Link href={routes.reserve} className="ons-btn ons-btn-gold">
+          <SiteLink href={routes.reserve} className="ons-btn ons-btn-gold">
             Reserve a table
             <ArrowRight size={16} className="ons-btn-arrow" aria-hidden />
-          </Link>
+          </SiteLink>
         </div>
       </section>
     </>

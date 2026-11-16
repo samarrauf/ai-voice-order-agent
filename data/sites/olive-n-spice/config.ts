@@ -1,3 +1,5 @@
+import { SITE_ORIGIN } from "@/lib/hosts";
+
 // =====================================================================
 // Olive 'n Spice: site settings
 // ---------------------------------------------------------------------
@@ -68,7 +70,7 @@ export type SiteConfig = {
 
   /** Where every page of this site lives. */
   basePath: string;
-  /** The final public address, e.g. "https://www.example.com". `null` until a domain is chosen. */
+  /** The final public address. `null` = none chosen yet. */
   siteUrl: string | null;
 
   brand: {
@@ -150,7 +152,8 @@ export const site: SiteConfig = {
   },
 
   basePath: "/olive-n-spice",
-  siteUrl: null,
+  // The website lives on this domain (see lib/hosts.ts). Canonical links, link previews and search-engine data use its clean paths: "/menu", not "/olive-n-spice/menu".
+  siteUrl: SITE_ORIGIN,
 
   brand: {
     logoSrc: null,
