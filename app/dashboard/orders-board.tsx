@@ -7,6 +7,7 @@ import { Badge, Button, Card, EmptyState, FilterChips, PageHeader, StatusBadge, 
 import { PaymentStatusBadge } from "@/components/ui/payment-status-badge";
 import { formatMoney } from "@/lib/money";
 import { NewOrderLink } from "./new-order-link";
+import { PrintButtons } from "./print-buttons";
 
 export type BoardOrder = {
   id: string;
@@ -186,6 +187,8 @@ export function OrdersBoard({ orders, restaurantId }: { orders: BoardOrder[]; re
                   <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint">Total</span>
                   <span className="text-2xl font-bold tabular-nums">{formatMoney(o.total)}</span>
                 </div>
+
+                <PrintButtons orderId={o.id} className="mt-4" />
 
                 {next && (
                   <Button

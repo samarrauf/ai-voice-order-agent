@@ -105,8 +105,8 @@ describe("create-order pre-orders", () => {
 
   it("owner has switched orders off: a valid pre-order is still rejected", async () => {
     useClosedClock();
-    await db.from("restaurants").update({ is_accepting_orders: false }).eq("id", RID);
     try {
+      await db.from("restaurants").update({ is_accepting_orders: false }).eq("id", RID);
       const { status, json } = await callTool(createOrder, pickup({ requested_time: "16:15" }));
       expect(status).toBe(400);
       expect(json.speech).toMatch(/not taking any orders/i);

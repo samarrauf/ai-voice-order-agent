@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button, cn } from "@/components/ui";
 import { PaymentStatusBadge } from "@/components/ui/payment-status-badge";
 import { formatMoney } from "@/lib/money";
+import { PrintButtons } from "../print-buttons";
 import { ErrorNote, Modal, type SentOrder } from "./dialogs";
 
 const METHODS = [
@@ -153,6 +154,7 @@ export function PaymentDialog({
           </>
         )}
         {error && <ErrorNote>{error}</ErrorNote>}
+        <PrintButtons orderId={order.orderId} />
       </div>
       <div className="flex shrink-0 gap-3 border-t border-line px-5 py-4">
         {paid ? (

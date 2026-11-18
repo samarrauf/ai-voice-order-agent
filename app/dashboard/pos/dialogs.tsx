@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Check, CircleAlert, CircleCheck, Minus, Plus, Users, X } from "lucide-react";
 import { Badge, Button, cn } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
+import { PrintButtons } from "../print-buttons";
 import { MAX_LINE_QTY, type CartTable, type NewLine } from "./cart-store";
 import type { PosItem, PosTable } from "./pos-types";
 
@@ -357,6 +358,7 @@ export function SentDialog({
           {order.where} · <span className="font-semibold tabular-nums text-ink">{formatMoney(order.total, currency)}</span>
         </p>
       </div>
+      <PrintButtons orderId={order.orderId} className="shrink-0 px-5 pb-3" />
       <div className="flex shrink-0 gap-3 border-t border-line px-5 py-4">
         <Link
           href="/dashboard"
