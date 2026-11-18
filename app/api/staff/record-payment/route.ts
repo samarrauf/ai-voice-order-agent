@@ -79,6 +79,24 @@ export async function POST(request: Request) {
     return fail(message, status);
   }
 
+  // A repeated key must be the SAME payment. Same key with another amount or method
+  // is a mistake (or a clash), so say so instead of pretending it was recorded.
+  if (result.duplicate) {
+    const { data: prior, error: priorError } = await supabaseAdmin
+      .from("order_payments")
+      .select("amount, method")
+      .eq("order_id", body.order_id)
+      .eq("idempotency_key", body.idempotency_key)
+      .maybeSingle();
+    if (priorError) {
+      console.error("record-payment: duplicate check failed", priorError);
+      return fail("could not record the payment", 500);
+    }
+    if (prior && (pence(prior.amount) !== amountPence || prior.method !== body.method)) {
+      return fail("this payment key was already used for a different payment; nothing was recorded", 409);
+    }
+  }
+
   return NextResponse.json(
     {
       success: true,

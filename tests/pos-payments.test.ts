@@ -3,7 +3,7 @@ import { POST as pricePreview } from "@/app/api/staff/price-preview/route";
 import { POST as manualOrder } from "@/app/api/staff/manual-order/route";
 import { POST as recordPayment } from "@/app/api/staff/record-payment/route";
 import { SESSION_COOKIE, createSessionToken } from "@/lib/dashboard-auth";
-import { computeBill, percentOf, roundPence, type BillSettingsRow } from "@/lib/order-pricing";
+import { computeBill, discountSchema, percentOf, roundPence, type BillSettingsRow } from "@/lib/order-pricing";
 import { RID, RUN_MARKER, cleanupTestOrders, db } from "./helpers/helpers";
 
 // POS P2a: the bill (discount, delivery fee, service charge, tax, rounding) and
@@ -407,5 +407,71 @@ describe("record-payment", () => {
 
   it("an unknown order is a 404", async () => {
     expect((await callStaff(recordPayment, payBody("00000000-0000-4000-8000-000000000099"))).status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3. Money review (after P2a): edge cases found in the review
+// ---------------------------------------------------------------------------
+describe("money review: discount cap survives rounding", () => {
+  const s = settings({ max_discount_percent: 10 });
+  it("a fixed discount cannot sneak past the cap by half a penny", () => {
+    // 10% of 10.05 is 100.5p. 101p is over the cap; 100p is not.
+    expect(computeBill(1005, "takeaway", s, { type: "fixed", value: 1.01, reason: null }).ok).toBe(false);
+    expect(computeBill(1005, "takeaway", s, { type: "fixed", value: 1, reason: null }).ok).toBe(true);
+  });
+  it("a percent discount equal to the cap is rounded DOWN, so it never exceeds the cap in pence", () => {
+    expect(bill(1005, "takeaway", s, { type: "percent", value: 10, reason: null }).discountPence).toBe(100);
+  });
+});
+
+describe("money review: bad numbers never produce a bill", () => {
+  it("discount values with more than 2 decimals are rejected by the schema", () => {
+    expect(discountSchema.safeParse({ type: "percent", value: 10.123 }).success).toBe(false);
+    expect(discountSchema.safeParse({ type: "fixed", value: 5.005 }).success).toBe(false);
+    expect(discountSchema.safeParse({ type: "fixed", value: 5.01 }).success).toBe(true);
+    expect(discountSchema.safeParse({ type: "percent", value: 12.5 }).success).toBe(true);
+  });
+  it("NaN / Infinity discount (bypassing the schema) is refused, never a NaN total", () => {
+    const s = settings({ max_discount_percent: 100 });
+    for (const value of [NaN, Infinity]) {
+      for (const type of ["percent", "fixed"] as const) {
+        expect(computeBill(2000, "takeaway", s, { type, value, reason: null }).ok).toBe(false);
+      }
+    }
+  });
+  it("a negative subtotal or negative delivery fee is refused", () => {
+    expect(computeBill(-100, "takeaway", settings()).ok).toBe(false);
+    expect(computeBill(2000, "delivery", settings({ delivery_fee: -2 })).ok).toBe(false);
+  });
+  it("broken settings (NaN rates) are refused", () => {
+    expect(computeBill(2000, "takeaway", settings({ tax_rate_percent: "abc" })).ok).toBe(false);
+  });
+});
+
+describe("money review: routes", () => {
+  it("delivery order: a phone number without digits is rejected", async () => {
+    await configure(RESET);
+    const { status, json } = await place({ ...delivery, customer_phone: "call me" });
+    expect(status).toBe(400);
+    expect(json.error).toContain("customer_phone");
+  });
+
+  it("record-payment: the same key with a DIFFERENT amount is a conflict (409), not a silent 'duplicate'", async () => {
+    await configure(RESET);
+    const { json } = await place(); // total 20.00
+    const id = json.order_id as string;
+    const key = crypto.randomUUID();
+    const base = { restaurant_id: rid, order_id: id, method: "cash", idempotency_key: key };
+    expect((await callStaff(recordPayment, { ...base, amount: 5 })).status).toBe(201);
+    const clash = await callStaff(recordPayment, { ...base, amount: 7 });
+    expect(clash.status).toBe(409);
+    expect(clash.json.success).toBe(false);
+    // a different method with the same key and amount is also a clash
+    expect((await callStaff(recordPayment, { ...base, amount: 5, method: "card" })).status).toBe(409);
+    // the exact same request is still a harmless duplicate
+    expect((await callStaff(recordPayment, { ...base, amount: 5 })).status).toBe(200);
+    const row = await db.from("orders").select("paid_amount").eq("id", id).single();
+    expect(Number(row.data!.paid_amount)).toBe(5);
   });
 });

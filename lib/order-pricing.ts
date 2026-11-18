@@ -226,7 +226,14 @@ export type OrderKind = "dine_in" | "takeaway" | "delivery";
 
 export const discountSchema = z.object({
   type: z.enum(["none", "percent", "fixed"]).default("none"),
-  value: z.number().finite().min(0).max(100000).default(0),
+  // At most 2 decimals: the database stores 2, so 5.005 would be saved as 5.01 but priced as 5.00.
+  value: z
+    .number()
+    .finite()
+    .min(0)
+    .max(100000)
+    .refine((v) => Math.abs(Math.round(v * 100) - v * 100) < 1e-6, { message: "must have at most 2 decimals" })
+    .default(0),
   reason: z
     .string()
     .trim()
@@ -274,6 +281,17 @@ export function computeBill(
 ): BillResult {
   const d = discountInput ?? { type: "none" as const, value: 0, reason: null };
 
+  // Defence in depth: the inputs are validated upstream, but a NaN or negative
+  // number must never turn into a bill.
+  if (!Number.isInteger(subtotalPence) || subtotalPence < 0) return { ok: false, error: "invalid order subtotal" };
+  if (!Number.isFinite(d.value)) return { ok: false, error: "discount value is not a valid number" };
+  const maxPercent = Number(settings.max_discount_percent);
+  const taxPercent = Number(settings.tax_rate_percent);
+  const servicePercent = Number(settings.service_charge_percent);
+  if (![maxPercent, taxPercent, servicePercent].every((n) => Number.isFinite(n) && n >= 0 && n <= 100)) {
+    return { ok: false, error: "restaurant bill settings are invalid" };
+  }
+
   // 2. Discount
   let discountPence = 0;
   if (d.type === "percent") {
@@ -285,11 +303,14 @@ export function computeBill(
     discountPence = pence(d.value);
   }
   if (discountPence > subtotalPence) return { ok: false, error: "discount cannot be more than the subtotal" };
-  const maxPercent = Number(settings.max_discount_percent);
-  // A percent discount is compared as a percent (so 10.01% can't slip under a 10%
-  // cap through rounding); a fixed one is compared in pence against the cap's value.
-  const overCap = d.type === "percent" ? d.value > maxPercent : discountPence > percentOf(subtotalPence, maxPercent);
-  if (overCap) {
+  // The cap in pence is rounded DOWN, so rounding can never lift a discount above
+  // it. A percent discount is also compared as a percent (10.01% can't slip under
+  // a 10% cap); its pence are then clamped to the cap (10% of 10.05 is 100.5p -> 100p).
+  const capPence = Math.floor((subtotalPence * Math.round(maxPercent * 100)) / 10000);
+  if (d.type === "percent") {
+    if (d.value > maxPercent) return { ok: false, error: `discount is more than the allowed maximum of ${maxPercent}%` };
+    discountPence = Math.min(discountPence, capPence);
+  } else if (discountPence > capPence) {
     return { ok: false, error: `discount is more than the allowed maximum of ${maxPercent}%` };
   }
   const discounted = subtotalPence - discountPence;
@@ -299,15 +320,16 @@ export function computeBill(
   if (kind === "delivery") {
     if (settings.delivery_fee === null) return { ok: false, error: "delivery_fee not configured" };
     deliveryPence = pence(settings.delivery_fee);
+    if (!Number.isInteger(deliveryPence) || deliveryPence < 0) return { ok: false, error: "delivery_fee is invalid" };
   }
 
   // 5. Service charge, only where the restaurant's setting allows it
   const applies = settings.service_charge_applies_to;
   const serviceApplies = applies === "all" || (applies === "dine_in" && kind === "dine_in");
-  const serviceChargePence = serviceApplies ? percentOf(discounted, Number(settings.service_charge_percent)) : 0;
+  const serviceChargePence = serviceApplies ? percentOf(discounted, servicePercent) : 0;
 
   // 6. Tax on everything charged so far
-  const taxPence = percentOf(discounted + deliveryPence + serviceChargePence, Number(settings.tax_rate_percent));
+  const taxPence = percentOf(discounted + deliveryPence + serviceChargePence, taxPercent);
 
   return {
     ok: true,

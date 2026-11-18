@@ -66,6 +66,11 @@ const bodySchema = z
     path: ["customer_phone"],
     message: "is required for a delivery order",
   })
+  // The driver has to be able to ring this number: at least 7 digits.
+  .refine((b) => b.order_type !== "delivery" || (b.customer_phone ?? "").replace(/\D/g, "").length >= 7, {
+    path: ["customer_phone"],
+    message: "must be a real phone number (at least 7 digits)",
+  })
   .refine((b) => b.order_type !== "delivery" || !!b.delivery_address, {
     path: ["delivery_address"],
     message: "is required for a delivery order",
