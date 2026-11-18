@@ -1,8 +1,8 @@
 # Phase 2 conversation tests
 
-Run: 2026-11-14T16:14:58.212Z · model claude-haiku-5-5 · total cost $0.0725
+Run: 2026-11-18T11:03:44.555Z · model claude-haiku-5-5 · total cost $0.0714
 
-Cleaned up afterwards: 9 order(s) [A-1221, A-1222, A-1223, A-1224, A-1225, A-1226, A-1227, A-1229, A-1228], 2 callback(s).
+Cleaned up afterwards: 9 order(s) [A-1842, A-1843, A-1844, A-1845, A-1846, A-1847, A-1848, A-1850, A-1849], 2 callback(s).
 
 ## Pass / fail
 
@@ -49,19 +49,19 @@ Cleaned up afterwards: 9 order(s) [A-1221, A-1222, A-1223, A-1224, A-1225, A-122
 - Test 10 · 10 read back again · asked 'Is that all correct?' again: PASS
 - Test 10 · 10 corrected order placed once · 1 order(s) placed: PASS
 - Test 11 · 11 no second order · 1 order(s) placed: PASS
-- Test 11 · 11 callback with corrected number · 07700900999 (problem): Order A-1227: correct phone is 07700900999: PASS
+- Test 11 · 11 callback with corrected number · 07700900999 (problem): Order A-1848: correct phone is 07700900999, number on order was wrong: PASS
 - Test 12 · A booking made once · 1 create_booking call(s), 1 succeeded: PASS
 - Test 12 · A checked availability first · check at turn 4, booking at turn 9: PASS
-- Test 12 · A booking details right · {"date":"2026-12-14","time":"19:30","party_size":4,"customer_name":"Sam","customer_phone":"07700900123"}: PASS
-- Test 12 · A waited for yes to the read-back · asked: "Four people, Monday the fourteenth of December, half past seven, Sam, oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that all correct, shall I confirm the booking?" / caller: "yes": PASS
-- Test 12 · A reference and table given · "Lovely, you're booked. Reference B, two-one-zero-one, table five. We have your number as oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that right?": PASS
+- Test 12 · A booking details right · {"customer_name":"Sam","customer_phone":"07700900123","date":"2026-12-18","time":"19:30","party_size":4}: PASS
+- Test 12 · A waited for yes to the read-back · asked: "Four people, Friday the eighteenth of December, half past seven, Sam, oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that all correct, shall I confirm the booking?" / caller: "yes": PASS
+- Test 12 · A reference and table given · "Lovely, you're booked. Reference B, two-seven-eight-six, table five. We have your number as oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that right?": PASS
 - Test 13 · B first check found no table · first check: false: PASS
-- Test 13 · B asked about another day or time · replies after the failed check: "Sorry, we don't have a table for eight on Tuesday the fifteenth of December at seven. Would another day or time work?" / "Good news, we have a table for eight on Tuesday the fifteenth of December at nine o'clock." / "Lovely. What name should I put the booking under?": PASS
+- Test 13 · B asked about another day or time · replies after the failed check: "Sorry, we don't have a table for eight on Saturday the nineteenth of December at seven. Would another day or time work?" / "Good news, we have a table for eight on Saturday the nineteenth of December at nine. Can I take a name for the booking?" / "Lovely, Priya. What's the best contact number for the booking?": PASS
 - Test 13 · B did not book the full slot · 1 create_booking call(s): PASS
 - Test 13 · B at most two failed checks · 2 check(s): PASS
-- Test 13 · B booked the other time · {"date":"2026-12-15","time":"21:00","party_size":8,"customer_name":"Priya","customer_phone":"07700900124"}: PASS
+- Test 13 · B booked the other time · {"date":"2026-12-19","time":"21:00","party_size":8,"customer_name":"Priya","customer_phone":"07700900124"}: PASS
 - Test 14 · C no booking tools called · 0 tool call(s): none: PASS
-- Test 14 · C advised ringing the shop · "Sorry, we can't take a booking that big over the phone. Please ring the shop directly. Sorry, that's still too many for me to book over the phone. Please ring the shop directly and they'll sort it out.": PASS
+- Test 14 · C advised ringing the shop · "Sorry, we can't take a booking that big over the phone. Please ring the shop directly. I'm sorry, we still can't take a party of twelve over the phone. Please ring the shop directly.": PASS
 - Test 14 · C no workaround · no table-joining offered: PASS
 - Test 15 · D corrected number stored · stored 07700900999: PASS
 - Test 15 · D wrong number never booked · 1 create_booking call(s): PASS
@@ -71,13 +71,13 @@ Cleaned up afterwards: 9 order(s) [A-1221, A-1222, A-1223, A-1224, A-1225, A-122
 - Test 16 · Q1 one query recorded · 1 create_order_query call(s), 1 succeeded: PASS
 - Test 16 · Q1 lookup came before the query · lookup turn 3, query turn 5: PASS
 - Test 16 · Q1 classified as refund · type refund: PASS
-- Test 16 · Q1 reference read aloud · "I've noted that down and passed it to the restaurant, they'll be in touch with you themselves. Your reference is Q, three-zero-one-eight.": PASS
+- Test 16 · Q1 reference read aloud · "I've noted that down and passed it to the restaurant, they'll be in touch with you themselves. Your reference is Q, three-zero-four-four.": PASS
 - Test 16 · Q1 no promise made · none: PASS
 - Test 16 · Q1 no new order placed · create_order not called: PASS
 - Test 17 · Q2 lookup tried and never found · 2 lookup(s), statuses 404,404: PASS
 - Test 17 · Q2 no more than 3 lookups · 2 lookup(s): PASS
 - Test 17 · Q2 no query recorded · create_order_query not called: PASS
-- Test 17 · Q2 callback saved · {"customer_name":"Priya","customer_phone":"07700900555","reason":"problem","details":"Caller wants to complain about a past order; order A-98765 could not be found by number and phone."}: PASS
+- Test 17 · Q2 callback saved · {"customer_name":"Priya","customer_phone":"07700900555","reason":"problem","details":"Caller wants to complain about past order A-98765; order could not be found by number and phone."}: PASS
 - Test 17 · Q2 did not say which detail was wrong · no reason given: PASS
 - Test 18 · Q3 caller pushed · at turn 6: PASS
 - Test 18 · Q3 no promise of a refund · none: PASS
@@ -95,71 +95,71 @@ Cleaned up afterwards: 9 order(s) [A-1221, A-1222, A-1223, A-1224, A-1225, A-122
 
 **1. Caller:** hi
 
-**Gio** _(10 words, 1815ms)_: Hiya, Napoli Pizza and Grill, what can I get you?
+**Gio** _(10 words, 1604ms)_: Hiya, Napoli Pizza and Grill, what can I get you?
 
 **2. Caller:** two 12 inch pepperoni please
 
 > 🔧 `search_menu` {"query":"12 inch pepperoni"} → 200 — "Pepperoni — ten inch is 8.99, twelve inch 10.99, fourteen inch 12.99."
 >
-**Gio** _(11 words, 3237ms)_: Lovely, two 12 inch Pepperoni. Is that for delivery or collection?
+**Gio** _(11 words, 2197ms)_: Lovely, two 12 inch Pepperoni. Any drinks or sides with that?
 
-**3. Caller:** delivery
+**3. Caller:** no thanks
 
-**Gio** _(4 words, 1033ms)_: Lovely, what's the postcode?
+**Gio** _(6 words, 1022ms)_: Is that for delivery or collection?
 
-**4. Caller:** M14 5TP
+**4. Caller:** delivery
 
-**Gio** _(6 words, 1108ms)_: That's M-one-four, five-T-P. Is that right?
+**Gio** _(4 words, 926ms)_: Lovely, what's the postcode?
 
-**5. Caller:** yes
+**5. Caller:** M14 5TP
+
+**Gio** _(6 words, 933ms)_: That's M-one-four, five-T-P. Is that right?
+
+**6. Caller:** yes
 
 > 🔧 `check_delivery` {"postcode":"M14 5TP"} → 200 — "Yes, we deliver there. It's 2.50 for delivery, about 45 minutes."
 >
-**Gio** _(12 words, 2820ms)_: Good news, we deliver there. It's 2.50 for delivery, about 45 minutes.
+**Gio** _(12 words, 2323ms)_: Good news, we deliver there. It's 2.50 for delivery, about 45 minutes.
 
-**6. Caller:** ok
+**7. Caller:** ok
 
-**Gio** _(6 words, 1179ms)_: Any drinks or sides with that?
-
-**7. Caller:** no thanks
-
-**Gio** _(4 words, 1002ms)_: Brilliant. What's your name?
+**Gio** _(7 words, 918ms)_: Brilliant, can I take your name, please?
 
 **8. Caller:** Sarah
 
-**Gio** _(10 words, 1076ms)_: Lovely, Sarah. What's the best number to reach you on?
+**Gio** _(9 words, 933ms)_: Lovely, Sarah. What's the best contact number for you?
 
 **9. Caller:** 07700900123
 
-**Gio** _(8 words, 1076ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that right?
+**Gio** _(8 words, 914ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that right?
 
 **10. Caller:** yes
 
-**Gio** _(9 words, 1027ms)_: Lovely. What's the first line of the delivery address?
+**Gio** _(10 words, 1074ms)_: What's the first line of the address for the delivery?
 
 **11. Caller:** 12 Oak Road
 
-**Gio** _(3 words, 1060ms)_: Cash or card?
+**Gio** _(4 words, 1194ms)_: Lovely, cash or card?
 
 **12. Caller:** cash
 
 > 🔧 `create_order` {"preview":true,"fulfilment_type":"delivery","customer_name":"Sarah","customer_phone":"07700900123","delivery_address":"12 Oak Road","delivery_postcode":"M14 5TP","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000002","quantity":2,"size_name":"12 inch"}]} → 200 — "So that's two twelve inch pepperoni, for delivery to M14 5TP. That comes to 24.48 in total, including 2.50 delivery. Is that all correct?"
 >
-**Gio** _(24 words, 4294ms)_: So that's two 12 inch Pepperoni, for delivery to M14 5TP. That comes to 24.48 in total, including 2.50 delivery. Is that all correct?
+**Gio** _(24 words, 3037ms)_: So that's two 12 inch Pepperoni, for delivery to M14 5TP. That comes to 24.48 in total, including 2.50 delivery. Is that all correct?
 
 **13. Caller:** yes
 
-> 🔧 `create_order` {"preview":false,"fulfilment_type":"delivery","customer_name":"Sarah","customer_phone":"07700900123","delivery_address":"12 Oak Road","delivery_postcode":"M14 5TP","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000002","quantity":2,"size_name":"12 inch"}]} → 200 — "Perfect, order number A-1221, delivering to M-one-four, five-T-P in about 45 minutes. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-three."
+> 🔧 `create_order` {"preview":false,"fulfilment_type":"delivery","customer_name":"Sarah","customer_phone":"07700900123","delivery_address":"12 Oak Road","delivery_postcode":"M14 5TP","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000002","quantity":2,"size_name":"12 inch"}]} → 200 — "Perfect, order number A-1842, delivering to M-one-four, five-T-P in about 45 minutes. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-three."
 >
-**Gio** _(18 words, 3874ms)_: Lovely, that's placed, order number A-1221. We've got your number as oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that right?
+**Gio** _(18 words, 3305ms)_: Lovely, that's placed, order number A-1842. We've got your number as oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that right?
 
 **14. Caller:** yes
 
-**Gio** _(9 words, 1024ms)_: And it's going to M-one-four, five-T-P. Is that right?
+**Gio** _(9 words, 1052ms)_: And it's going to M-one-four, five-T-P. Is that right?
 
 **15. Caller:** yes
 
-**Gio** _(8 words, 1080ms)_: Brilliant, about 45 minutes then. Thanks Sarah, bye!
+**Gio** _(8 words, 969ms)_: Brilliant, about 45 minutes then. Thanks Sarah, bye!
 
 ## Test 2: Changes of mind, collection
 
@@ -167,57 +167,57 @@ Cleaned up afterwards: 9 order(s) [A-1221, A-1222, A-1223, A-1224, A-1225, A-122
 
 > 🔧 `search_menu` {"query":"margherita"} → 200 — "Margherita — ten inch is 7.99, twelve inch 9.99, fourteen inch 11.99."
 >
-**Gio** _(19 words, 2976ms)_: Lovely, which size would you like: 10 inch at 7.99, 12 inch at 9.99, or 14 inch at 11.99?
+**Gio** _(13 words, 2754ms)_: Lovely, which size would you like: 10 inch, 12 inch or 14 inch?
 
 **2. Caller:** 10 inch
 
-**Gio** _(11 words, 1157ms)_: Lovely, one 10 inch Margherita. Any drinks or sides with that?
+**Gio** _(11 words, 1460ms)_: Lovely, one 10 inch Margherita. Any drinks or sides with that?
 
 **3. Caller:** actually make that two
 
-**Gio** _(12 words, 1122ms)_: Two 10 inch Margheritas, no worries. Is that for delivery or collection?
+**Gio** _(11 words, 1067ms)_: Lovely, two 10 inch Margheritas. Is that for delivery or collection?
 
 **4. Caller:** and add a garlic bread
 
 > 🔧 `search_menu` {"query":"garlic bread"} → 200 — "Garlic Bread is 3.99."
 >
-**Gio** _(19 words, 4258ms)_: Garlic bread is 3.99. Do you want plain, with cheese at 4.99, or with cheese and jalapenos at 5.49?
+**Gio** _(13 words, 2510ms)_: Garlic bread is 3.99, or with cheese it's 4.99. Which would you like?
 
 **5. Caller:** plain please
 
-**Gio** _(12 words, 1974ms)_: Lovely, one plain garlic bread added. Is that for delivery or collection?
+**Gio** _(12 words, 1070ms)_: Lovely, one plain garlic bread added. Is that for delivery or collection?
 
 **6. Caller:** collection
 
-**Gio** _(12 words, 3186ms)_: Brilliant, collection it is. What name should I put the order under?
+**Gio** _(12 words, 1043ms)_: Lovely, collection it is. What name should I put the order under?
 
 **7. Caller:** Tom
 
-**Gio** _(11 words, 7063ms)_: Lovely, Tom. What's the best phone number to reach you on?
+**Gio** _(12 words, 1109ms)_: Brilliant, thanks Tom. What's the best phone number to reach you on?
 
 **8. Caller:** 07700900124
 
-**Gio** _(8 words, 1916ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-four. Is that right?
+**Gio** _(8 words, 984ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-four. Is that right?
 
 **9. Caller:** yes
 
-**Gio** _(4 words, 1453ms)_: Brilliant. Cash or card?
+**Gio** _(8 words, 1056ms)_: Lovely, and cash or card when you collect?
 
 **10. Caller:** card
 
 > 🔧 `create_order` {"preview":true,"fulfilment_type":"pickup","customer_name":"Tom","customer_phone":"07700900124","payment_method":"card_on_delivery","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000001","quantity":2,"size_name":"10 inch"},{"menu_item_id":"33333333-0000-0000-0000-000000000021","quantity":1}]} → 200 — "So that's two ten inch margherita and one garlic bread, for collection. That comes to 19.97 in total. Is that all correct?"
 >
-**Gio** _(26 words, 4087ms)_: So that's two 10 inch Margheritas and one plain garlic bread, for collection. That comes to 19.97 in total, paying by card. Is that all correct?
+**Gio** _(21 words, 3449ms)_: So that's two 10 inch Margheritas and one plain garlic bread, for collection. The total is 19.97. Is that all correct?
 
 **11. Caller:** yes
 
-> 🔧 `create_order` {"preview":false,"fulfilment_type":"pickup","customer_name":"Tom","customer_phone":"07700900124","payment_method":"card_on_delivery","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000001","quantity":2,"size_name":"10 inch"},{"menu_item_id":"33333333-0000-0000-0000-000000000021","quantity":1}]} → 200 — "Perfect, order number A-1222, ready to collect in about 20 minutes. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-four."
+> 🔧 `create_order` {"preview":false,"fulfilment_type":"pickup","customer_name":"Tom","customer_phone":"07700900124","payment_method":"card_on_delivery","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000001","quantity":2,"size_name":"10 inch"},{"menu_item_id":"33333333-0000-0000-0000-000000000021","quantity":1}]} → 200 — "Perfect, order number A-1843, ready to collect in about 20 minutes. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-four."
 >
-**Gio** _(18 words, 3809ms)_: Lovely, that's placed, order number A-1222. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-four. Is that right?
+**Gio** _(18 words, 3700ms)_: Lovely, that's placed, order number A-1843. We've got your number as oh-seven-seven, double-oh, nine-double-oh, one-two-four. Is that right?
 
 **12. Caller:** yes
 
-**Gio** _(12 words, 1853ms)_: Brilliant, that's ready to collect in about 20 minutes. Thanks Tom, bye!
+**Gio** _(11 words, 1197ms)_: Brilliant, that'll be ready in about 20 minutes, Tom. Thanks, bye!
 
 ## Test 3: Allergen question mid-order
 
@@ -225,71 +225,71 @@ Cleaned up afterwards: 9 order(s) [A-1221, A-1222, A-1223, A-1224, A-1225, A-122
 
 > 🔧 `search_menu` {"query":"pepperoni"} → 200 — "Pepperoni — ten inch is 8.99, twelve inch 10.99, fourteen inch 12.99."
 >
-**Gio** _(13 words, 2890ms)_: Lovely, two pepperoni. What size would you like, 10, 12 or 14 inch?
+**Gio** _(14 words, 2326ms)_: Lovely, two Pepperoni pizzas. What size would you like, ten, twelve or fourteen inch?
 
 **2. Caller:** 12 inch
 
-**Gio** _(11 words, 1303ms)_: Lovely, two 12 inch Pepperoni. Any drinks or sides with that?
+**Gio** _(11 words, 976ms)_: Lovely, two 12 inch Pepperoni. Any drinks or sides with that?
 
 **3. Caller:** does it have nuts?
 
-**Gio** _(20 words, 1140ms)_: I can't confirm allergens over the phone. Would you like someone from the shop to call you back about it?
+**Gio** _(20 words, 1098ms)_: I can't confirm allergens over the phone. Would you like someone from the shop to call you back about it?
 
 **4. Caller:** ok carry on
 
-**Gio** _(8 words, 1243ms)_: No problem. Is that for delivery or collection?
+**Gio** _(8 words, 950ms)_: No problem. Is that for delivery or collection?
 
 **5. Caller:** collection
 
-**Gio** _(7 words, 1887ms)_: Lovely, collection it is. What's your name?
+**Gio** _(8 words, 1246ms)_: Lovely, collection. Can I take your name, please?
 
 **6. Caller:** Raj
 
-**Gio** _(10 words, 1344ms)_: Nice one, Raj. What's the best contact number for you?
+**Gio** _(10 words, 1064ms)_: Thanks Raj. What's the best contact number for the order?
 
 **7. Caller:** 07700900126
 
-**Gio** _(8 words, 1445ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-six. Is that right?
+**Gio** _(8 words, 972ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-six. Is that right?
 
 **8. Caller:** yes
 
-**Gio** _(3 words, 1163ms)_: Cash or card?
+**Gio** _(4 words, 1037ms)_: Brilliant. Cash or card?
 
 **9. Caller:** cash
 
 > 🔧 `create_order` {"preview":true,"fulfilment_type":"pickup","customer_name":"Raj","customer_phone":"07700900126","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000002","quantity":2,"size_name":"12 inch"}]} → 200 — "So that's two twelve inch pepperoni, for collection. That comes to 21.98 in total. Is that all correct?"
 >
-**Gio** _(25 words, 3858ms)_: So that's two 12 inch Pepperoni, for collection, paying cash. That comes to 21.98 in total, ready in about 20 minutes. Is that all correct?
+**Gio** _(18 words, 2841ms)_: So that's two 12 inch Pepperoni, for collection. That comes to 21.98 in total. Is that all correct?
 
 **10. Caller:** yes
 
-> 🔧 `create_order` {"preview":false,"fulfilment_type":"pickup","customer_name":"Raj","customer_phone":"07700900126","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000002","quantity":2,"size_name":"12 inch"}]} → 200 — "Perfect, order number A-1223, ready to collect in about 20 minutes. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-six."
+> 🔧 `create_order` {"preview":false,"fulfilment_type":"pickup","customer_name":"Raj","customer_phone":"07700900126","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000002","quantity":2,"size_name":"12 inch"}]} → 200 — "Perfect, order number A-1844, ready to collect in about 20 minutes. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-six."
 >
-**Gio** _(18 words, 3854ms)_: Lovely, that's placed, order number A-1223. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-six. Is that right?
+**Gio** _(18 words, 3424ms)_: Lovely, that's placed, order number A-1844. We've got your number as oh-seven-seven, double-oh, nine-double-oh, one-two-six. Is that right?
 
 **11. Caller:** yes
 
-**Gio** _(12 words, 1542ms)_: Brilliant, that's ready to collect in about 20 minutes, Raj. Thanks, bye!
+**Gio** _(12 words, 1006ms)_: Brilliant, that's ready to collect in about 20 minutes. Thanks Raj, bye!
 
 ## Test 4: Postcode outside area
 
 **1. Caller:** hi
 
-**Gio** _(10 words, 987ms)_: Hiya, Napoli Pizza and Grill, what can I get you?
+**Gio** _(10 words, 1067ms)_: Hiya, Napoli Pizza and Grill, what can I get you?
 
 **2. Caller:** delivery to SW1A 1AA
 
-**Gio** _(6 words, 1273ms)_: That's S-W-one-A, one-A-A. Is that right?
+**Gio** _(6 words, 1024ms)_: That's S-W-one-A, one-A-A. Is that right?
 
 **3. Caller:** yes
 
 > 🔧 `check_delivery` {"postcode":"SW1A 1AA"} → 200 — "Sorry, we don't deliver to that postcode, but you're welcome to collect. Would you like to do collection?"
 >
-**Gio** _(18 words, 2207ms)_: Sorry, we don't deliver to that postcode, but you're welcome to collect. Would you like to do collection?
+**Gio** _(18 words, 2072ms)_: Sorry, we don't deliver to that postcode, but you're welcome to collect. Would you like to do collection?
 
 **4. Caller:** no thanks then, bye
 
-**Gio** _(6 words, 1142ms)_: No worries, thanks for calling. Bye!
+**Gio** _(10 words, 984ms)_: No worries, thanks for calling Napoli Pizza and Grill. Bye!
 
 ## Test 5: Below delivery minimum
 
@@ -297,65 +297,65 @@ Cleaned up afterwards: 9 order(s) [A-1221, A-1222, A-1223, A-1224, A-1225, A-122
 
 > 🔧 `search_menu` {"query":"10 inch margherita"} → 200 — "Margherita — ten inch is 7.99, twelve inch 9.99, fourteen inch 11.99."
 >
-**Gio** _(13 words, 3213ms)_: Lovely, one 10 inch Margherita at 7.99. Any drinks or sides with that?
+**Gio** _(12 words, 2217ms)_: Lovely, one 10 inch Margherita, 7.99. Any drinks or sides with that?
 
 **2. Caller:** delivery to M14 5TP
 
-**Gio** _(6 words, 1263ms)_: That's M-one-four, five-T-P. Is that right?
+**Gio** _(6 words, 1028ms)_: That's M-one-four, five-T-P. Is that right?
 
 **3. Caller:** yes
 
 > 🔧 `check_delivery` {"postcode":"M14 5TP"} → 200 — "Yes, we deliver there. It's 2.50 for delivery, about 45 minutes."
 >
-**Gio** _(12 words, 4005ms)_: Good news, we deliver there. It's 2.50 for delivery, about 45 minutes.
+**Gio** _(12 words, 2191ms)_: Good news, we deliver there. It's 2.50 for delivery, about 45 minutes.
 
 **4. Caller:** ok
 
-**Gio** _(9 words, 1390ms)_: Lovely. What name should I put the order under?
+**Gio** _(9 words, 1160ms)_: Brilliant. What name should I put the order under?
 
 **5. Caller:** Ann
 
-**Gio** _(11 words, 2287ms)_: Lovely, Ann. What's the best phone number to reach you on?
+**Gio** _(9 words, 1153ms)_: Lovely, Ann. What's the best contact number for you?
 
 **6. Caller:** 07700900125
 
-**Gio** _(8 words, 1436ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-five. Is that right?
+**Gio** _(8 words, 1237ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-five. Is that right?
 
 **7. Caller:** yes
 
-**Gio** _(9 words, 1345ms)_: Brilliant. What's the first line of the delivery address?
+**Gio** _(10 words, 1107ms)_: Thanks, Ann. What's the first line of the delivery address?
 
 **8. Caller:** 4 Elm Street
 
-**Gio** _(9 words, 1435ms)_: Lovely. Will that be cash or card on delivery?
+**Gio** _(4 words, 1192ms)_: Lovely. Cash or card?
 
 **9. Caller:** cash
 
-> 🔧 `create_order` {"preview":true,"fulfilment_type":"delivery","customer_name":"Ann","customer_phone":"07700900125","delivery_address":"4 Elm Street","delivery_postcode":"M14 5TP","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000001","quantity":1,"size_name":"10 inch"}]} → 400 — "Sorry, the minimum for delivery is 12.00. You need another 4.01 to reach it. Would you like to add something, or collect instead?"
+> 🔧 `create_order` {"preview":true,"fulfilment_type":"delivery","customer_name":"Ann","customer_phone":"07700900125","payment_method":"cash","delivery_address":"4 Elm Street","delivery_postcode":"M14 5TP","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000001","quantity":1,"size_name":"10 inch"}]} → 400 — "Sorry, the minimum for delivery is 12.00. You need another 4.01 to reach it. Would you like to add something, or collect instead?"
 >
-**Gio** _(21 words, 5061ms)_: Sorry, the delivery minimum is 12.00, so you need another 4.01. Would you like to add something, or switch to collection?
+**Gio** _(20 words, 3222ms)_: Sorry, the delivery minimum is 12.00, so you need another 4.01. Would you like to add something, or collect instead?
 
 **10. Caller:** I'll just collect it then
 
 > 🔧 `create_order` {"preview":true,"fulfilment_type":"pickup","customer_name":"Ann","customer_phone":"07700900125","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000001","quantity":1,"size_name":"10 inch"}]} → 200 — "So that's one ten inch margherita, for collection. That comes to 7.99 in total. Is that all correct?"
 >
-**Gio** _(18 words, 3579ms)_: So that's one 10 inch Margherita, for collection. That comes to 7.99 in total. Is that all correct?
+**Gio** _(18 words, 2646ms)_: So that's one 10 inch Margherita, for collection. That comes to 7.99 in total. Is that all correct?
 
 **11. Caller:** yes
 
-> 🔧 `create_order` {"preview":false,"fulfilment_type":"pickup","customer_name":"Ann","customer_phone":"07700900125","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000001","quantity":1,"size_name":"10 inch"}]} → 200 — "Perfect, order number A-1224, ready to collect in about 20 minutes. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-five."
+> 🔧 `create_order` {"preview":false,"fulfilment_type":"pickup","customer_name":"Ann","customer_phone":"07700900125","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000001","quantity":1,"size_name":"10 inch"}]} → 200 — "Perfect, order number A-1845, ready to collect in about 20 minutes. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-five."
 >
-**Gio** _(18 words, 4026ms)_: Lovely, that's placed, order number A-1224. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-five. Is that right?
+**Gio** _(18 words, 2986ms)_: Lovely, that's placed, order number A-1845. We've got your number as oh-seven-seven, double-oh, nine-double-oh, one-two-five. Is that right?
 
 **12. Caller:** yes
 
-**Gio** _(13 words, 1263ms)_: Brilliant, it'll be ready to collect in about 20 minutes. Thanks Ann, bye!
+**Gio** _(13 words, 996ms)_: Brilliant, that'll be ready for collection in about 20 minutes. Thanks Ann, bye!
 
 ## Test 6: What do you have?
 
 **1. Caller:** what do you have?
 
-**Gio** _(15 words, 956ms)_: Hiya, we do pizzas, kebabs, garlic bread, sides, drinks and desserts. What do you fancy?
+**Gio** _(16 words, 1408ms)_: Hiya, we do pizzas, kebabs, garlic bread, sides, drinks and desserts. What can I get you?
 
 ## Test 7: Item not on menu
 
@@ -363,23 +363,23 @@ Cleaned up afterwards: 9 order(s) [A-1221, A-1222, A-1223, A-1224, A-1225, A-122
 
 > 🔧 `search_menu` {"query":"sushi"} → 200 — "I don't have that one — we do classic pizzas, kebabs and sides. What are you after?"
 >
-**Gio** _(19 words, 3777ms)_: No sushi, I'm afraid. We do pizzas, kebabs, garlic bread, sides, drinks and desserts. What can I get you?
+**Gio** _(18 words, 2751ms)_: I'm afraid we don't do sushi. We do pizzas, kebabs, sides and drinks. What can I get you?
 
 ## Test 8: Are you a real person?
 
 **1. Caller:** am I talking to a real person?
 
-**Gio** _(18 words, 1354ms)_: I'm an AI assistant, but I can take your order just the same. What can I get you?
+**Gio** _(17 words, 1221ms)_: I'm an AI assistant. I can take your order just the same. What can I get you?
 
 **2. Caller:** ok, two pepperoni then
 
 > 🔧 `search_menu` {"query":"pepperoni"} → 200 — "Pepperoni — ten inch is 8.99, twelve inch 10.99, fourteen inch 12.99."
 >
-**Gio** _(14 words, 2830ms)_: Lovely, two pepperoni pizzas. What size would you like, 10, 12 or 14 inch?
+**Gio** _(14 words, 2234ms)_: What size would you like for the two pepperoni, 10, 12 or 14 inch?
 
 **3. Caller:** 12 inch
 
-**Gio** _(11 words, 1301ms)_: Two 12 inch Pepperoni, lovely. Any drinks or sides with that?
+**Gio** _(11 words, 1261ms)_: Lovely, two 12 inch Pepperoni. Any drinks or sides with that?
 
 ## Test 9: Stubborn caller
 
@@ -387,47 +387,47 @@ Cleaned up afterwards: 9 order(s) [A-1221, A-1222, A-1223, A-1224, A-1225, A-122
 
 > 🔧 `search_menu` {"query":"garlic bread"} → 200 — "Garlic Bread is 3.99."
 >
-**Gio** _(18 words, 2469ms)_: Garlic Bread is 3.99. Would you like the plain one, or with cheese, or with cheese and jalapenos?
+**Gio** _(12 words, 2230ms)_: Garlic bread is 3.99. Would you like cheese on that, or plain?
 
 **2. Caller:** umm
 
-**Gio** _(16 words, 1239ms)_: No worries, I'll put you down for plain garlic bread. Any drinks or sides with that?
+**Gio** _(19 words, 1127ms)_: No worries, I'll put you down for plain garlic bread. Anything to drink or on the side with that?
 
 **3. Caller:** no thanks
 
-**Gio** _(7 words, 1043ms)_: Lovely. Is that for delivery or collection?
+**Gio** _(7 words, 994ms)_: Lovely. Is that for delivery or collection?
 
 **4. Caller:** collection
 
-**Gio** _(12 words, 1144ms)_: Brilliant, collection it is. What name should I put the order under?
+**Gio** _(12 words, 1165ms)_: Brilliant, collection it is. What name should I put the order under?
 
 **5. Caller:** Lee
 
-**Gio** _(10 words, 1184ms)_: Thanks Lee. What's the best contact number for the order?
+**Gio** _(11 words, 1406ms)_: Thanks, Lee. What's the best phone number to reach you on?
 
 **6. Caller:** 07700900127
 
-**Gio** _(8 words, 1364ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-seven. Is that right?
+**Gio** _(8 words, 988ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-seven. Is that right?
 
 **7. Caller:** yes
 
-**Gio** _(7 words, 1043ms)_: Lovely. Will that be cash or card?
+**Gio** _(3 words, 1061ms)_: Cash or card?
 
 **8. Caller:** cash
 
 > 🔧 `create_order` {"preview":true,"fulfilment_type":"pickup","customer_name":"Lee","customer_phone":"07700900127","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000021","quantity":1}]} → 200 — "So that's one garlic bread, for collection. That comes to 3.99 in total. Is that all correct?"
 >
-**Gio** _(24 words, 3668ms)_: So that's one garlic bread, for collection, paying cash. That comes to 3.99 in total, ready in about 20 minutes. Is that all correct?
+**Gio** _(19 words, 3649ms)_: So that's one garlic bread, for collection, paying cash. That comes to 3.99 in total. Is that all correct?
 
 **9. Caller:** yes
 
-> 🔧 `create_order` {"preview":false,"fulfilment_type":"pickup","customer_name":"Lee","customer_phone":"07700900127","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000021","quantity":1}]} → 200 — "Perfect, order number A-1225, ready to collect in about 20 minutes. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-seven."
+> 🔧 `create_order` {"preview":false,"fulfilment_type":"pickup","customer_name":"Lee","customer_phone":"07700900127","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000021","quantity":1}]} → 200 — "Perfect, order number A-1846, ready to collect in about 20 minutes. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-seven."
 >
-**Gio** _(18 words, 3223ms)_: Lovely, that's placed, order number A-1225. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-seven. Is that right?
+**Gio** _(18 words, 3721ms)_: Lovely, that's placed, order number A-1846. We've got your number as oh-seven-seven, double-oh, nine-double-oh, one-two-seven. Is that right?
 
 **10. Caller:** yes
 
-**Gio** _(8 words, 1051ms)_: Brilliant, about 20 minutes then. Thanks Lee, bye!
+**Gio** _(12 words, 1198ms)_: Brilliant, it'll be ready in about 20 minutes then. Thanks Lee, bye!
 
 ## Test 10: Confirmation refused
 
@@ -435,49 +435,49 @@ Cleaned up afterwards: 9 order(s) [A-1221, A-1222, A-1223, A-1224, A-1225, A-122
 
 > 🔧 `search_menu` {"query":"12 inch pepperoni"} → 200 — "Pepperoni — ten inch is 8.99, twelve inch 10.99, fourteen inch 12.99."
 >
-**Gio** _(14 words, 3046ms)_: Lovely, two 12 inch Pepperoni at 10.99 each. Any drinks or sides with that?
+**Gio** _(11 words, 2161ms)_: Lovely, two 12 inch Pepperoni. Any drinks or sides with that?
 
 **2. Caller:** no thanks
 
-**Gio** _(6 words, 1032ms)_: Is that for delivery or collection?
+**Gio** _(7 words, 972ms)_: Brilliant. Is that for delivery or collection?
 
 **3. Caller:** collection
 
-**Gio** _(9 words, 1881ms)_: Lovely, collection it is. Can I take your name?
+**Gio** _(7 words, 956ms)_: Lovely, collection it is. What's your name?
 
 **4. Caller:** Priya
 
-**Gio** _(9 words, 1275ms)_: Lovely, Priya. What's the best contact number for you?
+**Gio** _(9 words, 1080ms)_: Lovely, Priya. What's the best contact number for you?
 
 **5. Caller:** 07700900128
 
-**Gio** _(8 words, 1354ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-eight. Is that right?
+**Gio** _(8 words, 1225ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-eight. Is that right?
 
 **6. Caller:** yes
 
-**Gio** _(3 words, 1191ms)_: Cash or card?
+**Gio** _(3 words, 1010ms)_: Cash or card?
 
 **7. Caller:** cash
 
 > 🔧 `create_order` {"preview":true,"fulfilment_type":"pickup","customer_name":"Priya","customer_phone":"07700900128","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000002","quantity":2,"size_name":"12 inch"}]} → 200 — "So that's two twelve inch pepperoni, for collection. That comes to 21.98 in total. Is that all correct?"
 >
-**Gio** _(19 words, 3815ms)_: So that's two 12 inch Pepperoni for collection, coming to 21.98 in total, paying cash. Is that all correct?
+**Gio** _(18 words, 3047ms)_: So that's two twelve inch pepperoni, for collection. That comes to 21.98 in total. Is that all correct?
 
 **8. Caller:** no, I said THREE pepperoni
 
 > 🔧 `create_order` {"preview":true,"fulfilment_type":"pickup","customer_name":"Priya","customer_phone":"07700900128","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000002","quantity":3,"size_name":"12 inch"}]} → 200 — "So that's three twelve inch pepperoni, for collection. That comes to 32.97 in total. Is that all correct?"
 >
-**Gio** _(20 words, 3452ms)_: Sorry about that, three 12 inch Pepperoni for collection, coming to 32.97 in total, paying cash. Is that all correct?
+**Gio** _(22 words, 2582ms)_: Sorry about that, Priya. So that's three twelve inch pepperoni, for collection. That comes to 32.97 in total. Is that all correct?
 
 **9. Caller:** yes
 
-> 🔧 `create_order` {"preview":false,"fulfilment_type":"pickup","customer_name":"Priya","customer_phone":"07700900128","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000002","quantity":3,"size_name":"12 inch"}]} → 200 — "Perfect, order number A-1226, ready to collect in about 20 minutes. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-eight."
+> 🔧 `create_order` {"preview":false,"fulfilment_type":"pickup","customer_name":"Priya","customer_phone":"07700900128","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000002","quantity":3,"size_name":"12 inch"}]} → 200 — "Perfect, order number A-1847, ready to collect in about 20 minutes. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-eight."
 >
-**Gio** _(18 words, 3721ms)_: Lovely, that's placed, order number A-1226. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-eight. Is that right?
+**Gio** _(18 words, 2981ms)_: Lovely, that's placed, order number A-1847. We've got your number as oh-seven-seven, double-oh, nine-double-oh, one-two-eight. Is that right?
 
 **10. Caller:** yes
 
-**Gio** _(10 words, 1571ms)_: Brilliant, it'll be about 20 minutes then. Thanks Priya, bye!
+**Gio** _(13 words, 1351ms)_: Brilliant, it'll be ready for collection in about 20 minutes. Thanks Priya, bye!
 
 ## Test 11: Correction after placing
 
@@ -485,331 +485,319 @@ Cleaned up afterwards: 9 order(s) [A-1221, A-1222, A-1223, A-1224, A-1225, A-122
 
 > 🔧 `search_menu` {"query":"12 inch pepperoni"} → 200 — "Pepperoni — ten inch is 8.99, twelve inch 10.99, fourteen inch 12.99."
 >
-**Gio** _(14 words, 3303ms)_: Lovely, two 12 inch Pepperoni at 10.99 each. Any drinks or sides with that?
+**Gio** _(11 words, 2210ms)_: Lovely, two 12 inch Pepperoni. Any drinks or sides with that?
 
 **2. Caller:** no thanks
 
-**Gio** _(6 words, 1201ms)_: Is that for delivery or collection?
+**Gio** _(6 words, 921ms)_: Is that for delivery or collection?
 
 **3. Caller:** collection
 
-**Gio** _(7 words, 1358ms)_: Lovely, that's for collection. What's your name?
+**Gio** _(12 words, 979ms)_: Brilliant, collection it is. What name should I put the order under?
 
 **4. Caller:** Dan
 
-**Gio** _(9 words, 1551ms)_: Cheers, Dan. What's the best contact number for you?
+**Gio** _(11 words, 1054ms)_: Lovely, Dan. What's the best phone number to reach you on?
 
 **5. Caller:** 07700900123
 
-**Gio** _(8 words, 1815ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that right?
+**Gio** _(8 words, 968ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that right?
 
 **6. Caller:** yes
 
-**Gio** _(3 words, 1360ms)_: Cash or card?
+**Gio** _(3 words, 1018ms)_: Cash or card?
 
 **7. Caller:** cash
 
 > 🔧 `create_order` {"preview":true,"fulfilment_type":"pickup","customer_name":"Dan","customer_phone":"07700900123","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000002","quantity":2,"size_name":"12 inch"}]} → 200 — "So that's two twelve inch pepperoni, for collection. That comes to 21.98 in total. Is that all correct?"
 >
-**Gio** _(19 words, 4026ms)_: So that's two 12 inch Pepperoni, for collection, coming to 21.98 in total, paid cash. Is that all correct?
+**Gio** _(18 words, 2976ms)_: So that's two 12 inch Pepperoni, for collection. That comes to 21.98 in total. Is that all correct?
 
 **8. Caller:** yes
 
-> 🔧 `create_order` {"preview":false,"fulfilment_type":"pickup","customer_name":"Dan","customer_phone":"07700900123","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000002","quantity":2,"size_name":"12 inch"}]} → 200 — "Perfect, order number A-1227, ready to collect in about 20 minutes. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-three."
+> 🔧 `create_order` {"preview":false,"fulfilment_type":"pickup","customer_name":"Dan","customer_phone":"07700900123","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000002","quantity":2,"size_name":"12 inch"}]} → 200 — "Perfect, order number A-1848, ready to collect in about 20 minutes. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-three."
 >
-**Gio** _(18 words, 4657ms)_: Lovely, that's placed, order number A-1227. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-three. Is that right?
+**Gio** _(18 words, 3225ms)_: Lovely, that's placed, order number A-1848. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-three. Is that right?
 
 **9. Caller:** that's the wrong number, it's 07700900999
 
-**Gio** _(8 words, 2073ms)_: That's oh-seven-seven, double-oh, nine-double-oh, nine-nine-nine. Is that right?
+**Gio** _(8 words, 1383ms)_: That's oh-seven-seven, double-oh, nine-double-oh, nine-nine-nine. Is that right?
 
 **10. Caller:** yes
 
-> 🔧 `request_callback` {"customer_name":"Dan","customer_phone":"07700900999","reason":"problem","details":"Order A-1227: correct phone is 07700900999"} → 200 — "Thanks Dan, someone will ring you back on oh-double-seven, double-oh, nine-double-oh, triple-nine. Is that the right number?"
+> 🔧 `request_callback` {"customer_name":"Dan","customer_phone":"07700900999","reason":"problem","details":"Order A-1848: correct phone is 07700900999, number on order was wrong"} → 200 — "Thanks Dan, someone will ring you back on oh-double-seven, double-oh, nine-double-oh, triple-nine. Is that the right number?"
 >
-**Gio** _(17 words, 3660ms)_: Thanks Dan, someone will ring you back on oh-double-seven, double-oh, nine-double-oh, triple-nine. Is that the right number?
+**Gio** _(17 words, 2602ms)_: Thanks Dan, someone will ring you back on oh-double-seven, double-oh, nine-double-oh, triple-nine. Is that the right number?
 
 **11. Caller:** yes
 
-**Gio** _(17 words, 1511ms)_: Brilliant, I'll get the shop to update your order. It'll be about 20 minutes. Thanks Dan, bye!
+**Gio** _(22 words, 1053ms)_: Brilliant, the shop will update your order and sort the number out. Your order's ready in about 20 minutes. Thanks Dan, bye!
 
 ## Test 12: Table booking: straight through
 
 **1. Caller:** hi, I'd like to book a table please
 
-**Gio** _(14 words, 1023ms)_: Lovely, I can help with that. What date would you like the table for?
+**Gio** _(14 words, 944ms)_: Lovely, I can help with that. What date would you like the table for?
 
-**2. Caller:** Monday the 14 of December
+**2. Caller:** Friday the 18 of December
 
-**Gio** _(14 words, 1808ms)_: Monday the fourteenth of December, lovely. What time would you like the table for?
+**Gio** _(14 words, 1318ms)_: Friday the eighteenth of December, lovely. What time would you like the table for?
 
 **3. Caller:** half past seven in the evening
 
-**Gio** _(10 words, 1062ms)_: Half past seven, lovely. How many people will be coming?
+**Gio** _(10 words, 927ms)_: Half past seven, lovely. How many people will be coming?
 
 **4. Caller:** four
 
-> 🔧 `check_availability` {"date":"2026-12-14","time":"19:30","party_size":4} → 200 — "Yes, we have a table for four people on Monday the fourteenth of December at half past seven."
+> 🔧 `check_availability` {"date":"2026-12-18","time":"19:30","party_size":4} → 200 — "Yes, we have a table for four people on Friday the eighteenth of December at half past seven."
 >
-**Gio** _(18 words, 3735ms)_: Good news, we have a table for four on Monday the fourteenth of December at half past seven.
+**Gio** _(19 words, 2643ms)_: Good news, we have a table for four people on Friday the eighteenth of December at half past seven.
 
 **5. Caller:** ok
 
-**Gio** _(8 words, 1120ms)_: What name should I put the booking under?
+**Gio** _(9 words, 995ms)_: Brilliant. What name should I put the booking under?
 
 **6. Caller:** Sam
 
-**Gio** _(9 words, 1064ms)_: Thanks Sam. What's the best contact number for you?
+**Gio** _(10 words, 1109ms)_: Lovely, Sam. What's the best contact number for the booking?
 
 **7. Caller:** 07700900123
 
-**Gio** _(8 words, 1214ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that right?
+**Gio** _(8 words, 1042ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that right?
 
 **8. Caller:** yes
 
-**Gio** _(24 words, 1181ms)_: Four people, Monday the fourteenth of December, half past seven, Sam, oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that all correct, shall I confirm the booking?
+**Gio** _(24 words, 1187ms)_: Four people, Friday the eighteenth of December, half past seven, Sam, oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that all correct, shall I confirm the booking?
 
 **9. Caller:** yes
 
-> 🔧 `create_booking` {"date":"2026-12-14","time":"19:30","party_size":4,"customer_name":"Sam","customer_phone":"07700900123"} → 200 — "That's booked, Sam. A table for four people on Monday the fourteenth of December at half past seven. Your booking reference is B, two-one-zero-one. We have your number as oh-double-seven, double-oh, nine-double-oh, one-two-three. Is that right?"
+> 🔧 `create_booking` {"customer_name":"Sam","customer_phone":"07700900123","date":"2026-12-18","time":"19:30","party_size":4} → 200 — "That's booked, Sam. A table for four people on Friday the eighteenth of December at half past seven. Your booking reference is B, two-seven-eight-six. We have your number as oh-double-seven, double-oh, nine-double-oh, one-two-three. Is that right?"
 >
-**Gio** _(20 words, 4281ms)_: Lovely, you're booked. Reference B, two-one-zero-one, table five. We have your number as oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that right?
+**Gio** _(20 words, 3011ms)_: Lovely, you're booked. Reference B, two-seven-eight-six, table five. We have your number as oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that right?
 
 **10. Caller:** yes
 
-**Gio** _(12 words, 1113ms)_: Brilliant, see you on Monday at half past seven, Sam. Thanks, bye!
+**Gio** _(12 words, 1179ms)_: Brilliant, see you on Friday at half past seven, Sam. Thanks, bye!
 
 ## Test 13: Table booking: no space, offers another time
 
 **1. Caller:** hi, I'd like to book a table please
 
-**Gio** _(13 words, 1059ms)_: Lovely, I can sort that for you. What date were you thinking of?
+**Gio** _(14 words, 1118ms)_: Lovely, I can help with that. What date would you like the table for?
 
-**2. Caller:** Tuesday the 15 of December
+**2. Caller:** Saturday the 19 of December
 
-**Gio** _(11 words, 1733ms)_: Tuesday the fifteenth of December, lovely. What time would you like?
+**Gio** _(14 words, 1679ms)_: Saturday the nineteenth of December, lovely. What time would you like the table for?
 
 **3. Caller:** seven o'clock in the evening
 
-**Gio** _(11 words, 1069ms)_: Seven in the evening, brilliant. How many people will it be?
+**Gio** _(6 words, 1062ms)_: How many people will be coming?
 
 **4. Caller:** eight
 
-> 🔧 `check_availability` {"date":"2026-12-15","time":"19:00","party_size":8} → 200 — "Sorry, we don't have a table for eight people on Tuesday the fifteenth of December at seven o'clock."
+> 🔧 `check_availability` {"date":"2026-12-19","time":"19:00","party_size":8} → 200 — "Sorry, we don't have a table for eight people on Saturday the nineteenth of December at seven o'clock."
 >
-**Gio** _(22 words, 3488ms)_: Sorry, we don't have a table for eight on Tuesday the fifteenth of December at seven. Would another day or time work?
+**Gio** _(22 words, 2959ms)_: Sorry, we don't have a table for eight on Saturday the nineteenth of December at seven. Would another day or time work?
 
 **5. Caller:** how about nine o'clock
 
-> 🔧 `check_availability` {"date":"2026-12-15","time":"21:00","party_size":8} → 200 — "Yes, we have a table for eight people on Tuesday the fifteenth of December at nine o'clock."
+> 🔧 `check_availability` {"date":"2026-12-19","time":"21:00","party_size":8} → 200 — "Yes, we have a table for eight people on Saturday the nineteenth of December at nine o'clock."
 >
-**Gio** _(17 words, 2607ms)_: Good news, we have a table for eight on Tuesday the fifteenth of December at nine o'clock.
+**Gio** _(24 words, 2593ms)_: Good news, we have a table for eight on Saturday the nineteenth of December at nine. Can I take a name for the booking?
 
-**6. Caller:** ok
+**6. Caller:** Priya
 
-**Gio** _(9 words, 1012ms)_: Lovely. What name should I put the booking under?
+**Gio** _(10 words, 1381ms)_: Lovely, Priya. What's the best contact number for the booking?
 
-**7. Caller:** Priya
+**7. Caller:** 07700900124
 
-**Gio** _(9 words, 1239ms)_: Lovely, Priya. What's the best contact number for you?
+**Gio** _(8 words, 965ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-four. Is that right?
 
-**8. Caller:** 07700900124
+**8. Caller:** yes
 
-**Gio** _(8 words, 1266ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-four. Is that right?
+**Gio** _(23 words, 1307ms)_: Eight people, Saturday the nineteenth of December, nine o'clock, Priya, oh-seven-seven, double-oh, nine-double-oh, one-two-four. Is that all correct, shall I confirm the booking?
 
 **9. Caller:** yes
 
-**Gio** _(23 words, 1590ms)_: Eight people, Tuesday the fifteenth of December, nine o'clock, Priya, oh-seven-seven, double-oh, nine-double-oh, one-two-four. Is that all correct, shall I confirm the booking?
+> 🔧 `create_booking` {"date":"2026-12-19","time":"21:00","party_size":8,"customer_name":"Priya","customer_phone":"07700900124"} → 200 — "That's booked, Priya. A table for eight people on Saturday the nineteenth of December at nine o'clock. Your booking reference is B, two-seven-eight-eight. We have your number as oh-double-seven, double-oh, nine-double-oh, one-two-four. Is that right?"
+>
+**Gio** _(20 words, 3146ms)_: Lovely, you're booked. Reference B, two-seven-eight-eight, table twelve. We have your number as oh-double-seven, double-oh, nine-double-oh, one-two-four. Is that right?
 
 **10. Caller:** yes
 
-> 🔧 `create_booking` {"date":"2026-12-15","time":"21:00","party_size":8,"customer_name":"Priya","customer_phone":"07700900124"} → 200 — "That's booked, Priya. A table for eight people on Tuesday the fifteenth of December at nine o'clock. Your booking reference is B, two-one-zero-three. We have your number as oh-double-seven, double-oh, nine-double-oh, one-two-four. Is that right?"
->
-**Gio** _(20 words, 3974ms)_: Lovely, you're booked. Reference B, two-one-zero-three, table twelve. We have your number as oh-seven-seven, double-oh, nine-double-oh, one-two-four. Is that right?
-
-**11. Caller:** yes
-
-**Gio** _(9 words, 1084ms)_: Brilliant, see you on the fifteenth, Priya. Thanks, bye!
+**Gio** _(9 words, 1089ms)_: Brilliant, see you Saturday at nine, Priya. Thanks, bye!
 
 ## Test 14: Table booking: party of twelve
 
 **1. Caller:** hi, I'd like to book a table for twelve people
 
-**Gio** _(16 words, 1178ms)_: Sorry, we can't take a booking that big over the phone. Please ring the shop directly.
+**Gio** _(16 words, 1034ms)_: Sorry, we can't take a booking that big over the phone. Please ring the shop directly.
 
-**2. Caller:** Wednesday the 16 of December at seven then
+**2. Caller:** Sunday the 20 of December at seven then
 
-**Gio** _(22 words, 1415ms)_: Sorry, that's still too many for me to book over the phone. Please ring the shop directly and they'll sort it out.
+**Gio** _(18 words, 1357ms)_: I'm sorry, we still can't take a party of twelve over the phone. Please ring the shop directly.
 
 ## Test 15: Table booking: wrong digit caught by read-back
 
 **1. Caller:** hi, I'd like to book a table please
 
-**Gio** _(12 words, 1057ms)_: Lovely, I can help with that. What date were you thinking of?
+**Gio** _(12 words, 1469ms)_: Lovely, I can help with that. What date were you thinking of?
 
-**2. Caller:** Thursday the 17 of December
+**2. Caller:** Monday the 21 of December
 
-**Gio** _(14 words, 1943ms)_: Thursday the seventeenth of December, lovely. What time would you like the table for?
+**Gio** _(14 words, 1760ms)_: Monday the twenty-first of December, lovely. What time would you like the table for?
 
 **3. Caller:** eight o'clock in the evening
 
-**Gio** _(10 words, 1202ms)_: Eight o'clock, got it. How many people will be coming?
+**Gio** _(10 words, 992ms)_: Eight o'clock, got it. How many people will be coming?
 
 **4. Caller:** two
 
-> 🔧 `check_availability` {"date":"2026-12-17","time":"20:00","party_size":2} → 200 — "Yes, we have a table for two people on Thursday the seventeenth of December at eight o'clock."
+> 🔧 `check_availability` {"date":"2026-12-21","time":"20:00","party_size":2} → 200 — "Yes, we have a table for two people on Monday the twenty-first of December at eight o'clock."
 >
-**Gio** _(17 words, 3516ms)_: Good news, we have a table for two on Thursday the seventeenth of December at eight o'clock.
+**Gio** _(17 words, 2518ms)_: Good news, we have a table for two on Monday the twenty-first of December at eight o'clock.
 
 **5. Caller:** ok
 
-**Gio** _(9 words, 1083ms)_: Brilliant. What name should I put the booking under?
+**Gio** _(9 words, 1198ms)_: Brilliant. What name should I put the booking under?
 
 **6. Caller:** Dan
 
-**Gio** _(9 words, 1031ms)_: Lovely, Dan. What's the best contact number for you?
+**Gio** _(9 words, 980ms)_: Lovely, Dan. What's the best contact number for you?
 
 **7. Caller:** 07700900123
 
-**Gio** _(8 words, 1014ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that right?
+**Gio** _(8 words, 921ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-three. Is that right?
 
 **8. Caller:** no, that's wrong, it's 07700900999
 
-**Gio** _(8 words, 1217ms)_: That's oh-seven-seven, double-oh, nine-double-oh, nine-nine-nine. Is that right?
+**Gio** _(8 words, 1149ms)_: That's oh-seven-seven, double-oh, nine-double-oh, nine-nine-nine. Is that right?
 
 **9. Caller:** yes
 
-**Gio** _(23 words, 1224ms)_: Two people, Thursday the seventeenth of December, eight o'clock, Dan, oh-seven-seven, double-oh, nine-double-oh, nine-nine-nine. Is that all correct, shall I confirm the booking?
+**Gio** _(23 words, 1185ms)_: Two people, Monday the twenty-first of December, eight o'clock, Dan, oh-seven-seven, double-oh, nine-double-oh, nine-nine-nine. Is that all correct, shall I confirm the booking?
 
 **10. Caller:** yes
 
-> 🔧 `create_booking` {"date":"2026-12-17","time":"20:00","party_size":2,"customer_name":"Dan","customer_phone":"07700900999"} → 200 — "That's booked, Dan. A table for two people on Thursday the seventeenth of December at eight o'clock. Your booking reference is B, two-one-zero-four. We have your number as oh-double-seven, double-oh, nine-double-oh, triple-nine. Is that right?"
+> 🔧 `create_booking` {"date":"2026-12-21","time":"20:00","party_size":2,"customer_name":"Dan","customer_phone":"07700900999"} → 200 — "That's booked, Dan. A table for two people on Monday the twenty-first of December at eight o'clock. Your booking reference is B, two-seven-eight-nine. We have your number as oh-double-seven, double-oh, nine-double-oh, triple-nine. Is that right?"
 >
-**Gio** _(20 words, 4224ms)_: Lovely, you're booked. Reference B, two-one-zero-four, table one. We have your number as oh-seven-seven, double-oh, nine-double-oh, nine-nine-nine. Is that right?
+**Gio** _(20 words, 3831ms)_: Lovely, you're booked. Reference B, two-seven-eight-nine, table one. We have your number as oh-seven-seven, double-oh, nine-double-oh, nine-nine-nine. Is that right?
 
 **11. Caller:** yes
 
-**Gio** _(11 words, 1195ms)_: Brilliant, see you on the seventeenth, Dan. Thanks for calling, bye!
+**Gio** _(9 words, 1277ms)_: Brilliant, see you on the twenty-first, Dan. Thanks, bye!
 
 ## Test 16: Order query: refund request recorded
 
 **1. Caller:** hi, I'd like a refund on an order I had
 
-**Gio** _(8 words, 1022ms)_: Sorry to hear that. What's the order number?
+**Gio** _(8 words, 1049ms)_: Sorry to hear that. What's the order number?
 
-**2. Caller:** A-1228
+**2. Caller:** A-1849
 
-**Gio** _(7 words, 1039ms)_: And the phone number you ordered with?
+**Gio** _(7 words, 1038ms)_: And the phone number you ordered with?
 
 **3. Caller:** 07700900555
 
-> 🔧 `lookup_order` {"order_number":"A-1228","customer_phone":"07700900555"} → 200 — "I found your pickup order from 14 November: 2 Margherita. The total was 17.98. Its status is completed."
+> 🔧 `lookup_order` {"order_number":"A-1849","customer_phone":"07700900555"} → 200 — "I found your pickup order from 18 November: 2 Margherita. The total was 17.98. Its status is completed."
 >
-**Gio** _(15 words, 2676ms)_: I found your order A-1228 from today, two Margherita, total 17.98. Is that the one?
+**Gio** _(14 words, 2944ms)_: I found order A-1849 from today, two Margherita, total 17.98. Is that the one?
 
 **4. Caller:** yes, that's the one
 
-**Gio** _(3 words, 1197ms)_: What's the problem?
+**Gio** _(3 words, 955ms)_: What's the problem?
 
 **5. Caller:** the pizza arrived cold and I want a refund
 
-> 🔧 `create_order_query` {"order_number":"A-1228","customer_phone":"07700900555","query_type":"refund","description":"the pizza arrived cold and I want a refund"} → 200 — "I've noted that down and passed it to the team. Your reference is Q 3018. Someone will come back to you; I can't promise any outcome myself."
+> 🔧 `create_order_query` {"order_number":"A-1849","customer_phone":"07700900555","query_type":"refund","description":"Pizza arrived cold and wants a refund"} → 200 — "I've noted that down and passed it to the team. Your reference is Q 3044. Someone will come back to you; I can't promise any outcome myself."
 >
-**Gio** _(22 words, 3148ms)_: I've noted that down and passed it to the restaurant, they'll be in touch with you themselves. Your reference is Q, three-zero-one-eight.
+**Gio** _(22 words, 3417ms)_: I've noted that down and passed it to the restaurant, they'll be in touch with you themselves. Your reference is Q, three-zero-four-four.
 
 **6. Caller:** ok
 
-**Gio** _(10 words, 1457ms)_: Is there anything else I can help you with today?
-
-**7. Caller:** no, that's everything
-
-**Gio** _(11 words, 1095ms)_: Brilliant, thanks for letting us know. Have a lovely day, bye!
+**Gio** _(8 words, 1124ms)_: Thanks for calling Napoli Pizza and Grill. Bye!
 
 ## Test 17: Order query: wrong order number, callback offered
 
 **1. Caller:** hi, I want to complain about an order I had
 
-**Gio** _(19 words, 1011ms)_: Sorry to hear that. Is this about an order you've already placed, or would you like a new order?
+**Gio** _(8 words, 1038ms)_: Sorry to hear that. What's the order number?
 
-**2. Caller:** no, that's it
+**2. Caller:** A-98765
 
-**Gio** _(9 words, 938ms)_: Thanks for bearing with me. What's the order number?
+**Gio** _(7 words, 2088ms)_: And the phone number you ordered with?
 
-**3. Caller:** A-98765
-
-**Gio** _(7 words, 1027ms)_: And the phone number you ordered with?
-
-**4. Caller:** 07700900555
+**3. Caller:** 07700900555
 
 > 🔧 `lookup_order` {"order_number":"A-98765","customer_phone":"07700900555"} → 404 — "Sorry, I can't find an order with those details. Could you check the order number and the phone number you ordered with?"
 >
-**Gio** _(14 words, 2953ms)_: Sorry, I can't find that one. Could you give me the order number again?
+**Gio** _(17 words, 3047ms)_: Sorry, I can't find an order with those details. Could you give me the order number again?
 
-**5. Caller:** A-98765
+**4. Caller:** A-98765
 
 > 🔧 `lookup_order` {"order_number":"A-98765","customer_phone":"07700900555"} → 404 — "Sorry, I can't find an order with those details. Could you check the order number and the phone number you ordered with?"
 >
-**Gio** _(18 words, 2911ms)_: Sorry, I still can't find that order. Could you give me the phone number you ordered with again?
+**Gio** _(20 words, 3548ms)_: I'm still not finding that one, I'm afraid. Shall I get someone from the shop to ring you about it?
 
-**6. Caller:** 07700900555
+**5. Caller:** yes please
 
-**Gio** _(19 words, 1305ms)_: I'm still not finding that order, sorry. Shall I get someone from the shop to ring you about it?
+**Gio** _(9 words, 1092ms)_: Lovely. What name should I put the callback under?
 
-**7. Caller:** yes please
+**6. Caller:** Priya
 
-**Gio** _(4 words, 1067ms)_: Brilliant. What's your name?
+**Gio** _(10 words, 993ms)_: Thanks, Priya. What's the best number to ring you on?
 
-**8. Caller:** Priya
+**7. Caller:** 07700900555
 
-**Gio** _(10 words, 1004ms)_: Thanks, Priya. What's the best number to ring you on?
+**Gio** _(8 words, 1131ms)_: That's oh-seven-seven, double-oh, nine-double-oh, five-five-five. Is that right?
 
-**9. Caller:** 07700900555
+**8. Caller:** yes
 
-**Gio** _(8 words, 1077ms)_: That's oh-seven-seven, double-oh, nine-double-oh, five-five-five. Is that right?
-
-**10. Caller:** yes
-
-> 🔧 `request_callback` {"customer_name":"Priya","customer_phone":"07700900555","reason":"problem","details":"Caller wants to complain about a past order; order A-98765 could not be found by number and phone."} → 200 — "Thanks Priya, someone will ring you back on oh-double-seven, double-oh, nine-double-oh, triple-five. Is that the right number?"
+> 🔧 `request_callback` {"customer_name":"Priya","customer_phone":"07700900555","reason":"problem","details":"Caller wants to complain about past order A-98765; order could not be found by number and phone."} → 200 — "Thanks Priya, someone will ring you back on oh-double-seven, double-oh, nine-double-oh, triple-five. Is that the right number?"
 >
-**Gio** _(17 words, 3773ms)_: Thanks Priya, someone will ring you back on oh-double-seven, double-oh, nine-double-oh, triple-five. Is that the right number?
+**Gio** _(17 words, 2831ms)_: Thanks Priya, someone will ring you back on oh-double-seven, double-oh, nine-double-oh, triple-five. Is that the right number?
 
-**11. Caller:** yes
+**9. Caller:** yes
 
-**Gio** _(14 words, 990ms)_: Brilliant, someone from the shop will be in touch with you. Thanks Priya, bye!
+**Gio** _(13 words, 1046ms)_: Brilliant, someone from the shop will be in touch soon. Thanks Priya, bye!
 
 ## Test 18: Order query: pushing for a refund promise
 
 **1. Caller:** hi, I need a refund on an order I had
 
-**Gio** _(8 words, 1105ms)_: Sorry to hear that. What's the order number?
+**Gio** _(8 words, 1121ms)_: Sorry to hear that. What's the order number?
 
-**2. Caller:** A-1228
+**2. Caller:** A-1849
 
-**Gio** _(7 words, 1284ms)_: And the phone number you ordered with?
+**Gio** _(7 words, 1002ms)_: And the phone number you ordered with?
 
 **3. Caller:** 07700900555
 
-> 🔧 `lookup_order` {"order_number":"A-1228","customer_phone":"07700900555"} → 200 — "I found your pickup order from 14 November: 2 Margherita. The total was 17.98. Its status is completed."
+> 🔧 `lookup_order` {"order_number":"A-1849","customer_phone":"07700900555"} → 200 — "I found your pickup order from 18 November: 2 Margherita. The total was 17.98. Its status is completed."
 >
-**Gio** _(14 words, 2708ms)_: I found order A-1228 from today: two Margherita, total 17.98. Is that the one?
+**Gio** _(17 words, 2653ms)_: I found order A-1849 from today, 2 Margherita, with a total of 17.98. Is that the one?
 
 **4. Caller:** yes, that's the one
 
-**Gio** _(3 words, 1160ms)_: What's the problem?
+**Gio** _(3 words, 1303ms)_: What's the problem?
 
 **5. Caller:** the pizza was cold and the base was soggy
 
-> 🔧 `create_order_query` {"order_number":"A-1228","customer_phone":"07700900555","query_type":"refund","description":"the pizza was cold and the base was soggy"} → 200 — "I've noted that down and passed it to the team. Your reference is Q 3019. Someone will come back to you; I can't promise any outcome myself."
+> 🔧 `create_order_query` {"order_number":"A-1849","customer_phone":"07700900555","query_type":"refund","description":"the pizza was cold and the base was soggy"} → 200 — "I've noted that down and passed it to the team. Your reference is Q 3045. Someone will come back to you; I can't promise any outcome myself."
 >
-**Gio** _(22 words, 4342ms)_: I've noted that down and passed it to the restaurant, they'll be in touch with you themselves. Your reference is Q, three-zero-one-nine.
+**Gio** _(22 words, 2812ms)_: I've noted that down and passed it to the restaurant, they'll be in touch with you themselves. Your reference is Q, three-zero-four-five.
 
 **6. Caller:** but I'll definitely get my money back, won't I?
 
-**Gio** _(18 words, 1191ms)_: I can't promise anything myself, that's for the owner to decide, but they'll have everything you've told me.
+**Gio** _(18 words, 991ms)_: I can't promise anything myself, that's for the owner to decide, but they'll have everything you've told me.
 
 **7. Caller:** ok
 
-**Gio** _(9 words, 1097ms)_: Thanks for your patience. Have a good one, bye!
+**Gio** _(13 words, 967ms)_: Thanks for your patience. Is there anything else I can help with today?
+
+**8. Caller:** no, that's everything
+
+**Gio** _(9 words, 948ms)_: Brilliant, thanks for calling, have a lovely day. Bye!
 
 ## Test 19: Order query: past order mentioned while ordering
 
@@ -817,75 +805,75 @@ Cleaned up afterwards: 9 order(s) [A-1221, A-1222, A-1223, A-1224, A-1225, A-122
 
 > 🔧 `search_menu` {"query":"12 inch pepperoni"} → 200 — "Pepperoni — ten inch is 8.99, twelve inch 10.99, fourteen inch 12.99."
 >
-**Gio** _(11 words, 2997ms)_: Lovely, two 12 inch Pepperoni. Any drinks or sides with that?
+**Gio** _(14 words, 2120ms)_: Lovely, two 12 inch Pepperoni at 10.99 each. Any drinks or sides with that?
 
 **2. Caller:** last time my order was wrong by the way
 
-**Gio** _(19 words, 1154ms)_: Sorry to hear that. Is this about an order you've already placed, or would you like a new order?
+**Gio** _(6 words, 2049ms)_: Is that for delivery or collection?
 
-**3. Caller:** no, that's it
+**3. Caller:** collection
 
-**Gio** _(13 words, 1162ms)_: Brilliant, I'll carry on with your order. Is that for delivery or collection?
+**Gio** _(7 words, 1006ms)_: Lovely, collection it is. What's your name?
 
-**4. Caller:** collection
+**4. Caller:** Tom
 
-**Gio** _(12 words, 1260ms)_: Lovely, collection it is. What name should I put the order under?
+**Gio** _(11 words, 989ms)_: Brilliant, Tom. What's the best phone number to reach you on?
 
-**5. Caller:** Tom
+**5. Caller:** 07700900124
 
-**Gio** _(11 words, 1096ms)_: Thanks Tom. What's the best phone number to reach you on?
+**Gio** _(8 words, 939ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-four. Is that right?
 
-**6. Caller:** 07700900124
+**6. Caller:** yes
 
-**Gio** _(8 words, 1180ms)_: That's oh-seven-seven, double-oh, nine-double-oh, one-two-four. Is that right?
+**Gio** _(3 words, 903ms)_: Cash or card?
 
-**7. Caller:** yes
-
-**Gio** _(6 words, 1076ms)_: Lovely. Cash or card on collection?
-
-**8. Caller:** cash
+**7. Caller:** cash
 
 > 🔧 `create_order` {"preview":true,"fulfilment_type":"pickup","customer_name":"Tom","customer_phone":"07700900124","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000002","quantity":2,"size_name":"12 inch"}]} → 200 — "So that's two twelve inch pepperoni, for collection. That comes to 21.98 in total. Is that all correct?"
 >
-**Gio** _(19 words, 3667ms)_: So that's two 12 inch Pepperoni, for collection, paying cash. The total comes to 21.98. Is that all correct?
+**Gio** _(17 words, 2793ms)_: So that's two 12 inch Pepperoni, for collection, cash. The total is 21.98. Is that all correct?
+
+**8. Caller:** yes
+
+> 🔧 `create_order` {"preview":false,"fulfilment_type":"pickup","customer_name":"Tom","customer_phone":"07700900124","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000002","quantity":2,"size_name":"12 inch"}]} → 200 — "Perfect, order number A-1850, ready to collect in about 20 minutes. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-four."
+>
+**Gio** _(18 words, 3444ms)_: Lovely, that's placed, order number A-1850. We've got your number as oh-seven-seven, double-oh, nine-double-oh, one-two-four. Is that right?
 
 **9. Caller:** yes
 
-> 🔧 `create_order` {"preview":false,"fulfilment_type":"pickup","customer_name":"Tom","customer_phone":"07700900124","payment_method":"cash","items":[{"menu_item_id":"33333333-0000-0000-0000-000000000002","quantity":2,"size_name":"12 inch"}]} → 200 — "Perfect, order number A-1229, ready to collect in about 20 minutes. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-four."
->
-**Gio** _(18 words, 3209ms)_: Lovely, that's placed, order number A-1229. We've got your number as oh-double-seven, double-oh, nine-double-oh, one-two-four. Is that right?
-
-**10. Caller:** yes
-
-**Gio** _(8 words, 1069ms)_: Brilliant, about 20 minutes then. Thanks Tom, bye!
+**Gio** _(10 words, 964ms)_: Brilliant, that'll be about 20 minutes then. Thanks Tom, bye!
 
 ## Test 20: Order query: right order number, wrong phone
 
 **1. Caller:** hi, I want a refund on an order I had
 
-**Gio** _(8 words, 2085ms)_: Sorry to hear that. What's the order number?
+**Gio** _(8 words, 1056ms)_: Sorry to hear that. What's the order number?
 
-**2. Caller:** A-1228
+**2. Caller:** A-1849
 
-**Gio** _(7 words, 1473ms)_: And the phone number you ordered with?
+**Gio** _(7 words, 1039ms)_: And the phone number you ordered with?
 
 **3. Caller:** 07700900777
 
-> 🔧 `lookup_order` {"order_number":"A-1228","customer_phone":"07700900777"} → 404 — "Sorry, I can't find an order with those details. Could you check the order number and the phone number you ordered with?"
+> 🔧 `lookup_order` {"order_number":"A-1849","customer_phone":"07700900777"} → 404 — "Sorry, I can't find an order with those details. Could you check the order number and the phone number you ordered with?"
 >
-**Gio** _(14 words, 4175ms)_: Sorry, I can't find that one. Could you check the order number for me?
+**Gio** _(17 words, 2291ms)_: Sorry, I can't find an order with those details. Could you check the order number for me?
 
-**4. Caller:** A-1228
+**4. Caller:** A-1849
 
-> 🔧 `lookup_order` {"order_number":"A-1228","customer_phone":"07700900777"} → 404 — "Sorry, I can't find an order with those details. Could you check the order number and the phone number you ordered with?"
+**Gio** _(7 words, 1094ms)_: And the phone number you ordered with?
+
+**5. Caller:** 07700900777
+
+> 🔧 `lookup_order` {"order_number":"A-1849","customer_phone":"07700900777"} → 404 — "Sorry, I can't find an order with those details. Could you check the order number and the phone number you ordered with?"
 >
-**Gio** _(22 words, 3522ms)_: Sorry, I still can't find an order with those details. Shall I get someone from the shop to ring you about it?
+**Gio** _(19 words, 2442ms)_: Sorry, I still can't find that order. Shall I get someone from the shop to ring you about it?
 
-**5. Caller:** no thanks
+**6. Caller:** no thanks
 
-**Gio** _(12 words, 1980ms)_: No worries. Is there anything else I can help you with today?
+**Gio** _(12 words, 1073ms)_: No worries. Is there anything else I can help you with today?
 
-**6. Caller:** no, that's everything
+**7. Caller:** no, that's everything
 
-**Gio** _(7 words, 1267ms)_: No worries, have a lovely day. Bye!
+**Gio** _(12 words, 1057ms)_: No worries, sorry I couldn't find it. Have a lovely day, bye!
 

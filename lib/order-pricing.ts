@@ -273,6 +273,23 @@ export type Bill = {
 
 export type BillResult = { ok: true; bill: Bill } | { ok: false; error: string };
 
+/** The phone agent only takes delivery or collection ("pickup"); collection is billed like a takeaway. */
+export const kindForFulfilment = (f: "delivery" | "pickup"): OrderKind => (f === "delivery" ? "delivery" : "takeaway");
+
+/**
+ * The restaurant's delivery fee in pence. The ONE reading of restaurants.delivery_fee,
+ * used by computeBill and check-delivery, so the fee quoted is the fee charged.
+ * A missing fee is a configuration error, never free delivery.
+ */
+export function deliveryFeePence(
+  fee: number | string | null,
+): { ok: true; pence: number } | { ok: false; error: "delivery_fee not configured" | "delivery_fee is invalid" } {
+  if (fee === null) return { ok: false, error: "delivery_fee not configured" };
+  const p = pence(fee);
+  if (!Number.isInteger(p) || p < 0) return { ok: false, error: "delivery_fee is invalid" };
+  return { ok: true, pence: p };
+}
+
 export function computeBill(
   subtotalPence: number,
   kind: OrderKind,
@@ -318,9 +335,9 @@ export function computeBill(
   // 4. Delivery fee, delivery orders only
   let deliveryPence = 0;
   if (kind === "delivery") {
-    if (settings.delivery_fee === null) return { ok: false, error: "delivery_fee not configured" };
-    deliveryPence = pence(settings.delivery_fee);
-    if (!Number.isInteger(deliveryPence) || deliveryPence < 0) return { ok: false, error: "delivery_fee is invalid" };
+    const fee = deliveryFeePence(settings.delivery_fee);
+    if (!fee.ok) return fee;
+    deliveryPence = fee.pence;
   }
 
   // 5. Service charge, only where the restaurant's setting allows it

@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { priceForSpeech } from "@/lib/speech";
 import { DELIVERY_ETA_MINUTES, FEE_MISSING_SPEECH, inDeliveryArea } from "@/lib/delivery";
 import { timed } from "@/lib/timing";
+import { deliveryFeePence, pounds } from "@/lib/order-pricing";
 
 // Voice-agent tool: can we deliver to the caller's postcode?
 
@@ -51,17 +52,20 @@ export const POST = timed("check-delivery", async (request: Request, timer) => {
 
   // A missing fee is a configuration error, NOT free delivery.
   // Promising free delivery would cost the restaurant money on every order.
-  if (data.delivery_fee === null) {
+  // Read through the same helper computeBill uses, so the fee quoted here is
+  // exactly the fee create_order charges.
+  const feeRes = deliveryFeePence(data.delivery_fee);
+  if (!feeRes.ok) {
     console.error(
-      `check-delivery: restaurants.delivery_fee is null for ${parsed.data.restaurant_id}; refusing to quote delivery`,
+      `check-delivery: restaurants.delivery_fee (${feeRes.error}) for ${parsed.data.restaurant_id}; refusing to quote delivery`,
     );
     return NextResponse.json(
-      { deliverable: false, error: "delivery_fee not configured", speech: FEE_MISSING_SPEECH },
+      { deliverable: false, error: feeRes.error, speech: FEE_MISSING_SPEECH },
       { status: 500 },
     );
   }
 
-  const fee = Number(data.delivery_fee);
+  const fee = pounds(feeRes.pence);
   const feeSpeech = fee > 0 ? `It's ${priceForSpeech(fee)} for delivery` : "Delivery is free";
   return NextResponse.json({
     deliverable: true,

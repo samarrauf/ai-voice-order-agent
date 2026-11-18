@@ -20,16 +20,22 @@ import {
 import { checkOpen, nextOpening, resolveRequestedTime, type OpeningHours } from "@/lib/opening-hours";
 import { timed } from "@/lib/timing";
 import {
+  BILL_SETTINGS_SELECT,
   MAX_QTY,
   MENU_ITEM_SELECT,
   OPTION_SELECT,
+  billForResponse,
+  computeBill,
   itemSchema,
   joinForSpeech,
+  kindForFulfilment,
   optionForSpeech,
   pence,
   pounds,
   priceLines,
   toOrderItemsPayload,
+  type Bill,
+  type BillSettingsRow,
   type DbItem,
   type DbOption,
 } from "@/lib/order-pricing";
@@ -40,6 +46,20 @@ import {
 // menu tables. Anything price-like in the request body is never read — zod
 // strips unknown keys like "total" and "subtotal" before we touch the data.
 // All arithmetic is done in whole pence to avoid floating-point errors.
+//
+// THE BILL is made by computeBill (lib/order-pricing.ts), the same function the
+// POS uses, so a phone order and a POS order for the same food always cost the
+// same: delivery fee, service charge and tax all come from the restaurant's
+// settings. The agent never gives a discount (discount is a staff decision).
+
+/** ", including 2.50 delivery, 1.25 service charge and 2.10 tax". Zero service charge / tax are not mentioned. */
+function chargesForSpeech(bill: Bill, isDelivery: boolean): string {
+  const parts: string[] = [];
+  if (isDelivery) parts.push(`${priceForSpeech(pounds(bill.deliveryPence))} delivery`);
+  if (bill.serviceChargePence > 0) parts.push(`${priceForSpeech(pounds(bill.serviceChargePence))} service charge`);
+  if (bill.taxPence > 0) parts.push(`${priceForSpeech(pounds(bill.taxPence))} tax`);
+  return parts.length ? `, including ${joinForSpeech(parts)}` : "";
+}
 
 const bodySchema = z.object({
   // preview: true = run every check and price the order, but save nothing.
@@ -118,7 +138,7 @@ export const POST = timed("create-order", async (request: Request, timer) => {
   const [restaurantRes, itemsRes, optionsRes] = await Promise.all([
     supabaseAdmin
       .from("restaurants")
-      .select("is_accepting_orders, opening_hours, timezone, delivery_fee, min_order_value")
+      .select(`is_accepting_orders, opening_hours, timezone, min_order_value, ${BILL_SETTINGS_SELECT}`)
       .eq("id", body.restaurant_id)
       .maybeSingle(),
     supabaseAdmin
@@ -191,7 +211,6 @@ export const POST = timed("create-order", async (request: Request, timer) => {
   if (!priced.ok) return reject(priced.speech, priced.error);
   const { lines, subtotalPence } = priced;
 
-  let deliveryFeePence = 0;
   if (isDelivery) {
     // Rule 4: minimum order for delivery (on food, before the delivery fee).
     const minPence = restaurant.min_order_value === null ? 0 : pence(restaurant.min_order_value);
@@ -207,9 +226,15 @@ export const POST = timed("create-order", async (request: Request, timer) => {
       console.error(`create-order: delivery_fee is null for ${body.restaurant_id}; refusing delivery order`);
       return reject(FEE_MISSING_SPEECH, "delivery_fee not configured", 500);
     }
-    deliveryFeePence = pence(restaurant.delivery_fee);
   }
-  const totalPence = subtotalPence + deliveryFeePence;
+
+  // The whole bill, by the same code as the POS. No discount: only staff give one.
+  const billed = computeBill(subtotalPence, kindForFulfilment(body.fulfilment_type), restaurant as BillSettingsRow, null);
+  if (!billed.ok) {
+    console.error(`create-order: computeBill refused for ${body.restaurant_id}: ${billed.error}`);
+    return reject(FEE_MISSING_SPEECH, billed.error, 500);
+  }
+  const { bill } = billed;
 
   timer.lap("price");
 
@@ -222,20 +247,18 @@ export const POST = timed("create-order", async (request: Request, timer) => {
     }),
   );
   const eta = isDelivery ? DELIVERY_ETA_MINUTES : PICKUP_ETA_MINUTES;
-  const total = pounds(totalPence);
+  const total = pounds(bill.totalPence);
 
   const when = scheduled ? ` for ${scheduled.spoken}` : "";
 
   if (body.preview) {
     const how = isDelivery
-      ? `for delivery to ${formatPostcode(body.delivery_postcode!)}${when}. That comes to ${priceForSpeech(total)} in total, including ${priceForSpeech(pounds(deliveryFeePence))} delivery`
-      : `for collection${when}. That comes to ${priceForSpeech(total)} in total`;
+      ? `for delivery to ${formatPostcode(body.delivery_postcode!)}${when}. That comes to ${priceForSpeech(total)} in total${chargesForSpeech(bill, true)}`
+      : `for collection${when}. That comes to ${priceForSpeech(total)} in total${chargesForSpeech(bill, false)}`;
     return NextResponse.json({
       success: true,
       preview: true,
-      subtotal: pounds(subtotalPence),
-      delivery_fee: pounds(deliveryFeePence),
-      total,
+      ...billForResponse(bill),
       eta_minutes: eta,
       requested_time: scheduled ? scheduled.at.toISOString() : null,
       speech: `So that's ${readBack}, ${how}. Is that all correct?`,
@@ -252,9 +275,15 @@ export const POST = timed("create-order", async (request: Request, timer) => {
       customer_phone: body.customer_phone,
       delivery_address: isDelivery ? body.delivery_address : null,
       delivery_postcode: isDelivery ? formatPostcode(body.delivery_postcode!) : null,
-      subtotal: pounds(subtotalPence),
-      delivery_fee: pounds(deliveryFeePence),
-      total: pounds(totalPence),
+      subtotal: pounds(bill.subtotalPence),
+      delivery_fee: pounds(bill.deliveryPence),
+      discount_type: bill.discount.type,
+      discount_value: bill.discount.value,
+      discount_amount: pounds(bill.discountPence),
+      discount_reason: bill.discount.reason,
+      service_charge_amount: pounds(bill.serviceChargePence),
+      tax_amount: pounds(bill.taxPence),
+      total: pounds(bill.totalPence),
       payment_method: body.payment_method,
       requested_time: scheduled ? scheduled.at.toISOString() : null,
       notes: body.notes ?? null,
@@ -294,9 +323,7 @@ export const POST = timed("create-order", async (request: Request, timer) => {
   return NextResponse.json({
     success: true,
     order_number: saved.order_number,
-    subtotal: pounds(subtotalPence),
-    delivery_fee: pounds(deliveryFeePence),
-    total,
+    ...billForResponse(bill),
     eta_minutes: eta,
     requested_time: saved.requested_time,
     stored_phone: saved.customer_phone,
