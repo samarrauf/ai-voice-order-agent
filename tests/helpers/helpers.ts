@@ -29,6 +29,7 @@ export async function callTool(
   handler: Handler,
   body: unknown,
   secret: string | null | undefined = undefined,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON test responses are untyped
 ): Promise<{ status: number; json: any }> {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (secret !== null) headers["x-tool-secret"] = secret ?? process.env.TOOL_API_SECRET!;

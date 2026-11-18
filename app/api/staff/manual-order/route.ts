@@ -3,25 +3,35 @@ import { z } from "zod";
 import { requireDashboardSession } from "@/lib/staff-auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import {
+  BILL_SETTINGS_SELECT,
   MENU_ITEM_SELECT,
   OPTION_SELECT,
+  billForResponse,
+  computeBill,
+  discountSchema,
   itemSchema,
   pounds,
   priceLines,
   toOrderItemsPayload,
+  type BillSettingsRow,
   type DbItem,
   type DbOption,
 } from "@/lib/order-pricing";
 
-// Staff action: an order typed in by staff (the POS screen). Two kinds:
+// Staff action: an order typed in by staff (the POS screen). Three kinds:
 //   - dine_in (the default): added to a seated table. table_session_id is
 //     required and the session must still be open.
 //   - takeaway: a walk-in customer taking food away. No table needed.
+//   - delivery: needs the customer name, phone and address. Stored as a
+//     delivery order; the delivery fee comes from the restaurant settings.
 //
 // THE MONEY RULE still applies: staff send only item ids, sizes, options and
 // quantities. Every price is calculated by the same shared pricing code the
 // phone-order tool uses (lib/order-pricing.ts), from the menu tables. zod strips
-// any "price"/"total" keys. A dine-in order's source is copied from the table session.
+// any "price"/"total" keys. The discount, delivery fee, service charge, tax and
+// total are all worked out here by computeBill (lib/order-pricing.ts); a discount
+// is only a type + value + reason, and is rejected if it breaks the restaurant's
+// limits. A dine-in order's source is copied from the table session.
 
 const optionalText = (max: number) =>
   z
@@ -34,16 +44,31 @@ const optionalText = (max: number) =>
 const bodySchema = z
   .object({
     restaurant_id: z.guid(),
-    order_type: z.enum(["dine_in", "takeaway"]).default("dine_in"),
+    order_type: z.enum(["dine_in", "takeaway", "delivery"]).default("dine_in"),
     table_session_id: z.guid().nullish(),
     customer_name: optionalText(80),
     customer_phone: optionalText(30),
+    delivery_address: optionalText(200),
+    delivery_postcode: optionalText(12),
     notes: optionalText(300),
+    discount: discountSchema.nullish(),
     items: z.array(itemSchema).min(1).max(30),
   })
-  .refine((b) => b.order_type === "takeaway" || !!b.table_session_id, {
+  .refine((b) => b.order_type !== "dine_in" || !!b.table_session_id, {
     path: ["table_session_id"],
     message: "is required for a dine-in order",
+  })
+  .refine((b) => b.order_type !== "delivery" || !!b.customer_name, {
+    path: ["customer_name"],
+    message: "is required for a delivery order",
+  })
+  .refine((b) => b.order_type !== "delivery" || !!b.customer_phone, {
+    path: ["customer_phone"],
+    message: "is required for a delivery order",
+  })
+  .refine((b) => b.order_type !== "delivery" || !!b.delivery_address, {
+    path: ["delivery_address"],
+    message: "is required for a delivery order",
   });
 
 const fail = (error: string, status: number) => NextResponse.json({ success: false, error }, { status });
@@ -57,11 +82,11 @@ export async function POST(request: Request) {
     return fail(`invalid body: ${parsed.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}`, 400);
   }
   const body = parsed.data;
-  // A takeaway order never belongs to a table, even if a session id was sent.
+  // Only a dine-in order belongs to a table, even if a session id was sent.
   const sessionId = body.order_type === "dine_in" ? body.table_session_id! : null;
 
   const itemIds = [...new Set(body.items.map((i) => i.menu_item_id))];
-  const [sessionRes, itemsRes, optionsRes] = await Promise.all([
+  const [sessionRes, itemsRes, optionsRes, settingsRes] = await Promise.all([
     sessionId
       ? supabaseAdmin
           .from("table_sessions")
@@ -72,9 +97,10 @@ export async function POST(request: Request) {
       : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from("menu_items").select(MENU_ITEM_SELECT).eq("restaurant_id", body.restaurant_id).in("id", itemIds),
     supabaseAdmin.from("item_options").select(OPTION_SELECT).eq("restaurant_id", body.restaurant_id),
+    supabaseAdmin.from("restaurants").select(BILL_SETTINGS_SELECT).eq("id", body.restaurant_id).maybeSingle(),
   ]);
-  if (sessionRes.error || itemsRes.error || optionsRes.error) {
-    console.error("manual-order: lookup failed", sessionRes.error ?? itemsRes.error ?? optionsRes.error);
+  if (sessionRes.error || itemsRes.error || optionsRes.error || settingsRes.error) {
+    console.error("manual-order: lookup failed", sessionRes.error ?? itemsRes.error ?? optionsRes.error ?? settingsRes.error);
     return fail("database lookup failed", 500);
   }
   const session = sessionRes.data;
@@ -87,19 +113,31 @@ export async function POST(request: Request) {
   const priced = priceLines(body.items, menuById, optionsRes.data as DbOption[]);
   if (!priced.ok) return fail(priced.error, 400);
   const { lines, subtotalPence } = priced;
+  if (!settingsRes.data) return fail("restaurant not found", 404);
+  const billed = computeBill(subtotalPence, body.order_type, settingsRes.data as BillSettingsRow, body.discount);
+  if (!billed.ok) return fail(billed.error, 400);
+  const { bill } = billed;
 
-  // Both kinds are stored as 'pickup' (the orders table only allows
+  // Dine-in and takeaway are stored as 'pickup' (the orders table only allows
   // delivery/pickup); `source` + `table_session_id` is what marks an order dine-in.
   const { data: order, error: rpcError } = await supabaseAdmin.rpc("create_order_tx", {
     p_order: {
       restaurant_id: body.restaurant_id,
       call_id: null,
-      fulfilment_type: "pickup",
+      fulfilment_type: body.order_type === "delivery" ? "delivery" : "pickup",
       customer_name: body.customer_name,
       customer_phone: body.customer_phone,
-      subtotal: pounds(subtotalPence),
-      delivery_fee: 0,
-      total: pounds(subtotalPence),
+      delivery_address: body.order_type === "delivery" ? body.delivery_address : null,
+      delivery_postcode: body.order_type === "delivery" ? body.delivery_postcode : null,
+      subtotal: pounds(bill.subtotalPence),
+      delivery_fee: pounds(bill.deliveryPence),
+      discount_type: bill.discount.type,
+      discount_value: bill.discount.value,
+      discount_amount: pounds(bill.discountPence),
+      discount_reason: bill.discount.reason,
+      service_charge_amount: pounds(bill.serviceChargePence),
+      tax_amount: pounds(bill.taxPence),
+      total: pounds(bill.totalPence),
       payment_method: null,
       requested_time: null,
       notes: body.notes,
@@ -118,12 +156,12 @@ export async function POST(request: Request) {
   return NextResponse.json(
     {
       success: true,
+      order_id: saved.id,
       order_number: saved.order_number,
       order_type: body.order_type,
       source: saved.source,
       table_session_id: session?.id ?? null,
-      subtotal: pounds(subtotalPence),
-      total: pounds(subtotalPence),
+      ...billForResponse(bill),
     },
     { status: 201 },
   );

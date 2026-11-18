@@ -11,7 +11,7 @@ async function Orders() {
   const { data, error } = await supabaseAdmin
     .from("orders")
     .select(
-      `id, order_number, status, source, total, created_at,
+      `id, order_number, status, source, total, payment_status, created_at,
        order_items ( item_name, size_name, quantity ),
        table_sessions ( restaurant_tables ( table_number ) )`,
     )
@@ -44,6 +44,7 @@ async function Orders() {
       source: o.source,
       table_number: table?.table_number ?? null,
       total: Number(o.total),
+      payment_status: o.payment_status,
       created_at: o.created_at,
       items: (o.order_items ?? []).map((i) => ({ name: i.item_name, size: i.size_name, quantity: i.quantity })),
     };

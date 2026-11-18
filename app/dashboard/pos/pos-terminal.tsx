@@ -10,13 +10,15 @@ import {
   cartReducer,
   emptyCart,
   itemCount,
-  toItemsPayload,
   toOrderPayload,
+  toPreviewPayload,
   type CartAction,
   type CartState,
+  type DiscountType,
   type OrderType,
 } from "./cart-store";
 import { ErrorNote, ItemDialog, Modal, SentDialog, Stepper, TableDialog, type SentOrder } from "./dialogs";
+import { PaymentDialog } from "./payment-dialog";
 import type { PosCategory, PosItem, PosTable } from "./pos-types";
 
 // The POS screen. Left: search, category chips and the item tiles. Right: the
@@ -30,6 +32,13 @@ import type { PosCategory, PosItem, PosTable } from "./pos-types";
 const ORDER_TYPES: readonly { key: OrderType; label: string }[] = [
   { key: "dine_in", label: "Dine-in" },
   { key: "takeaway", label: "Takeaway" },
+  { key: "delivery", label: "Delivery" },
+];
+
+const DISCOUNT_TYPES: readonly { key: DiscountType; label: string }[] = [
+  { key: "none", label: "None" },
+  { key: "percent", label: "Percent" },
+  { key: "fixed", label: "Fixed" },
 ];
 
 // Soft tile tints, one per category in turn. Design-system colours only.
@@ -42,8 +51,10 @@ const TINTS = [
   "var(--color-secondary)",
 ];
 
+// The server's whole bill for the cart. Every number here came from /api/staff/price-preview.
+type Bill = { subtotal: number; discount: number; delivery_fee: number; service_charge: number; tax: number; total: number };
 type Quote =
-  | { sig: string; ok: true; lines: { unit_price: number; line_total: number }[]; total: number }
+  | ({ sig: string; ok: true; lines: { unit_price: number; line_total: number }[] } & Bill)
   | { sig: string; ok: false; error: string };
 
 const input =
@@ -72,13 +83,16 @@ export function PosTerminal({
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sent, setSent] = useState<SentOrder | null>(null);
+  const [paying, setPaying] = useState(false);
 
   // ---- Prices: always from the server ---------------------------------
-  const sig = JSON.stringify(toItemsPayload(cart.lines));
+  // The request body itself is the signature: items, order type and discount.
+  const sig = JSON.stringify(toPreviewPayload(restaurantId, cart));
+  const hasItems = cart.lines.length > 0;
   const [quote, setQuote] = useState<Quote | null>(null);
   const [retry, setRetry] = useState(0);
   useEffect(() => {
-    if (sig === "[]") return;
+    if (!hasItems) return;
     const ctrl = new AbortController();
     // A short pause so several quick taps become one request.
     const timer = setTimeout(async () => {
@@ -86,11 +100,13 @@ export function PosTerminal({
         const res = await fetch("/api/staff/price-preview", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ restaurant_id: restaurantId, items: JSON.parse(sig) }),
+          body: sig,
           signal: ctrl.signal,
         });
         const json = await res.json().catch(() => null);
-        if (res.ok && json?.success) setQuote({ sig, ok: true, lines: json.lines, total: json.total });
+        if (res.ok && json?.success) setQuote({ sig, ok: true, ...json });
+        else if (res.status === 400 && typeof json?.error === "string" && json.error.includes("discount"))
+          setQuote({ sig, ok: false, error: `Discount not allowed: ${json.error}.` });
         else if (res.status === 401) setQuote({ sig, ok: false, error: "You were logged out. Please log in again." });
         else setQuote({ sig, ok: false, error: "Could not price this order. An item may have just changed on the menu." });
       } catch {
@@ -101,7 +117,7 @@ export function PosTerminal({
       clearTimeout(timer);
       ctrl.abort();
     };
-  }, [sig, restaurantId, retry]);
+  }, [sig, hasItems, restaurantId, retry]);
   // Only an answer for exactly the items now in the cart counts.
   const current = quote?.sig === sig ? quote : null;
   const priced = current?.ok ? current : null;
@@ -123,7 +139,9 @@ export function PosTerminal({
 
   // ---- Sending the order ------------------------------------------------
   const needsTable = cart.orderType === "dine_in" && !cart.table;
-  const canSend = cart.lines.length > 0 && !!priced && !needsTable && !sending;
+  const needsDelivery =
+    cart.orderType === "delivery" && !(cart.customerName.trim() && cart.customerPhone.trim() && cart.deliveryAddress.trim());
+  const canSend = cart.lines.length > 0 && !!priced && !needsTable && !needsDelivery && !sending;
 
   async function send() {
     setSending(true);
@@ -137,15 +155,18 @@ export function PosTerminal({
       const json = await res.json().catch(() => null);
       if (res.status === 201 && json?.success) {
         setSent({
+          orderId: json.order_id,
           orderNumber: json.order_number,
           total: json.total,
-          where: cart.orderType === "dine_in" ? `Table ${cart.table?.tableNumber}` : "Takeaway",
+          where: cart.orderType === "dine_in" ? `Table ${cart.table?.tableNumber}` : cart.orderType === "delivery" ? "Delivery" : "Takeaway",
         });
         dispatch({ type: "reset" });
         setSheetOpen(false);
         router.refresh();
       } else if (res.status === 401) {
         setSendError("You were logged out. Please log in again.");
+      } else if (res.status === 400 && typeof json?.error === "string" && json.error.includes("discount")) {
+        setSendError(`Discount not allowed: ${json.error}.`);
       } else if (res.status === 409 || res.status === 404) {
         // The table was cleared in the meantime.
         dispatch({ type: "setTable", table: null });
@@ -175,6 +196,7 @@ export function PosTerminal({
         setChoosingTable(true);
       }}
       needsTable={needsTable}
+      needsDelivery={needsDelivery}
       canSend={canSend}
       sending={sending}
       sendError={sendError}
@@ -328,7 +350,22 @@ export function PosTerminal({
           }}
         />
       )}
-      {sent && <SentDialog order={sent} currency={currency} onClose={() => setSent(null)} />}
+      {sent && !paying && (
+        <SentDialog order={sent} currency={currency} onClose={() => setSent(null)} onTakePayment={() => setPaying(true)} />
+      )}
+      {sent && paying && (
+        <PaymentDialog
+          order={sent}
+          restaurantId={restaurantId}
+          currency={currency}
+          onBack={() => setPaying(false)}
+          onClose={() => {
+            setPaying(false);
+            setSent(null);
+            router.refresh(); // the Orders board shows the new payment status
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -343,6 +380,7 @@ function CartPanel({
   onRetryPrice,
   onChooseTable,
   needsTable,
+  needsDelivery,
   canSend,
   sending,
   sendError,
@@ -356,6 +394,7 @@ function CartPanel({
   onRetryPrice: () => void;
   onChooseTable: () => void;
   needsTable: boolean;
+  needsDelivery: boolean;
   canSend: boolean;
   sending: boolean;
   sendError: string | null;
@@ -393,8 +432,8 @@ function CartPanel({
           <input
             value={cart.customerName}
             onChange={(e) => dispatch({ type: "setField", field: "customerName", value: e.target.value })}
-            placeholder="Name (optional)"
-            aria-label="Customer name (optional)"
+            placeholder={cart.orderType === "delivery" ? "Name (required)" : "Name (optional)"}
+            aria-label="Customer name"
             maxLength={80}
             autoComplete="off"
             className={input}
@@ -402,14 +441,37 @@ function CartPanel({
           <input
             value={cart.customerPhone}
             onChange={(e) => dispatch({ type: "setField", field: "customerPhone", value: e.target.value })}
-            placeholder="Phone (optional)"
-            aria-label="Customer phone (optional)"
+            placeholder={cart.orderType === "delivery" ? "Phone (required)" : "Phone (optional)"}
+            aria-label="Customer phone"
             type="tel"
             maxLength={30}
             autoComplete="off"
             className={input}
           />
         </div>
+
+        {cart.orderType === "delivery" && (
+          <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-2">
+            <input
+              value={cart.deliveryAddress}
+              onChange={(e) => dispatch({ type: "setField", field: "deliveryAddress", value: e.target.value })}
+              placeholder="Delivery address (required)"
+              aria-label="Delivery address"
+              maxLength={200}
+              autoComplete="off"
+              className={input}
+            />
+            <input
+              value={cart.deliveryPostcode}
+              onChange={(e) => dispatch({ type: "setField", field: "deliveryPostcode", value: e.target.value })}
+              placeholder="Postcode"
+              aria-label="Delivery postcode"
+              maxLength={12}
+              autoComplete="off"
+              className={input}
+            />
+          </div>
+        )}
 
         {empty ? (
           <EmptyState icon={<ShoppingBag size={20} />} title="No items yet" message="Tap an item on the menu to add it to this order." />
@@ -453,6 +515,38 @@ function CartPanel({
           </ul>
         )}
 
+        {!empty && (
+          <div className="space-y-2">
+            <p className={label}>Discount</p>
+            <FilterChips
+              label="Discount type"
+              chips={DISCOUNT_TYPES}
+              value={cart.discountType}
+              onChange={(discountType) => dispatch({ type: "setDiscountType", discountType })}
+            />
+            {cart.discountType !== "none" && (
+              <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-2">
+                <input
+                  value={cart.discountValue}
+                  onChange={(e) => dispatch({ type: "setField", field: "discountValue", value: e.target.value })}
+                  placeholder={cart.discountType === "percent" ? "Percent" : "Amount"}
+                  aria-label={cart.discountType === "percent" ? "Discount percent" : "Discount amount"}
+                  inputMode="decimal"
+                  className={cn(input, "tabular-nums")}
+                />
+                <input
+                  value={cart.discountReason}
+                  onChange={(e) => dispatch({ type: "setField", field: "discountReason", value: e.target.value })}
+                  placeholder="Reason (e.g. regular customer)"
+                  aria-label="Discount reason"
+                  maxLength={200}
+                  className={input}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
         <textarea
           value={cart.note}
           onChange={(e) => dispatch({ type: "setField", field: "note", value: e.target.value })}
@@ -474,6 +568,17 @@ function CartPanel({
           </ErrorNote>
         )}
         {sendError && <ErrorNote>{sendError}</ErrorNote>}
+        {!empty && priced && (
+          <dl className="space-y-1 text-sm">
+            <BreakdownRow name="Subtotal" amount={priced.subtotal} currency={currency} />
+            {priced.discount > 0 && <BreakdownRow name="Discount" amount={-priced.discount} currency={currency} />}
+            {(cart.orderType === "delivery" || priced.delivery_fee > 0) && (
+              <BreakdownRow name="Delivery" amount={priced.delivery_fee} currency={currency} />
+            )}
+            {priced.service_charge > 0 && <BreakdownRow name="Service charge" amount={priced.service_charge} currency={currency} />}
+            {priced.tax > 0 && <BreakdownRow name="Tax" amount={priced.tax} currency={currency} />}
+          </dl>
+        )}
         <div className="flex items-baseline justify-between">
           <span className={label}>Total</span>
           {empty ? (
@@ -489,7 +594,20 @@ function CartPanel({
           {sending ? "Sending..." : "Send to Kitchen"}
         </Button>
         {needsTable && !empty && <p className="text-center text-xs text-ink-faint">Choose a table first, or switch to Takeaway.</p>}
+        {needsDelivery && !empty && (
+          <p className="text-center text-xs text-ink-faint">A delivery order needs the customer name, phone and address.</p>
+        )}
       </div>
     </>
+  );
+}
+
+/** One line of the bill (label left, money right). The amount is whatever the server worked out. */
+function BreakdownRow({ name, amount, currency }: { name: string; amount: number; currency: string }) {
+  return (
+    <div className="flex items-baseline justify-between text-ink-muted">
+      <dt>{name}</dt>
+      <dd className="tabular-nums">{formatMoney(amount, currency)}</dd>
+    </div>
   );
 }

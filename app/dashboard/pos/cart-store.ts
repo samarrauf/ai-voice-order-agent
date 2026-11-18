@@ -11,7 +11,8 @@
 export const MAX_LINE_QTY = 20; // same limit the server enforces (lib/order-pricing.ts)
 export const MAX_LINES = 30;
 
-export type OrderType = "dine_in" | "takeaway";
+export type OrderType = "dine_in" | "takeaway" | "delivery";
+export type DiscountType = "none" | "percent" | "fixed";
 
 export type CartLine = {
   /** Same item + size + options = same key, so adding it again raises the quantity. */
@@ -30,6 +31,12 @@ export type CartState = {
   table: CartTable | null;
   customerName: string;
   customerPhone: string;
+  deliveryAddress: string;
+  deliveryPostcode: string;
+  /** What staff typed for the discount. The server decides if it is allowed and what it comes to. */
+  discountType: DiscountType;
+  discountValue: string;
+  discountReason: string;
   note: string;
   lines: CartLine[];
 };
@@ -39,6 +46,11 @@ export const emptyCart = (orderType: OrderType = "dine_in"): CartState => ({
   table: null,
   customerName: "",
   customerPhone: "",
+  deliveryAddress: "",
+  deliveryPostcode: "",
+  discountType: "none",
+  discountValue: "",
+  discountReason: "",
   note: "",
   lines: [],
 });
@@ -51,7 +63,8 @@ export type CartAction =
   | { type: "remove"; key: string }
   | { type: "setOrderType"; orderType: OrderType }
   | { type: "setTable"; table: CartTable | null }
-  | { type: "setField"; field: "customerName" | "customerPhone" | "note"; value: string }
+  | { type: "setField"; field: "customerName" | "customerPhone" | "deliveryAddress" | "deliveryPostcode" | "discountValue" | "discountReason" | "note"; value: string }
+  | { type: "setDiscountType"; discountType: DiscountType }
   | { type: "reset" };
 
 const lineKey = (l: NewLine) => [l.menuItemId, l.sizeName ?? "", ...[...l.options].sort()].join("|");
@@ -79,6 +92,8 @@ export function cartReducer(state: CartState, action: CartAction): CartState {
       return { ...state, orderType: action.orderType };
     case "setTable":
       return { ...state, table: action.table };
+    case "setDiscountType":
+      return { ...state, discountType: action.discountType, discountValue: action.discountType === "none" ? "" : state.discountValue };
     case "setField":
       return { ...state, [action.field]: action.value };
     case "reset":
@@ -91,6 +106,23 @@ export function cartReducer(state: CartState, action: CartAction): CartState {
 export const toItemsPayload = (lines: CartLine[]) =>
   lines.map((l) => ({ menu_item_id: l.menuItemId, size_name: l.sizeName, quantity: l.quantity, options: l.options }));
 
+/** The discount as the server wants it: only what staff chose, never an amount worked out here. */
+export function toDiscountPayload(cart: CartState) {
+  const value = Number(cart.discountValue);
+  if (cart.discountType === "none" || !(value > 0)) return { type: "none" as const, value: 0, reason: null };
+  return { type: cart.discountType, value, reason: cart.discountReason.trim() || null };
+}
+
+/** The body for /api/staff/price-preview. */
+export function toPreviewPayload(restaurantId: string, cart: CartState) {
+  return {
+    restaurant_id: restaurantId,
+    order_type: cart.orderType,
+    discount: toDiscountPayload(cart),
+    items: toItemsPayload(cart.lines),
+  };
+}
+
 /** The body for /api/staff/manual-order. Note: no prices, only what was chosen. */
 export function toOrderPayload(restaurantId: string, cart: CartState) {
   return {
@@ -99,6 +131,9 @@ export function toOrderPayload(restaurantId: string, cart: CartState) {
     table_session_id: cart.orderType === "dine_in" ? (cart.table?.sessionId ?? null) : null,
     customer_name: cart.customerName.trim() || null,
     customer_phone: cart.customerPhone.trim() || null,
+    delivery_address: cart.orderType === "delivery" ? cart.deliveryAddress.trim() || null : null,
+    delivery_postcode: cart.orderType === "delivery" ? cart.deliveryPostcode.trim() || null : null,
+    discount: toDiscountPayload(cart),
     notes: cart.note.trim() || null,
     items: toItemsPayload(cart.lines),
   };

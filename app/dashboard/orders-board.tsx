@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Armchair, ArrowRight, CircleAlert, Clock, Inbox, Phone, Store } from "lucide-react";
 import { Badge, Button, Card, EmptyState, FilterChips, PageHeader, StatusBadge, cn } from "@/components/ui";
+import { PaymentStatusBadge } from "@/components/ui/payment-status-badge";
 import { formatMoney } from "@/lib/money";
 import { NewOrderLink } from "./new-order-link";
 
@@ -14,6 +15,7 @@ export type BoardOrder = {
   source: string;
   table_number: string | null;
   total: number;
+  payment_status: string;
   created_at: string;
   items: { name: string; size: string | null; quantity: number }[];
 };
@@ -147,7 +149,10 @@ export function OrdersBoard({ orders }: { orders: BoardOrder[] }) {
                       <span className="tabular-nums">{formatTime(o.created_at)}</span>
                     </p>
                   </div>
-                  <StatusBadge status={o.status} />
+                  <div className="flex flex-col items-end gap-1.5">
+                    <StatusBadge status={o.status} />
+                    <PaymentStatusBadge status={o.payment_status} />
+                  </div>
                 </div>
 
                 <Badge className="mt-3 self-start">

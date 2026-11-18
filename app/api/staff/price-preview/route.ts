@@ -3,11 +3,16 @@ import { z } from "zod";
 import { requireDashboardSession } from "@/lib/staff-auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import {
+  BILL_SETTINGS_SELECT,
   MENU_ITEM_SELECT,
   OPTION_SELECT,
+  billForResponse,
+  computeBill,
+  discountSchema,
   itemSchema,
   pounds,
   priceLines,
+  type BillSettingsRow,
   type DbItem,
   type DbOption,
 } from "@/lib/order-pricing";
@@ -18,10 +23,13 @@ import {
 // item ids, sizes, options and quantities, and shows whatever this route sends
 // back. The maths is the same shared code the real order uses
 // (lib/order-pricing.ts), so the preview and the saved order always agree.
-// zod strips any "price"/"total" keys the browser might send.
+// zod strips any "price"/"total" keys the browser might send. It returns the
+// whole bill: subtotal, discount, delivery fee, service charge, tax and total.
 
 const bodySchema = z.object({
   restaurant_id: z.guid(),
+  order_type: z.enum(["dine_in", "takeaway", "delivery"]).default("dine_in"),
+  discount: discountSchema.nullish(),
   items: z.array(itemSchema).min(1).max(30),
 });
 
@@ -39,18 +47,22 @@ export async function POST(request: Request) {
 
   // Two queries, in parallel (no per-item lookups).
   const itemIds = [...new Set(body.items.map((i) => i.menu_item_id))];
-  const [itemsRes, optionsRes] = await Promise.all([
+  const [itemsRes, optionsRes, settingsRes] = await Promise.all([
     supabaseAdmin.from("menu_items").select(MENU_ITEM_SELECT).eq("restaurant_id", body.restaurant_id).in("id", itemIds),
     supabaseAdmin.from("item_options").select(OPTION_SELECT).eq("restaurant_id", body.restaurant_id),
+    supabaseAdmin.from("restaurants").select(BILL_SETTINGS_SELECT).eq("id", body.restaurant_id).maybeSingle(),
   ]);
-  if (itemsRes.error || optionsRes.error) {
-    console.error("price-preview: lookup failed", itemsRes.error ?? optionsRes.error);
+  if (itemsRes.error || optionsRes.error || settingsRes.error) {
+    console.error("price-preview: lookup failed", itemsRes.error ?? optionsRes.error ?? settingsRes.error);
     return fail("database lookup failed", 500);
   }
 
   const menuById = new Map((itemsRes.data as unknown as DbItem[]).map((m) => [m.id, m]));
   const priced = priceLines(body.items, menuById, optionsRes.data as DbOption[]);
   if (!priced.ok) return fail(priced.error, 400);
+  if (!settingsRes.data) return fail("restaurant not found", 404);
+  const billed = computeBill(priced.subtotalPence, body.order_type, settingsRes.data as BillSettingsRow, body.discount);
+  if (!billed.ok) return fail(billed.error, 400);
 
   // Lines come back in the same order they were sent.
   return NextResponse.json({
@@ -64,7 +76,6 @@ export async function POST(request: Request) {
       unit_price: pounds(l.unitPence),
       line_total: pounds(l.linePence),
     })),
-    subtotal: pounds(priced.subtotalPence),
-    total: pounds(priced.subtotalPence),
+    ...billForResponse(billed.bill),
   });
 }

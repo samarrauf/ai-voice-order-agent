@@ -203,3 +203,134 @@ export function toOrderItemsPayload(lines: PricedLine[]) {
     notes: l.notes,
   }));
 }
+
+// ---------------------------------------------------------------------------
+// The bill: charges on top of the food. ONE place, used by price-preview and
+// manual-order, so the preview and the saved order always agree.
+//
+// ORDER OF OPERATIONS (everything in whole pence, rounding only via roundPence):
+//   1. subtotal        = sum of the priced lines (from the menu tables)
+//   2. discount        = percent of subtotal, or a fixed amount; never more than
+//                        the subtotal and never more than max_discount_percent
+//   3. discounted      = subtotal - discount
+//   4. delivery fee    = restaurants.delivery_fee, delivery orders only
+//   5. service charge  = service_charge_percent of `discounted` (food only, not
+//                        delivery), if service_charge_applies_to allows this order type
+//   6. tax             = tax_rate_percent of (discounted + delivery + service charge)
+//   7. total           = discounted + delivery + service charge + tax
+// Tax is ADDED on top of the prices. With tax_rate_percent = 0 (the default
+// until the client confirms it) nothing is added.
+// ---------------------------------------------------------------------------
+
+export type OrderKind = "dine_in" | "takeaway" | "delivery";
+
+export const discountSchema = z.object({
+  type: z.enum(["none", "percent", "fixed"]).default("none"),
+  value: z.number().finite().min(0).max(100000).default(0),
+  reason: z
+    .string()
+    .trim()
+    .max(200)
+    .nullish()
+    .transform((v) => v || null),
+});
+export type DiscountInput = z.infer<typeof discountSchema>;
+
+/** The restaurants columns the bill needs. */
+export const BILL_SETTINGS_SELECT =
+  "delivery_fee, tax_rate_percent, service_charge_percent, service_charge_applies_to, max_discount_percent";
+
+export type BillSettingsRow = {
+  delivery_fee: number | string | null;
+  tax_rate_percent: number | string;
+  service_charge_percent: number | string;
+  service_charge_applies_to: string;
+  max_discount_percent: number | string;
+};
+
+/** The ONE rounding rule: a pence amount is rounded half up to a whole penny. */
+export const roundPence = (n: number) => Math.round(n);
+
+/** `percent` of `basePence`, rounded once. Percent has at most 2 decimals, so it is held as basis points (1% = 100). */
+export const percentOf = (basePence: number, percent: number) => roundPence((basePence * Math.round(percent * 100)) / 10000);
+
+export type Bill = {
+  subtotalPence: number;
+  discountPence: number;
+  deliveryPence: number;
+  serviceChargePence: number;
+  taxPence: number;
+  totalPence: number;
+  discount: { type: "none" | "percent" | "fixed"; value: number; reason: string | null };
+};
+
+export type BillResult = { ok: true; bill: Bill } | { ok: false; error: string };
+
+export function computeBill(
+  subtotalPence: number,
+  kind: OrderKind,
+  settings: BillSettingsRow,
+  discountInput?: DiscountInput | null,
+): BillResult {
+  const d = discountInput ?? { type: "none" as const, value: 0, reason: null };
+
+  // 2. Discount
+  let discountPence = 0;
+  if (d.type === "percent") {
+    if (d.value <= 0) return { ok: false, error: "discount value must be more than 0" };
+    if (d.value > 100) return { ok: false, error: "discount cannot be more than 100%" };
+    discountPence = percentOf(subtotalPence, d.value);
+  } else if (d.type === "fixed") {
+    if (d.value <= 0) return { ok: false, error: "discount value must be more than 0" };
+    discountPence = pence(d.value);
+  }
+  if (discountPence > subtotalPence) return { ok: false, error: "discount cannot be more than the subtotal" };
+  const maxPercent = Number(settings.max_discount_percent);
+  // A percent discount is compared as a percent (so 10.01% can't slip under a 10%
+  // cap through rounding); a fixed one is compared in pence against the cap's value.
+  const overCap = d.type === "percent" ? d.value > maxPercent : discountPence > percentOf(subtotalPence, maxPercent);
+  if (overCap) {
+    return { ok: false, error: `discount is more than the allowed maximum of ${maxPercent}%` };
+  }
+  const discounted = subtotalPence - discountPence;
+
+  // 4. Delivery fee, delivery orders only
+  let deliveryPence = 0;
+  if (kind === "delivery") {
+    if (settings.delivery_fee === null) return { ok: false, error: "delivery_fee not configured" };
+    deliveryPence = pence(settings.delivery_fee);
+  }
+
+  // 5. Service charge, only where the restaurant's setting allows it
+  const applies = settings.service_charge_applies_to;
+  const serviceApplies = applies === "all" || (applies === "dine_in" && kind === "dine_in");
+  const serviceChargePence = serviceApplies ? percentOf(discounted, Number(settings.service_charge_percent)) : 0;
+
+  // 6. Tax on everything charged so far
+  const taxPence = percentOf(discounted + deliveryPence + serviceChargePence, Number(settings.tax_rate_percent));
+
+  return {
+    ok: true,
+    bill: {
+      subtotalPence,
+      discountPence,
+      deliveryPence,
+      serviceChargePence,
+      taxPence,
+      totalPence: discounted + deliveryPence + serviceChargePence + taxPence,
+      discount: { type: d.type, value: d.type === "none" ? 0 : d.value, reason: d.type === "none" ? null : d.reason },
+    },
+  };
+}
+
+/** The bill in pounds, as sent back to the screen. */
+export function billForResponse(b: Bill) {
+  return {
+    subtotal: pounds(b.subtotalPence),
+    discount: pounds(b.discountPence),
+    delivery_fee: pounds(b.deliveryPence),
+    service_charge: pounds(b.serviceChargePence),
+    tax: pounds(b.taxPence),
+    total: pounds(b.totalPence),
+  };
+}

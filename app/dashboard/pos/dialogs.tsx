@@ -331,10 +331,20 @@ export function TableDialog({
   );
 }
 
-export type SentOrder = { orderNumber: string; total: number; where: string };
+export type SentOrder = { orderId: string; orderNumber: string; total: number; where: string };
 
 /** The "order sent" message. The total shown is the one the server saved. */
-export function SentDialog({ order, currency, onClose }: { order: SentOrder; currency: string; onClose: () => void }) {
+export function SentDialog({
+  order,
+  currency,
+  onClose,
+  onTakePayment,
+}: {
+  order: SentOrder;
+  currency: string;
+  onClose: () => void;
+  onTakePayment: () => void;
+}) {
   return (
     <Modal title="Sent to kitchen" onClose={onClose}>
       <div className="flex flex-col items-center px-5 py-8 text-center">
@@ -354,8 +364,11 @@ export function SentDialog({ order, currency, onClose }: { order: SentOrder; cur
         >
           View orders
         </Link>
-        <Button variant="primary" size="lg" className="flex-1" onClick={onClose}>
+        <Button size="lg" onClick={onClose}>
           New order
+        </Button>
+        <Button variant="primary" size="lg" className="flex-1" onClick={onTakePayment}>
+          Take payment
         </Button>
       </div>
     </Modal>
