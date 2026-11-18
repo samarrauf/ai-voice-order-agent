@@ -50,7 +50,7 @@ async function Orders() {
     };
   });
 
-  return <OrdersBoard orders={orders} />;
+  return <OrdersBoard orders={orders} restaurantId={DEMO_RESTAURANT_ID} />;
 }
 
 /** Shown while the orders load: the same shape as the real page, in shimmering grey. */

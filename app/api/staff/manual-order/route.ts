@@ -146,7 +146,9 @@ export async function POST(request: Request) {
       payment_method: null,
       requested_time: null,
       notes: body.notes,
-      source: session?.source === "booking" ? "table_booking" : "walk_in",
+      // A delivery order is one staff took over the phone ('staff_phone'); dine-in keeps
+      // the table session's source, takeaway stays 'walk_in'.
+      source: body.order_type === "delivery" ? "staff_phone" : session?.source === "booking" ? "table_booking" : "walk_in",
       // Saved in the same insert as the order (create_order_tx, migration 0009). Null for takeaway.
       table_session_id: session?.id ?? null,
     },

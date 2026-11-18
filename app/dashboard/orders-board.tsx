@@ -43,16 +43,22 @@ const STATUS_LABEL: Record<string, string> = {
 const REFRESH_MS = 15_000;
 
 const sourceLabel = (o: BoardOrder) =>
-  o.source === "phone" ? "Phone" : o.source === "walk_in" ? "Walk-in" : `Table ${o.table_number ?? "?"}`;
+  o.source === "phone"
+    ? "Phone"
+    : o.source === "staff_phone"
+      ? "Staff phone"
+      : o.source === "walk_in"
+        ? "Walk-in"
+        : `Table ${o.table_number ?? "?"}`;
 
 // A fixed time zone so the server and the browser print the same time.
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
 
 // Icon shown next to where the order came from. Anything else is a table order.
-const SOURCE_ICON: Record<string, typeof Phone> = { phone: Phone, walk_in: Store };
+const SOURCE_ICON: Record<string, typeof Phone> = { phone: Phone, staff_phone: Phone, walk_in: Store };
 
-export function OrdersBoard({ orders }: { orders: BoardOrder[] }) {
+export function OrdersBoard({ orders, restaurantId }: { orders: BoardOrder[]; restaurantId: string }) {
   const router = useRouter();
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("new");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -75,7 +81,7 @@ export function OrdersBoard({ orders }: { orders: BoardOrder[] }) {
       const res = await fetch("/api/staff/update-order-status", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ order_id: order.id, status }),
+        body: JSON.stringify({ restaurant_id: restaurantId, order_id: order.id, status }),
       });
       if (!res.ok) {
         setError(res.status === 401 ? "You were logged out. Please log in again." : "Could not update the order. Try again.");

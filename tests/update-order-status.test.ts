@@ -11,7 +11,7 @@ async function call(body: unknown, cookie: string | null | undefined = undefined
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? createSessionToken()}`;
   const res = await updateStatus(
-    new Request("http://localhost/api/staff/update-order-status", { method: "POST", headers, body: JSON.stringify(body) }),
+    new Request("http://localhost/api/staff/update-order-status", { method: "POST", headers, body: JSON.stringify({ restaurant_id: RID, ...(body as object) }) }),
   );
   return { status: res.status, json: (await res.json()) as Record<string, any> };
 }
@@ -19,6 +19,17 @@ async function call(body: unknown, cookie: string | null | undefined = undefined
 const statusInDb = async (id: string) => (await db.from("orders").select("status").eq("id", id).single()).data?.status;
 
 let orderId: string;
+
+// A throwaway order in the demo restaurant, marked so cleanup removes it.
+async function makeOrder(status: string) {
+  const { data, error } = await db
+    .from("orders")
+    .insert({ restaurant_id: RID, fulfilment_type: "pickup", subtotal: 1, total: 1, status, notes: RUN_MARKER })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id as string;
+}
 
 beforeAll(async () => {
   const { data, error } = await db
@@ -67,5 +78,28 @@ describe("POST /api/staff/update-order-status", () => {
       expect(r.json.order.status).toBe(status);
       expect(await statusInDb(orderId)).toBe(status);
     }
+  });
+
+  it("refuses to change the status of another restaurant's order (404) and changes nothing", async () => {
+    const id = await makeOrder("new");
+    const r = await call({ restaurant_id: "22222222-2222-4222-8222-222222222222", order_id: id, status: "preparing" });
+    expect(r.status).toBe(404);
+    expect(await statusInDb(id)).toBe("new");
+  });
+
+  it("requires restaurant_id (400)", async () => {
+    const id = await makeOrder("new");
+    const r = await call({ restaurant_id: undefined, order_id: id, status: "preparing" });
+    expect(r.status).toBe(400);
+  });
+
+  it.each(["completed", "cancelled"])("cannot reopen a %s order (409)", async (finalStatus) => {
+    const id = await makeOrder(finalStatus);
+    for (const status of ["new", "preparing", "ready"]) {
+      const r = await call({ order_id: id, status });
+      expect(r.status).toBe(409);
+      expect(r.json.success).toBe(false);
+    }
+    expect(await statusInDb(id)).toBe(finalStatus);
   });
 });
