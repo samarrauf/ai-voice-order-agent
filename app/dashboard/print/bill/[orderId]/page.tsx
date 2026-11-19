@@ -24,10 +24,29 @@ export default async function PrintBillPage({
       <PrintControls
         otherSize={{ label: a4 ? "80mm paper" : "A4 paper", href: `/dashboard/print/bill/${orderId}${a4 ? "" : "?size=a4"}` }}
       />
-      <article className={`paper ${a4 ? "paper-a4" : "paper-80"}`}>
-        <div className="center">
-          <div className="rname">{r.restaurantName}</div>
-          {r.tagline && <div className="muted">{r.tagline}</div>}
+      <article
+        className={`paper ${a4 ? "paper-a4" : "paper-80"}`}
+        style={
+          {
+            "--brand-primary": r.brand.primary,
+            "--brand-accent": r.brand.accent,
+            "--brand-on-primary": r.brand.onPrimary,
+          } as React.CSSProperties
+        }
+      >
+        {/* a div, not <header>: print.css hides every <header> (the dashboard's own) on print pages */}
+        <div className="brand-head">
+          {r.brand.logoUrl ? (
+            <span className="brand-pill">
+              {/* eslint-disable-next-line @next/next/no-img-element -- print page: plain img so the logo is loaded before the print dialog */}
+              <img className="brand-logo" src={r.brand.logoUrl} alt={r.restaurantName} />
+            </span>
+          ) : (
+            <div className="brand-name">{r.restaurantName}</div>
+          )}
+          {r.tagline && <div className="brand-tagline">{r.tagline}</div>}
+        </div>
+        <div className="center brand-address">
           {r.address && <div>{r.address}</div>}
           {r.phone && <div>Tel: {r.phone}</div>}
         </div>
@@ -78,7 +97,16 @@ export default async function PrintBillPage({
         <div className="row"><strong>Balance due</strong><strong>{r.balanceDue}</strong></div>
 
         <hr className="rule" />
-        <div className="thanks">Thank you for your order!</div>
+        <div className="thanks">{r.brand.footerNote ?? "Thank you for your order!"}</div>
+        {(r.phone || r.brand.whatsapp || r.brand.website || r.brand.instagram || r.brand.facebook) && (
+          <footer className="brand-foot">
+            {r.phone && <div>Tel: {r.phone}</div>}
+            {r.brand.whatsapp && <div>WhatsApp: {r.brand.whatsapp}</div>}
+            {r.brand.website && <div>{r.brand.website}</div>}
+            {r.brand.instagram && <div>Instagram: {r.brand.instagram}</div>}
+            {r.brand.facebook && <div>Facebook: {r.brand.facebook}</div>}
+          </footer>
+        )}
       </article>
     </>
   );

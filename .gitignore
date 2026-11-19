@@ -51,3 +51,6 @@ test-results/opening-hours-backup.json
 
 # example env file is safe to commit
 !.env.example
+
+# local design previews (static HTML, not part of the app)
+design-samples/

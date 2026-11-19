@@ -99,6 +99,49 @@ describe("buildReceipt", () => {
     expect(r.phone).toBeNull();
   });
 
+  it("branding: no logo or contact columns means safe defaults (Napoli shows the name)", () => {
+    const b = buildReceipt(base()).brand;
+    expect(b.logoUrl).toBeNull();
+    expect(b.website).toBeNull();
+    expect(b.footerNote).toBeNull();
+    expect(b.primary).toBe("#1E293B");
+  });
+
+  it("branding: logo, theme and contact lines are cleaned for display", () => {
+    const p = base();
+    Object.assign(p.restaurant, {
+      logo_url: "/brand/olive-n-spice-logo.png",
+      theme_primary: "#112233",
+      theme_accent: "red",
+      website_url: "https://www.example.com/",
+      instagram_handle: "olivenspice",
+      facebook_url: "https://facebook.com/olive",
+      whatsapp_number: " +44 7000 000000 ",
+      receipt_footer_note: "See you soon",
+    });
+    const b = buildReceipt(p).brand;
+    expect(b.logoUrl).toBe("/brand/olive-n-spice-logo.png");
+    expect(b.primary).toBe("#112233");
+    expect(b.accent).toBe("#3B82F6");
+    expect(b.website).toBe("example.com");
+    expect(b.instagram).toBe("@olivenspice");
+    expect(b.facebook).toBe("facebook.com/olive");
+    expect(b.whatsapp).toBe("+44 7000 000000");
+    expect(b.footerNote).toBe("See you soon");
+  });
+
+  it("branding: unsafe logo urls are dropped", () => {
+    for (const bad of ["javascript:alert(1)", "//evil.com/x.png", "http://insecure.com/x.png", "data:image/png;base64,AAA"]) {
+      const p = base();
+      Object.assign(p.restaurant, { logo_url: bad });
+      expect(buildReceipt(p).brand.logoUrl).toBeNull();
+    }
+  });
+
+  it("KOT carries no branding", () => {
+    expect(JSON.stringify(buildKot(base()))).not.toContain("brand");
+  });
+
   it("paid in full: balance is zero, status Paid", () => {
     const p = base();
     Object.assign(p.order, { paid_amount: "19.80", payment_status: "paid" });

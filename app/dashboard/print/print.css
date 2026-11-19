@@ -66,6 +66,98 @@ body:has(.print-root) main {
 .center {
   text-align: center;
 }
+
+/* ---- bill branding (not used by the KOT) ---- */
+.paper {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.brand-head {
+  text-align: center;
+  padding: 8px 6px 10px;
+  border-bottom: 3px solid var(--brand-accent, #000);
+}
+.brand-logo {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  max-height: 22mm;
+  object-fit: contain;
+}
+.paper-a4 .brand-logo {
+  max-height: 32mm;
+}
+.brand-name {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.15;
+  color: var(--brand-primary, #000);
+}
+.paper-a4 .brand-name {
+  font-size: 34px;
+}
+.brand-tagline {
+  margin-top: 4px;
+  font-size: 0.9em;
+  font-style: italic;
+  color: #333;
+}
+/* A4 gets a filled header band in the brand colour. */
+.paper-a4 .brand-head {
+  background: var(--brand-primary, #000);
+  padding: 16px 12px;
+  border-bottom-color: var(--brand-accent, #000);
+}
+.paper-a4 .brand-head .brand-name,
+.paper-a4 .brand-head .brand-tagline {
+  color: var(--brand-on-primary, #fff);
+}
+/* A4 with a logo: the logo sits in a white rounded pill so its white background
+   disappears inside it, and the tagline underneath is in the accent colour. */
+.brand-pill {
+  display: block;
+}
+.paper-a4 .brand-pill {
+  display: inline-block;
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 18px;
+}
+.paper-a4 .brand-head .brand-tagline {
+  color: var(--brand-accent, #fff);
+  font-style: normal;
+  letter-spacing: 0.08em;
+}
+.paper-a4 .brand-head:has(.brand-pill) .brand-tagline {
+  margin-top: 10px;
+}
+/* 80mm thermal paper is black and white: no colour, logo in greyscale. */
+.paper-80 .brand-head {
+  border-bottom-color: #000;
+}
+.paper-80 .brand-name {
+  color: #000;
+}
+.paper-80 .brand-logo {
+  /* order matters: darken first so the gold turns dark grey while white stays white */
+  filter: brightness(0.7) grayscale(1) contrast(3);
+}
+.paper-80 .brand-foot {
+  border-top-color: #000;
+}
+.brand-address {
+  margin-top: 8px;
+}
+.brand-foot {
+  text-align: center;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 2px solid var(--brand-accent, #000);
+  font-size: 0.92em;
+  color: #222;
+}
 .rname {
   font-size: 18px;
   font-weight: 700;

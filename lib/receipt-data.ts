@@ -27,7 +27,9 @@ export async function loadPrintData(orderId: string, restaurantId: string): Prom
     supabaseAdmin.from("orders").select(ORDER_SELECT).eq("id", orderId).eq("restaurant_id", restaurantId).maybeSingle(),
     supabaseAdmin
       .from("restaurants")
-      .select("name, tagline, address_line, city, postcode, phone, currency, timezone")
+      .select(
+        "name, tagline, address_line, city, postcode, phone, currency, timezone, theme_primary, theme_accent, theme_secondary, logo_url, whatsapp_number, website_url, instagram_handle, facebook_url, receipt_footer_note",
+      )
       .eq("id", restaurantId)
       .maybeSingle(),
     supabaseAdmin

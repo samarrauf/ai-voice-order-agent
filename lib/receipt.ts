@@ -1,3 +1,4 @@
+import { DEFAULT_BRANDING, readableOn, sanitizeHex } from "@/lib/branding";
 import { formatMoney } from "@/lib/money";
 
 // Turns an order's saved data into a "model" for the customer receipt and the
@@ -20,6 +21,15 @@ export type ReceiptRestaurant = {
   phone?: string | null;
   currency?: string | null;
   timezone?: string | null;
+  theme_primary?: string | null;
+  theme_accent?: string | null;
+  theme_secondary?: string | null;
+  logo_url?: string | null;
+  whatsapp_number?: string | null;
+  website_url?: string | null;
+  instagram_handle?: string | null;
+  facebook_url?: string | null;
+  receipt_footer_note?: string | null;
 };
 
 export type ReceiptOrder = {
@@ -122,7 +132,42 @@ export function formatPlacedAt(iso: string, timezone?: string | null): string {
 export type ReceiptLine = { quantity: number; name: string; detail: string[]; lineTotal: string };
 export type ReceiptRow = { label: string; value: string; kind?: "discount" | "total" };
 
+/** Look and contact details for the top and bottom of the customer bill. Never used on the KOT. */
+export type ReceiptBrand = {
+  logoUrl: string | null;
+  primary: string;
+  accent: string;
+  onPrimary: string;
+  whatsapp: string | null;
+  website: string | null;
+  instagram: string | null;
+  facebook: string | null;
+  footerNote: string | null;
+};
+
+/** A logo may be a site path ("/brand/x.png") or an https link. Anything else (javascript:, data:, "//host") is dropped. */
+export function safeLogoUrl(v: string | null | undefined): string | null {
+  const s = clean(v);
+  if (!s) return null;
+  if (s.startsWith("/") && !s.startsWith("//") && !s.includes("\\")) return s;
+  return /^https:\/\/[^\s"'<>]+$/i.test(s) ? s : null;
+}
+
+/** "https://www.example.com/menu/" -> "example.com/menu". Display only. */
+export function displayLink(v: string | null | undefined): string | null {
+  const s = clean(v);
+  if (!s) return null;
+  return s.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/+$/, "") || null;
+}
+
+/** "olivenspice" or "@olivenspice" -> "@olivenspice". */
+export function displayHandle(v: string | null | undefined): string | null {
+  const s = clean(v)?.replace(/^@+/, "");
+  return s ? `@${s}` : null;
+}
+
 export type ReceiptModel = {
+  brand: ReceiptBrand;
   restaurantName: string;
   tagline: string | null;
   address: string | null;
@@ -171,7 +216,19 @@ export function buildReceipt({ restaurant, order, items, payments }: PrintInput)
   const status = (["unpaid", "partial", "paid"] as const).find((s) => s === order.payment_status) ?? "unpaid";
 
   const hasDelivery = kind === "delivery";
+  const primary = sanitizeHex(restaurant.theme_primary, DEFAULT_BRANDING.primary);
   return {
+    brand: {
+      logoUrl: safeLogoUrl(restaurant.logo_url),
+      primary,
+      accent: sanitizeHex(restaurant.theme_accent, DEFAULT_BRANDING.accent),
+      onPrimary: readableOn(primary),
+      whatsapp: clean(restaurant.whatsapp_number),
+      website: displayLink(restaurant.website_url),
+      instagram: displayHandle(restaurant.instagram_handle),
+      facebook: displayLink(restaurant.facebook_url),
+      footerNote: clean(restaurant.receipt_footer_note),
+    },
     restaurantName: restaurant.name,
     tagline: clean(restaurant.tagline),
     address: address || null,
