@@ -43,7 +43,7 @@ async function Shell({ children }: { children: React.ReactNode }) {
       {staff ? (
         <>
           <Splash branding={branding} />
-          <Frame branding={branding}>{children}</Frame>
+          <Frame branding={branding} isOwner={staff.role === "owner"}>{children}</Frame>
         </>
       ) : (
         <LoginFrame>{children}</LoginFrame>
@@ -67,7 +67,7 @@ function InitialBadge({ name, large }: { name: string; large?: boolean }) {
   );
 }
 
-function Frame({ branding, children }: { branding: Branding; children: React.ReactNode }) {
+function Frame({ branding, isOwner, children }: { branding: Branding; isOwner: boolean; children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-canvas/85 backdrop-blur-md">
@@ -87,7 +87,7 @@ function Frame({ branding, children }: { branding: Branding; children: React.Rea
 
           <div className="ml-auto flex items-center gap-1 sm:gap-2 lg:justify-self-end">
             <NewOrderLink compact />
-            <SecondaryLinks />
+            <SecondaryLinks isOwner={isOwner} />
             <form action={logout}>
               <button
                 type="submit"

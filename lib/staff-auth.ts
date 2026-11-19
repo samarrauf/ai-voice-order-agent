@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE, hasRole, verifySession, type StaffRole, type StaffSession } from "@/lib/session";
+import { confirmStaffActive } from "@/lib/staff-active";
 
 // Login check for /api/staff/* routes. These are for restaurant staff using
 // the dashboard, so they use the staff login cookie (lib/session.ts), NOT the
@@ -26,22 +27,23 @@ function readCookie(request: Request, name: string): string | undefined {
   return undefined;
 }
 
-/** The logged-in staff member for this request, or null. */
-export function getStaffFromRequest(request: Request): StaffSession | null {
-  return verifySession(readCookie(request, SESSION_COOKIE));
+/** The logged-in staff member for this request, or null. Also checks the account is still active (lib/staff-active.ts). */
+export async function getStaffFromRequest(request: Request): Promise<StaffSession | null> {
+  const session = verifySession(readCookie(request, SESSION_COOKIE));
+  return session ? confirmStaffActive(session) : null;
 }
 
 export type StaffCheck = { ok: true; staff: StaffSession } | { ok: false; response: NextResponse };
 
 /**
  * Call first in every staff route:
- *   const auth = requireStaff(request);
+ *   const auth = await requireStaff(request);
  *   if (!auth.ok) return auth.response;
  *   const rid = auth.staff.restaurantId;
- * No valid login -> 401. `{ role: "owner" }` -> a staff (non-owner) login gets 403.
+ * No valid login, or the account was switched off -> 401. `{ role: "owner" }` -> a staff (non-owner) login gets 403.
  */
-export function requireStaff(request: Request, options: { role?: StaffRole } = {}): StaffCheck {
-  const staff = getStaffFromRequest(request);
+export async function requireStaff(request: Request, options: { role?: StaffRole } = {}): Promise<StaffCheck> {
+  const staff = await getStaffFromRequest(request);
   if (!staff) return { ok: false, response: NextResponse.json({ success: false, error: "unauthorized" }, { status: 401 }) };
   if (options.role && !hasRole(staff, options.role)) {
     return { ok: false, response: NextResponse.json({ success: false, error: "forbidden" }, { status: 403 }) };

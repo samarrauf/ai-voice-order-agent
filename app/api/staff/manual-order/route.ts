@@ -80,7 +80,7 @@ const bodySchema = z
 const fail = (error: string, status: number) => NextResponse.json({ success: false, error }, { status });
 
 export async function POST(request: Request) {
-  const auth = requireStaff(request);
+  const auth = await requireStaff(request);
   if (!auth.ok) return auth.response;
   const rid = auth.staff.restaurantId;
 

@@ -22,7 +22,7 @@ async function callStaff(
   cookie: string | null | undefined = undefined, // undefined = valid login, null = no cookie
 ): Promise<{ status: number; json: Record<string, any> }> {
   const headers: Record<string, string> = { "content-type": "application/json" };
-  if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? sessionToken(rid)}`;
+  if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? await sessionToken(rid)}`;
   const res = await handler(
     new Request("http://localhost/api/staff/test", { method: "POST", headers, body: JSON.stringify(body) }),
   );
@@ -398,7 +398,7 @@ describe("record-payment", () => {
   it("tenant isolation: another restaurant cannot pay this order", async () => {
     const id = await newOrder();
     // P8a: the restaurant comes from the login, so "another restaurant" = a login of the demo restaurant.
-    const { status, json } = await callStaff(recordPayment, payBody(id, { restaurant_id: RID }), sessionToken(RID));
+    const { status, json } = await callStaff(recordPayment, payBody(id, { restaurant_id: RID }), await sessionToken(RID));
     expect(status).toBe(404);
     expect(json.success).toBe(false);
     expect((await db.from("order_payments").select("id").eq("order_id", id)).data).toHaveLength(0);

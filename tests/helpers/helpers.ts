@@ -78,11 +78,27 @@ export function orderBody(overrides: Record<string, unknown> = {}) {
   };
 }
 
+const testAccounts = new Map<string, string>();
+
 /** A signed staff login token for `restaurantId` (default: the demo restaurant), as
- *  if a staff member of that restaurant had logged in. Uses SESSION_SECRET from .env.local. */
-export function sessionToken(restaurantId: string = RID, role: StaffRole = "owner"): string {
-  return signSession({ staffId: randomUUID(), restaurantId, role });
+ *  if a staff member of that restaurant had logged in. Uses SESSION_SECRET from .env.local.
+ *  Since the dashboard now checks the account is still active on every request, this makes
+ *  a real (throwaway, "vitest-run-" named) staff_accounts row, one per restaurant + role per run.
+ *  Pass `staffId` to sign a token for an account you made yourself. */
+export async function sessionToken(restaurantId: string = RID, role: StaffRole = "owner", staffId?: string): Promise<string> {
+  if (staffId) return signSession({ staffId, restaurantId, role });
+  const key = `${restaurantId}/${role}`;
+  let id = testAccounts.get(key);
+  if (!id) {
+    id = randomUUID();
+    const r = await db
+      .from("staff_accounts")
+      .insert({ id, restaurant_id: restaurantId, username: `${RUN_MARKER}-${testAccounts.size}-${role}`, password_hash: "scrypt$test-only", role });
+    if (r.error) throw r.error;
+    testAccounts.set(key, id);
+  }
+  return signSession({ staffId: id, restaurantId, role });
 }
 
 /** The same token as a ready "cookie" header value. */
-export const staffCookie = (restaurantId: string = RID, role: StaffRole = "owner") => `${SESSION_COOKIE}=${sessionToken(restaurantId, role)}`;
+export const staffCookie = async (restaurantId: string = RID, role: StaffRole = "owner") => `${SESSION_COOKIE}=${await sessionToken(restaurantId, role)}`;

@@ -11,7 +11,7 @@ import { RID, RUN_MARKER, db, sessionToken } from "./helpers/helpers";
 /* eslint-disable @typescript-eslint/no-explicit-any -- JSON test responses are untyped, as in the other tests */
 async function call(body: unknown, cookie: string | null | undefined = undefined) {
   const headers: Record<string, string> = { "content-type": "application/json" };
-  if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? sessionToken()}`;
+  if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? await sessionToken()}`;
   const res = await updateStatus(
     new Request("http://localhost/api/staff/update-booking-status", { method: "POST", headers, body: JSON.stringify(body) }),
   );

@@ -22,7 +22,7 @@ async function callStaff(body: Record<string, unknown>): Promise<{ status: numbe
   const res = await manualOrder(
     new Request("http://localhost/api/staff/manual-order", {
       method: "POST",
-      headers: { "content-type": "application/json", cookie: `${SESSION_COOKIE}=${sessionToken(rid)}` },
+      headers: { "content-type": "application/json", cookie: `${SESSION_COOKIE}=${await sessionToken(rid)}` },
       body: JSON.stringify(body),
     }),
   );

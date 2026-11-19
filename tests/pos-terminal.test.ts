@@ -20,7 +20,7 @@ async function callStaff(
   cookie: string | null | undefined = undefined, // undefined = valid login, null = no cookie
 ): Promise<{ status: number; json: Record<string, any> }> {
   const headers: Record<string, string> = { "content-type": "application/json" };
-  if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? sessionToken()}`;
+  if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? await sessionToken()}`;
   const res = await handler(
     new Request("http://localhost/api/staff/test", { method: "POST", headers, body: JSON.stringify(body) }),
   );

@@ -102,47 +102,47 @@ describe("a login of restaurant A cannot touch restaurant B", () => {
   const asA = () => staffCookie(A);
 
   it("order status: B's order is 'not found' (404) and unchanged", async () => {
-    expect((await call(updateOrderStatus, { order_id: b.order, status: "preparing" }, asA())).status).toBe(404);
+    expect((await call(updateOrderStatus, { order_id: b.order, status: "preparing" }, await asA())).status).toBe(404);
     expect((await db.from("orders").select("status").eq("id", b.order).single()).data?.status).toBe("new");
   });
 
   it("payment: B's order is 'not found' (404) and nothing is recorded", async () => {
-    const r = await call(recordPayment, { order_id: b.order, method: "cash", amount: 10, idempotency_key: randomUUID() }, asA());
+    const r = await call(recordPayment, { order_id: b.order, method: "cash", amount: 10, idempotency_key: randomUUID() }, await asA());
     expect(r.status).toBe(404);
     expect((await db.from("order_payments").select("id").eq("order_id", b.order)).data).toHaveLength(0);
   });
 
   it("menu item: B's dish can't be priced or ordered from A (400, unknown item) and no order is made", async () => {
     const items = [{ menu_item_id: b.item, quantity: 1 }];
-    const preview = await call(pricePreview, { order_type: "takeaway", items }, asA());
+    const preview = await call(pricePreview, { order_type: "takeaway", items }, await asA());
     expect(preview.status).toBe(400);
     expect(preview.json.error).toMatch(/not found for this restaurant/);
     const before = (await db.from("orders").select("id", { count: "exact", head: true }).in("restaurant_id", [A, B])).count;
-    const order = await call(manualOrder, { order_type: "takeaway", notes: RUN_MARKER, items }, asA());
+    const order = await call(manualOrder, { order_type: "takeaway", notes: RUN_MARKER, items }, await asA());
     expect(order.status).toBe(400);
     const after = (await db.from("orders").select("id", { count: "exact", head: true }).in("restaurant_id", [A, B])).count;
     expect(after).toBe(before);
   });
 
   it("dine-in: B's table session can't take an order from A (404)", async () => {
-    const r = await call(manualOrder, { table_session_id: b.session, notes: RUN_MARKER, items: [{ menu_item_id: b.item, quantity: 1 }] }, asA());
+    const r = await call(manualOrder, { table_session_id: b.session, notes: RUN_MARKER, items: [{ menu_item_id: b.item, quantity: 1 }] }, await asA());
     expect(r.status).toBe(404);
   });
 
   it("booking: B's booking is 'not found' (404) and unchanged", async () => {
-    expect((await call(updateBookingStatus, { booking_id: b.booking, status: "cancelled" }, asA())).status).toBe(404);
+    expect((await call(updateBookingStatus, { booking_id: b.booking, status: "cancelled" }, await asA())).status).toBe(404);
     expect((await db.from("bookings").select("status").eq("id", b.booking).single()).data?.status).toBe("confirmed");
   });
 
   it("tables: A can't seat B's table or clear B's table session (404)", async () => {
-    expect((await call(seatTable, { table_id: b.freeTable, party_size: 2 }, asA())).status).toBe(404);
-    expect((await call(clearTable, { table_session_id: b.session }, asA())).status).toBe(404);
+    expect((await call(seatTable, { table_id: b.freeTable, party_size: 2 }, await asA())).status).toBe(404);
+    expect((await call(clearTable, { table_session_id: b.session }, await asA())).status).toBe(404);
     expect((await db.from("table_sessions").select("cleared_at").eq("id", b.session).single()).data?.cleared_at).toBeNull();
     expect((await db.from("table_sessions").select("id").eq("table_id", b.freeTable)).data).toHaveLength(0);
   });
 
   it("print bill and print KOT: B's order is a 404 page; A's own order prints", async () => {
-    cookieJar.value = sessionToken(A);
+    cookieJar.value = await sessionToken(A);
     try {
       const props = (orderId: string) => ({ params: Promise.resolve({ orderId }), searchParams: Promise.resolve({}) });
       for (const Page of [PrintBillPage, PrintKotPage]) {
@@ -176,13 +176,13 @@ describe("restaurant_id in the body must match the login (else 403)", () => {
   ];
 
   it.each(cases)("%s: a different restaurant_id is refused (403) before anything changes", async (_n, handler, body) => {
-    const r = await call(handler, { ...body(), restaurant_id: B }, staffCookie(A));
+    const r = await call(handler, { ...body(), restaurant_id: B }, await staffCookie(A));
     expect(r.status).toBe(403);
     expect(r.json.success).toBe(false);
   });
 
   it("the same restaurant_id as the login is accepted (older dashboard tabs)", async () => {
-    const r = await call(updateOrderStatus, { restaurant_id: A, order_id: aOrder, status: "preparing" }, staffCookie(A));
+    const r = await call(updateOrderStatus, { restaurant_id: A, order_id: aOrder, status: "preparing" }, await staffCookie(A));
     expect(r.status).toBe(200);
   });
 
@@ -210,13 +210,68 @@ describe("no login -> 401 on every /api/staff/* route", () => {
   });
 });
 
-describe("role helper (ready for P8b, nothing enforced yet)", () => {
-  const req = (role: "owner" | "staff") => new Request("http://localhost/api/staff/x", { headers: { cookie: staffCookie(A, role) } });
+describe("role helper (P8b: owner-only pages and routes)", () => {
+  const req = async (role: "owner" | "staff") => new Request("http://localhost/api/staff/x", { headers: { cookie: await staffCookie(A, role) } });
   it("requireStaff({ role: 'owner' }) lets an owner in and refuses staff (403)", async () => {
-    expect(requireStaff(req("owner"), { role: "owner" }).ok).toBe(true);
-    const denied = requireStaff(req("staff"), { role: "owner" });
+    expect((await requireStaff(await req("owner"), { role: "owner" })).ok).toBe(true);
+    const denied = await requireStaff(await req("staff"), { role: "owner" });
     expect(denied.ok).toBe(false);
     if (!denied.ok) expect(denied.response.status).toBe(403);
-    expect(requireStaff(req("staff")).ok).toBe(true);
+    expect((await requireStaff(await req("staff"))).ok).toBe(true);
+  });
+});
+
+describe("switching an account off (is_active = false) takes effect at once", () => {
+  const request = (cookie: string) => new Request("http://localhost/api/staff/x", { headers: { cookie } });
+  const makeAccount = async (restaurantId: string, role: "owner" | "staff") => {
+    const id = randomUUID();
+    const r = await db
+      .from("staff_accounts")
+      .insert({ id, restaurant_id: restaurantId, username: `${RUN_MARKER}-off-${id.slice(0, 8)}`, password_hash: "scrypt$test-only", role });
+    if (r.error) throw r.error;
+    return { id, cookie: `${SESSION_COOKIE}=${await sessionToken(restaurantId, role, id)}` };
+  };
+
+  it("an API call with a still-valid cookie gets 401 right after the account is switched off, and works again when switched on", async () => {
+    const acc = await makeAccount(A, "staff");
+    expect((await requireStaff(request(acc.cookie))).ok).toBe(true);
+    expect((await call(updateOrderStatus, { order_id: aOrder, status: "preparing" }, acc.cookie)).status).not.toBe(401);
+
+    await db.from("staff_accounts").update({ is_active: false }).eq("id", acc.id);
+    const off = await call(updateOrderStatus, { order_id: aOrder, status: "preparing" }, acc.cookie);
+    expect(off.status).toBe(401);
+    const check = await requireStaff(request(acc.cookie));
+    expect(check.ok).toBe(false);
+
+    await db.from("staff_accounts").update({ is_active: true }).eq("id", acc.id);
+    expect((await requireStaff(request(acc.cookie))).ok).toBe(true);
+  });
+
+  it("a deleted account, or one moved to another restaurant, is refused too", async () => {
+    const gone = await makeAccount(A, "owner");
+    await db.from("staff_accounts").delete().eq("id", gone.id);
+    expect((await requireStaff(request(gone.cookie))).ok).toBe(false);
+
+    const moved = await makeAccount(A, "owner");
+    await db.from("staff_accounts").update({ restaurant_id: B }).eq("id", moved.id);
+    expect((await requireStaff(request(moved.cookie))).ok).toBe(false);
+  });
+
+  it("the role comes from the database: demoting an owner takes effect at once", async () => {
+    const acc = await makeAccount(A, "owner");
+    expect((await requireStaff(request(acc.cookie), { role: "owner" })).ok).toBe(true);
+    await db.from("staff_accounts").update({ role: "staff" }).eq("id", acc.id);
+    const r = await requireStaff(request(acc.cookie), { role: "owner" });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.response.status).toBe(403);
+  });
+
+  it("dashboard pages: a switched-off account has no session (getStaffSession returns null)", async () => {
+    const { getStaffSession } = await import("@/lib/staff-page");
+    const acc = await makeAccount(A, "owner");
+    cookieJar.value = acc.cookie.split("=")[1];
+    expect((await getStaffSession())?.restaurantId).toBe(A);
+    await db.from("staff_accounts").update({ is_active: false }).eq("id", acc.id);
+    expect(await getStaffSession()).toBeNull();
   });
 });

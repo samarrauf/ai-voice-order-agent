@@ -43,7 +43,7 @@ const RPC_ERRORS: Record<string, [string, number]> = {
 };
 
 export async function POST(request: Request) {
-  const auth = requireStaff(request);
+  const auth = await requireStaff(request);
   if (!auth.ok) return auth.response;
   const rid = auth.staff.restaurantId;
 

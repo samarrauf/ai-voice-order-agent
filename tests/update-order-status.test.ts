@@ -9,7 +9,7 @@ import { RID, RUN_MARKER, cleanupTestOrders, db, sessionToken } from "./helpers/
 /* eslint-disable @typescript-eslint/no-explicit-any -- JSON test responses are untyped, as in the other tests */
 async function call(body: unknown, cookie: string | null | undefined = undefined) {
   const headers: Record<string, string> = { "content-type": "application/json" };
-  if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? sessionToken()}`;
+  if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? await sessionToken()}`;
   const res = await updateStatus(
     new Request("http://localhost/api/staff/update-order-status", { method: "POST", headers, body: JSON.stringify({ restaurant_id: RID, ...(body as object) }) }),
   );
@@ -83,9 +83,16 @@ describe("POST /api/staff/update-order-status", () => {
   it("refuses to change the status of another restaurant's order (404) and changes nothing", async () => {
     const id = await makeOrder("new");
     // P8a: the restaurant comes from the login, so this is a login of another restaurant.
-    const other = "22222222-2222-4222-8222-222222222222";
-    const r = await call({ restaurant_id: other, order_id: id, status: "preparing" }, sessionToken(other));
-    expect(r.status).toBe(404);
+    // A throwaway restaurant, because the login must belong to a real, active account.
+    const made = await db.from("restaurants").insert({ name: `${RUN_MARKER}-other`, delivery_fee: 0 }).select("id").single();
+    if (made.error) throw made.error;
+    const other = made.data.id as string;
+    try {
+      const r = await call({ restaurant_id: other, order_id: id, status: "preparing" }, await sessionToken(other));
+      expect(r.status).toBe(404);
+    } finally {
+      await db.from("restaurants").delete().eq("id", other); // its staff login goes with it
+    }
     expect(await statusInDb(id)).toBe("new");
   });
 

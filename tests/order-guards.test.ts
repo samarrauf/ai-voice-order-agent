@@ -11,7 +11,7 @@ async function place(body: Record<string, unknown>) {
   const res = await manualOrder(
     new Request("http://localhost/api/staff/manual-order", {
       method: "POST",
-      headers: { "content-type": "application/json", cookie: `${SESSION_COOKIE}=${sessionToken(rid)}` },
+      headers: { "content-type": "application/json", cookie: `${SESSION_COOKIE}=${await sessionToken(rid)}` },
       body: JSON.stringify({ restaurant_id: rid, notes: RUN_MARKER, ...body }),
     }),
   );

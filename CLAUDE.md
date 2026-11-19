@@ -49,5 +49,6 @@ The owner is learning and does not run terminal commands himself.
 ## Dashboard auth
 Each restaurant has its own staff logins (table `staff_accounts`, migration 0017): username + scrypt password hash, role `owner` or `staff`, 5 wrong passwords lock the account for 15 minutes. A login gives a signed cookie (`staff_session`, HMAC-SHA256 with `SESSION_SECRET`, 12 hours) holding staff id, restaurant id and role.
 - The restaurant for /dashboard and /api/staff/* ALWAYS comes from that session (`requireStaff()` in lib/staff-auth.ts, `requireStaffPage()` in lib/staff-page.ts). Never from the request body or a constant. A body `restaurant_id` different from the session is a 403.
+- Every page load and every /api/staff/* call also looks the account up in `staff_accounts` (lib/staff-active.ts): `is_active = false`, a deleted account or a moved restaurant is refused at once (401), and the role is read from the database, so a demotion is instant too. Fails closed if the lookup errors.
 - New accounts: `node --env-file=.env.local scripts/create-staff-account.mjs --restaurant <id or exact name> --username <name> --role owner|staff` (prints a random password once).
 - The voice agent's /api/tools/* routes are separate (x-tool-secret) and do not use staff logins.

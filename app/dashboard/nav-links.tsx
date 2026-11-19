@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, LayoutDashboard, LayoutGrid, MessagesSquare, ReceiptText, Users, UtensilsCrossed } from "lucide-react";
+import { CalendarDays, LayoutDashboard, LayoutGrid, MessagesSquare, ReceiptText, Settings, Users, UtensilsCrossed } from "lucide-react";
 import { PillTabs, cn, isActiveTab } from "@/components/ui";
 
 // The five main sections. Orders stays at /dashboard (where login lands).
@@ -26,11 +26,13 @@ export function MainTabs() {
 }
 
 /** Tables + Menu: small text links on wide screens, icon buttons on narrow ones. */
-export function SecondaryLinks() {
+export function SecondaryLinks({ isOwner = false }: { isOwner?: boolean }) {
   const pathname = usePathname();
+  // Settings is for owners only; staff never see the link (the page and the API refuse them too).
+  const links = isOwner ? [...SECONDARY, { href: "/dashboard/settings", label: "Settings", icon: Settings }] : SECONDARY;
   return (
     <div className="flex items-center">
-      {SECONDARY.map((link) => {
+      {links.map((link) => {
         const active = isActiveTab(pathname, link);
         return (
           <Link

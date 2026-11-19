@@ -60,5 +60,7 @@ export default async function selfHeal() {
   // Runs after the whole test run: leave the restaurant taking orders.
   return async () => {
     await restoreAcceptingOrders(db);
+    // The throwaway staff logins sessionToken() made for the demo restaurant.
+    await db.from("staff_accounts").delete().like("username", MARKER);
   };
 }
