@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { POST as manualOrder } from "@/app/api/staff/manual-order/route";
-import { SESSION_COOKIE, createSessionToken } from "@/lib/dashboard-auth";
-import { RUN_MARKER, cleanupTestOrders, db } from "./helpers/helpers";
+import { SESSION_COOKIE } from "@/lib/session";
+import { RUN_MARKER, cleanupTestOrders, db, sessionToken } from "./helpers/helpers";
 
 // Needs migration 0014 applied. Uses its own throwaway restaurant (marked
 // "vitest-run-...") so the demo restaurant's settings are never touched.
@@ -11,7 +11,7 @@ async function place(body: Record<string, unknown>) {
   const res = await manualOrder(
     new Request("http://localhost/api/staff/manual-order", {
       method: "POST",
-      headers: { "content-type": "application/json", cookie: `${SESSION_COOKIE}=${createSessionToken()}` },
+      headers: { "content-type": "application/json", cookie: `${SESSION_COOKIE}=${sessionToken(rid)}` },
       body: JSON.stringify({ restaurant_id: rid, notes: RUN_MARKER, ...body }),
     }),
   );

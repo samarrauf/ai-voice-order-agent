@@ -1,11 +1,9 @@
 import { Suspense } from "react";
 import type { CSSProperties } from "react";
-import { cookies } from "next/headers";
 import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
-import { LogOut } from "lucide-react";
-import { DEMO_RESTAURANT_ID } from "@/lib/agent/tools";
-import { type Branding, getBranding, readableOn } from "@/lib/branding";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/dashboard-auth";
+import { LockKeyhole, LogOut } from "lucide-react";
+import { type Branding, DEFAULT_BRANDING, getBranding, readableOn } from "@/lib/branding";
+import { getStaffSession } from "@/lib/staff-page";
 import { cn } from "@/components/ui";
 import { logout } from "./actions";
 import { BottomNav, MainTabs, SecondaryLinks } from "./nav-links";
@@ -25,12 +23,12 @@ const uiFont = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-ui-face
 // variables on the wrapper. See the design tokens in app/globals.css.
 // Every full page load also plays the splash screen (./splash.tsx).
 // The login page lives under /dashboard too, so when nobody is logged in we
-// skip the header and show the login frame instead (still themed, with the splash).
+// skip the header and show a neutral login frame instead: before login we do
+// not know the restaurant, so no restaurant name, theme or splash is shown.
+// After login the restaurant (and so its theme) comes from the login session.
 async function Shell({ children }: { children: React.ReactNode }) {
-  const loggedIn = verifySessionToken((await cookies()).get(SESSION_COOKIE)?.value);
-  // One restaurant uses the dashboard for now (see CLAUDE.md "Dashboard auth"),
-  // so the theme is Napoli's. The session cookie carries no restaurant id.
-  const branding = await getBranding(DEMO_RESTAURANT_ID);
+  const staff = await getStaffSession();
+  const branding = staff ? await getBranding(staff.restaurantId) : DEFAULT_BRANDING;
 
   const themeVars = {
     "--color-primary": branding.primary,
@@ -42,8 +40,14 @@ async function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div style={themeVars} className={cn("dash", displayFont.variable, uiFont.variable)}>
-      <Splash branding={branding} />
-      {loggedIn ? <Frame branding={branding}>{children}</Frame> : <LoginFrame branding={branding}>{children}</LoginFrame>}
+      {staff ? (
+        <>
+          <Splash branding={branding} />
+          <Frame branding={branding}>{children}</Frame>
+        </>
+      ) : (
+        <LoginFrame>{children}</LoginFrame>
+      )}
     </div>
   );
 }
@@ -106,23 +110,23 @@ function Frame({ branding, children }: { branding: Branding; children: React.Rea
   );
 }
 
-/** What a logged-out visitor sees: the restaurant's name over a soft glow, with the login form below it. */
-function LoginFrame({ branding, children }: { branding: Branding; children: React.ReactNode }) {
+/** What a logged-out visitor sees: a neutral badge over a soft glow, with the login form below it. */
+function LoginFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-10">
       <div aria-hidden className="login-glow" />
       <div className="anim-rise relative w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <InitialBadge name={branding.name} large />
-          <p className="mt-5 font-display text-3xl font-semibold tracking-tight sm:text-4xl">{branding.name}</p>
-          {branding.tagline && (
-            <p className="mt-2 text-xs font-medium uppercase tracking-[0.18em] text-ink-faint">{branding.tagline}</p>
-          )}
+          <span
+            aria-hidden
+            className="flex size-16 items-center justify-center rounded-full bg-raised text-ink ring-1 ring-line-strong ring-offset-2 ring-offset-canvas"
+          >
+            <LockKeyhole size={26} />
+          </span>
+          <p className="mt-5 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Staff dashboard</p>
+          <p className="mt-2 text-xs font-medium uppercase tracking-[0.18em] text-ink-faint">Orders · Bookings · POS</p>
         </div>
         {children}
-        {branding.parentGroupName && (
-          <p className="mt-6 text-center text-xs italic text-ink-faint">by {branding.parentGroupName}</p>
-        )}
       </div>
     </div>
   );

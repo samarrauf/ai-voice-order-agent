@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireDashboardSession } from "@/lib/staff-auth";
+import { requireStaff, restaurantMismatch } from "@/lib/staff-auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import {
   BILL_SETTINGS_SELECT,
@@ -43,7 +43,8 @@ const optionalText = (max: number) =>
 
 const bodySchema = z
   .object({
-    restaurant_id: z.guid(),
+    // Optional: older dashboard tabs still send it. The restaurant itself comes from the login session.
+    restaurant_id: z.guid().optional(),
     order_type: z.enum(["dine_in", "takeaway", "delivery"]).default("dine_in"),
     table_session_id: z.guid().nullish(),
     customer_name: optionalText(80),
@@ -79,14 +80,17 @@ const bodySchema = z
 const fail = (error: string, status: number) => NextResponse.json({ success: false, error }, { status });
 
 export async function POST(request: Request) {
-  const denied = requireDashboardSession(request);
-  if (denied) return denied;
+  const auth = requireStaff(request);
+  if (!auth.ok) return auth.response;
+  const rid = auth.staff.restaurantId;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return fail(`invalid body: ${parsed.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}`, 400);
   }
   const body = parsed.data;
+  const mismatch = restaurantMismatch(body.restaurant_id, auth.staff);
+  if (mismatch) return mismatch;
   // Only a dine-in order belongs to a table, even if a session id was sent.
   const sessionId = body.order_type === "dine_in" ? body.table_session_id! : null;
 
@@ -97,12 +101,12 @@ export async function POST(request: Request) {
           .from("table_sessions")
           .select("id, source, cleared_at")
           .eq("id", sessionId)
-          .eq("restaurant_id", body.restaurant_id)
+          .eq("restaurant_id", rid)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
-    supabaseAdmin.from("menu_items").select(MENU_ITEM_SELECT).eq("restaurant_id", body.restaurant_id).in("id", itemIds),
-    supabaseAdmin.from("item_options").select(OPTION_SELECT).eq("restaurant_id", body.restaurant_id),
-    supabaseAdmin.from("restaurants").select(BILL_SETTINGS_SELECT).eq("id", body.restaurant_id).maybeSingle(),
+    supabaseAdmin.from("menu_items").select(MENU_ITEM_SELECT).eq("restaurant_id", rid).in("id", itemIds),
+    supabaseAdmin.from("item_options").select(OPTION_SELECT).eq("restaurant_id", rid),
+    supabaseAdmin.from("restaurants").select(BILL_SETTINGS_SELECT).eq("id", rid).maybeSingle(),
   ]);
   if (sessionRes.error || itemsRes.error || optionsRes.error || settingsRes.error) {
     console.error("manual-order: lookup failed", sessionRes.error ?? itemsRes.error ?? optionsRes.error ?? settingsRes.error);
@@ -127,7 +131,7 @@ export async function POST(request: Request) {
   // delivery/pickup); `source` + `table_session_id` is what marks an order dine-in.
   const { data: order, error: rpcError } = await supabaseAdmin.rpc("create_order_tx", {
     p_order: {
-      restaurant_id: body.restaurant_id,
+      restaurant_id: rid,
       call_id: null,
       fulfilment_type: body.order_type === "delivery" ? "delivery" : "pickup",
       customer_name: body.customer_name,

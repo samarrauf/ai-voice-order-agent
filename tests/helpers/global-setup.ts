@@ -35,9 +35,12 @@ export default async function selfHeal() {
   // with them) and the throwaway restaurant made by tests/update-booking-status.test.ts.
   const tables = await db.from("restaurant_tables").delete().like("table_number", MARKER).select("id");
   if (tables.error) throw tables.error;
+  // Test staff logins (their restaurants' delete would remove them too, this is just explicit).
+  const accounts = await db.from("staff_accounts").delete().like("username", MARKER).select("id");
+  if (accounts.error) throw accounts.error;
   const restaurants = await db.from("restaurants").delete().like("name", MARKER).select("id");
   if (restaurants.error) throw restaurants.error;
-  const removed = [...leftovers, tables, restaurants].reduce((n, r) => n + (r.data?.length ?? 0), 0);
+  const removed = [...leftovers, tables, accounts, restaurants].reduce((n, r) => n + (r.data?.length ?? 0), 0);
 
   const fee = await db
     .from("restaurants")

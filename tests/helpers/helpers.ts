@@ -1,5 +1,7 @@
 import { vi } from "vitest";
+import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { SESSION_COOKIE, signSession, type StaffRole } from "@/lib/session";
 
 // Shared test helpers. Tests talk to the REAL Supabase project.
 
@@ -75,3 +77,12 @@ export function orderBody(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+/** A signed staff login token for `restaurantId` (default: the demo restaurant), as
+ *  if a staff member of that restaurant had logged in. Uses SESSION_SECRET from .env.local. */
+export function sessionToken(restaurantId: string = RID, role: StaffRole = "owner"): string {
+  return signSession({ staffId: randomUUID(), restaurantId, role });
+}
+
+/** The same token as a ready "cookie" header value. */
+export const staffCookie = (restaurantId: string = RID, role: StaffRole = "owner") => `${SESSION_COOKIE}=${sessionToken(restaurantId, role)}`;

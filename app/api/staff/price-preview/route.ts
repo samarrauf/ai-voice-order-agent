@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireDashboardSession } from "@/lib/staff-auth";
+import { requireStaff, restaurantMismatch } from "@/lib/staff-auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import {
   BILL_SETTINGS_SELECT,
@@ -27,7 +27,8 @@ import {
 // whole bill: subtotal, discount, delivery fee, service charge, tax and total.
 
 const bodySchema = z.object({
-  restaurant_id: z.guid(),
+  // Optional: older dashboard tabs still send it. The restaurant itself comes from the login session.
+  restaurant_id: z.guid().optional(),
   order_type: z.enum(["dine_in", "takeaway", "delivery"]).default("dine_in"),
   discount: discountSchema.nullish(),
   items: z.array(itemSchema).min(1).max(30),
@@ -36,21 +37,24 @@ const bodySchema = z.object({
 const fail = (error: string, status: number) => NextResponse.json({ success: false, error }, { status });
 
 export async function POST(request: Request) {
-  const denied = requireDashboardSession(request);
-  if (denied) return denied;
+  const auth = requireStaff(request);
+  if (!auth.ok) return auth.response;
+  const rid = auth.staff.restaurantId;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return fail(`invalid body: ${parsed.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}`, 400);
   }
   const body = parsed.data;
+  const mismatch = restaurantMismatch(body.restaurant_id, auth.staff);
+  if (mismatch) return mismatch;
 
   // Two queries, in parallel (no per-item lookups).
   const itemIds = [...new Set(body.items.map((i) => i.menu_item_id))];
   const [itemsRes, optionsRes, settingsRes] = await Promise.all([
-    supabaseAdmin.from("menu_items").select(MENU_ITEM_SELECT).eq("restaurant_id", body.restaurant_id).in("id", itemIds),
-    supabaseAdmin.from("item_options").select(OPTION_SELECT).eq("restaurant_id", body.restaurant_id),
-    supabaseAdmin.from("restaurants").select(BILL_SETTINGS_SELECT).eq("id", body.restaurant_id).maybeSingle(),
+    supabaseAdmin.from("menu_items").select(MENU_ITEM_SELECT).eq("restaurant_id", rid).in("id", itemIds),
+    supabaseAdmin.from("item_options").select(OPTION_SELECT).eq("restaurant_id", rid),
+    supabaseAdmin.from("restaurants").select(BILL_SETTINGS_SELECT).eq("id", rid).maybeSingle(),
   ]);
   if (itemsRes.error || optionsRes.error || settingsRes.error) {
     console.error("price-preview: lookup failed", itemsRes.error ?? optionsRes.error ?? settingsRes.error);

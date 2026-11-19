@@ -47,4 +47,7 @@ The owner is learning and does not run terminal commands himself.
 - `npm run build` — production build
 
 ## Dashboard auth
-For now ONE password (`DASHBOARD_PASSWORD`) gives access to the whole `/dashboard` area. This works because only one restaurant (Napoli) uses it; if Olive & Spice also needs the web dashboard later, a separate login must be built.
+Each restaurant has its own staff logins (table `staff_accounts`, migration 0017): username + scrypt password hash, role `owner` or `staff`, 5 wrong passwords lock the account for 15 minutes. A login gives a signed cookie (`staff_session`, HMAC-SHA256 with `SESSION_SECRET`, 12 hours) holding staff id, restaurant id and role.
+- The restaurant for /dashboard and /api/staff/* ALWAYS comes from that session (`requireStaff()` in lib/staff-auth.ts, `requireStaffPage()` in lib/staff-page.ts). Never from the request body or a constant. A body `restaurant_id` different from the session is a 403.
+- New accounts: `node --env-file=.env.local scripts/create-staff-account.mjs --restaurant <id or exact name> --username <name> --role owner|staff` (prints a random password once).
+- The voice agent's /api/tools/* routes are separate (x-tool-secret) and do not use staff logins.

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { DEMO_RESTAURANT_ID } from "@/lib/agent/tools";
+import { requireStaffPage } from "@/lib/staff-page";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { CircleAlert } from "lucide-react";
 import { Card, EmptyState, Skeleton, SkeletonCard } from "@/components/ui";
@@ -8,6 +8,8 @@ import { OrdersBoard, type BoardOrder } from "./orders-board";
 // Orders (was "Live Orders"): every order (phone, walk-in, table booking), newest first.
 // One query pulls the orders with their items and the table number (if any).
 async function Orders() {
+  // The restaurant always comes from the login session.
+  const { restaurantId } = await requireStaffPage();
   const { data, error } = await supabaseAdmin
     .from("orders")
     .select(
@@ -15,7 +17,7 @@ async function Orders() {
        order_items ( item_name, size_name, quantity ),
        table_sessions ( restaurant_tables ( table_number ) )`,
     )
-    .eq("restaurant_id", DEMO_RESTAURANT_ID)
+    .eq("restaurant_id", restaurantId)
     .order("created_at", { ascending: false })
     .limit(150);
 
@@ -50,7 +52,7 @@ async function Orders() {
     };
   });
 
-  return <OrdersBoard orders={orders} restaurantId={DEMO_RESTAURANT_ID} />;
+  return <OrdersBoard orders={orders} restaurantId={restaurantId} />;
 }
 
 /** Shown while the orders load: the same shape as the real page, in shimmering grey. */

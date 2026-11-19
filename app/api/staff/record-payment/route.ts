@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireDashboardSession } from "@/lib/staff-auth";
+import { requireStaff, restaurantMismatch } from "@/lib/staff-auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { pence, pounds } from "@/lib/order-pricing";
 
@@ -19,7 +19,8 @@ import { pence, pounds } from "@/lib/order-pricing";
 // `duplicate: true`.
 
 const bodySchema = z.object({
-  restaurant_id: z.guid(),
+  // Optional: older dashboard tabs still send it. The restaurant itself comes from the login session.
+  restaurant_id: z.guid().optional(),
   order_id: z.guid(),
   method: z.enum(["cash", "card", "online", "other"]),
   amount: z.number().finite().positive().max(100000),
@@ -42,14 +43,17 @@ const RPC_ERRORS: Record<string, [string, number]> = {
 };
 
 export async function POST(request: Request) {
-  const denied = requireDashboardSession(request);
-  if (denied) return denied;
+  const auth = requireStaff(request);
+  if (!auth.ok) return auth.response;
+  const rid = auth.staff.restaurantId;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return fail(`invalid body: ${parsed.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}`, 400);
   }
   const body = parsed.data;
+  const mismatch = restaurantMismatch(body.restaurant_id, auth.staff);
+  if (mismatch) return mismatch;
 
   // Whole pence only: 5.005 is a mistake, not something to round.
   const amountPence = pence(body.amount);
@@ -58,7 +62,7 @@ export async function POST(request: Request) {
   }
 
   const { data, error } = await supabaseAdmin.rpc("record_payment_tx", {
-    p_restaurant_id: body.restaurant_id,
+    p_restaurant_id: rid,
     p_order_id: body.order_id,
     p_method: body.method,
     p_amount: pounds(amountPence),

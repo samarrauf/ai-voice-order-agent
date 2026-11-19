@@ -2,9 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { POST as pricePreview } from "@/app/api/staff/price-preview/route";
 import { POST as manualOrder } from "@/app/api/staff/manual-order/route";
 import { cartReducer, emptyCart, toOrderPayload } from "@/app/dashboard/pos/cart-store";
-import { SESSION_COOKIE, createSessionToken } from "@/lib/dashboard-auth";
+import { SESSION_COOKIE } from "@/lib/session";
 import { formatMoney } from "@/lib/money";
-import { ITEMS, RID, RUN_MARKER, cleanupTestOrders, db } from "./helpers/helpers";
+import { ITEMS, RID, RUN_MARKER, cleanupTestOrders, db, sessionToken } from "./helpers/helpers";
 
 // POS terminal part 1: the price-preview route and the takeaway path of
 // manual-order. Every order made here carries RUN_MARKER ("vitest-run-...") in
@@ -20,7 +20,7 @@ async function callStaff(
   cookie: string | null | undefined = undefined, // undefined = valid login, null = no cookie
 ): Promise<{ status: number; json: Record<string, any> }> {
   const headers: Record<string, string> = { "content-type": "application/json" };
-  if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? createSessionToken()}`;
+  if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? sessionToken()}`;
   const res = await handler(
     new Request("http://localhost/api/staff/test", { method: "POST", headers, body: JSON.stringify(body) }),
   );

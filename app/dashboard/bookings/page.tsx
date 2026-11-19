@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { CircleAlert } from "lucide-react";
-import { DEMO_RESTAURANT_ID } from "@/lib/agent/tools";
+import { requireStaffPage } from "@/lib/staff-page";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { Card, EmptyState, Skeleton, SkeletonCard } from "@/components/ui";
 import { BookingsBoard, type BoardBooking, type Range } from "./bookings-board";
@@ -24,6 +24,8 @@ function addDays(date: string, days: number): string {
 const isRealDate = (s: string) => DATE_RE.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && addDays(s, 0) === s;
 
 async function Bookings({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  // The restaurant always comes from the login session.
+  const { restaurantId } = await requireStaffPage();
   const sp = await searchParams;
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
@@ -53,7 +55,7 @@ async function Bookings({ searchParams }: { searchParams: Promise<Record<string,
        restaurant_tables ( table_number ),
        table_sessions ( id, cleared_at )`,
     )
-    .eq("restaurant_id", DEMO_RESTAURANT_ID)
+    .eq("restaurant_id", restaurantId)
     .gte("booking_date", from)
     .lte("booking_date", to)
     .order("booking_date", { ascending: true })
@@ -95,7 +97,7 @@ async function Bookings({ searchParams }: { searchParams: Promise<Record<string,
   });
 
   return (
-    <BookingsBoard bookings={bookings} restaurantId={DEMO_RESTAURANT_ID} range={range} customDate={customDate} today={today} />
+    <BookingsBoard bookings={bookings} restaurantId={restaurantId} range={range} customDate={customDate} today={today} />
   );
 }
 

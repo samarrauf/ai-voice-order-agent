@@ -1,8 +1,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { POST as createOrder } from "@/app/api/tools/create-order/route";
 import { POST as manualOrder } from "@/app/api/staff/manual-order/route";
-import { SESSION_COOKIE, createSessionToken } from "@/lib/dashboard-auth";
-import { RID, RUN_MARKER, callTool, cleanupTestOrders, db, orderBody, useOpenClock, useRealClock } from "./helpers/helpers";
+import { SESSION_COOKIE } from "@/lib/session";
+import { RID, RUN_MARKER, callTool, cleanupTestOrders, db, orderBody, useOpenClock, useRealClock, sessionToken } from "./helpers/helpers";
 
 // PARITY: the phone agent (create-order) and the POS (manual-order) must produce
 // EXACTLY the same bill for the same food: subtotal, discount, delivery fee,
@@ -22,7 +22,7 @@ async function callStaff(body: Record<string, unknown>): Promise<{ status: numbe
   const res = await manualOrder(
     new Request("http://localhost/api/staff/manual-order", {
       method: "POST",
-      headers: { "content-type": "application/json", cookie: `${SESSION_COOKIE}=${createSessionToken()}` },
+      headers: { "content-type": "application/json", cookie: `${SESSION_COOKIE}=${sessionToken(rid)}` },
       body: JSON.stringify(body),
     }),
   );

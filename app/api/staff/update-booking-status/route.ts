@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { DEMO_RESTAURANT_ID } from "@/lib/agent/tools";
-import { requireDashboardSession } from "@/lib/staff-auth";
+import { requireStaff, restaurantMismatch } from "@/lib/staff-auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 // Staff action: change a booking's status from the dashboard Bookings tab.
@@ -14,8 +13,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 //
 // Nothing from the request body is trusted beyond the booking id and the wanted
 // status: the booking's restaurant and CURRENT status are read from the database
-// on every call. The dashboard belongs to one restaurant for now (CLAUDE.md,
-// "Dashboard auth"), so a booking of any other restaurant is "not found".
+// on every call. The restaurant comes from the login session, so a booking of
+// any other restaurant is "not found".
 //
 // "seated" is only allowed once the booking really has an open table session
 // (the Seat now button calls /api/staff/seat-table first), so a booking can't be
@@ -32,6 +31,8 @@ const ALLOWED_FROM: Record<(typeof STATUSES)[number], string[]> = {
 };
 
 const bodySchema = z.object({
+  // Optional: older dashboard tabs still send it. The restaurant itself comes from the login session.
+  restaurant_id: z.guid().optional(),
   booking_id: z.guid(),
   status: z.enum(STATUSES),
 });
@@ -39,20 +40,23 @@ const bodySchema = z.object({
 const fail = (error: string, status: number) => NextResponse.json({ success: false, error }, { status });
 
 export async function POST(request: Request) {
-  const denied = requireDashboardSession(request);
-  if (denied) return denied;
+  const auth = requireStaff(request);
+  if (!auth.ok) return auth.response;
+  const rid = auth.staff.restaurantId;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return fail(`invalid body: booking_id must be a valid id and status one of ${STATUSES.join(", ")}`, 400);
   }
   const { booking_id, status } = parsed.data;
+  const mismatch = restaurantMismatch(parsed.data.restaurant_id, auth.staff);
+  if (mismatch) return mismatch;
 
   const { data: booking, error: lookupError } = await supabaseAdmin
     .from("bookings")
     .select("id, status")
     .eq("id", booking_id)
-    .eq("restaurant_id", DEMO_RESTAURANT_ID)
+    .eq("restaurant_id", rid)
     .maybeSingle();
   if (lookupError) {
     console.error("update-booking-status: lookup failed", lookupError);
@@ -84,7 +88,7 @@ export async function POST(request: Request) {
     .from("bookings")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", booking_id)
-    .eq("restaurant_id", DEMO_RESTAURANT_ID)
+    .eq("restaurant_id", rid)
     .eq("status", booking.status)
     .select("id, booking_reference, status");
   if (error) {

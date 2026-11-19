@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/dashboard-auth";
+import { SESSION_COOKIE, verifySession } from "@/lib/session";
 import { routeForHost } from "@/lib/hosts";
 
 // Next.js 16 calls this file "proxy" (it used to be "middleware"). It does
@@ -7,23 +7,25 @@ import { routeForHost } from "@/lib/hosts";
 //   1. Domain routing (lib/hosts.ts): olive-n-spice.vercel.app shows only the
 //      website, olive-n-spice-pos.vercel.app shows only the POS. Every other
 //      host (the old domain, localhost, previews) is left exactly as it was.
-//   2. The /dashboard login check: visitors without a valid login cookie are
-//      sent to the login page. (This part is unchanged.)
+//   2. The staff login check (lib/session.ts): /dashboard pages without a valid
+//      login go to the login page, /api/staff/* without one get a 401.
+//      (Each staff route and page checks the login again for itself.)
 
 const NOINDEX = "noindex, nofollow";
 
-/** The login check for /dashboard pages: same rules as before the domain routing was added. */
-function guardDashboard(request: NextRequest): NextResponse {
+const isUnder = (pathname: string, base: string) => pathname === base || pathname.startsWith(`${base}/`);
+
+/** The staff login check for /dashboard pages and /api/staff/* routes. */
+function guardStaff(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
   if (pathname === "/dashboard/login") return NextResponse.next();
 
-  if (verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value)) {
-    return NextResponse.next();
+  if (verifySession(request.cookies.get(SESSION_COOKIE)?.value)) return NextResponse.next();
+  if (isUnder(pathname, "/api/staff")) {
+    return NextResponse.json({ success: false, error: "unauthorized" }, { status: 401 });
   }
   return NextResponse.redirect(new URL("/dashboard/login", request.url));
 }
-
-const isDashboardPath = (pathname: string) => pathname === "/dashboard" || pathname.startsWith("/dashboard/");
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -51,7 +53,7 @@ export function proxy(request: NextRequest) {
       break;
     }
     default:
-      response = isDashboardPath(pathname) ? guardDashboard(request) : NextResponse.next();
+      response = isUnder(pathname, "/dashboard") || isUnder(pathname, "/api/staff") ? guardStaff(request) : NextResponse.next();
   }
 
   if (route.noindex) response.headers.set("X-Robots-Tag", NOINDEX);
@@ -61,6 +63,6 @@ export function proxy(request: NextRequest) {
 export const config = {
   // Everything except Next.js internals, files (anything with a dot in its name:
   // images, favicon, robots.txt...) and API routes. /api/staff is kept in, because
-  // the website's domain has to answer 404 for it.
+  // the website's domain has to answer 404 for it, and it needs the login check.
   matcher: ["/((?!_next/|api/(?!staff(?:/|$))|.*\\..*).*)"],
 };

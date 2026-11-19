@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireDashboardSession } from "@/lib/staff-auth";
+import { requireStaff, restaurantMismatch } from "@/lib/staff-auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 // Staff action: seat a party at a table. Creates a table_sessions row
@@ -10,7 +10,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 // and a party can't be bigger than the table's seats.
 
 const bodySchema = z.object({
-  restaurant_id: z.guid(),
+  // Optional: older dashboard tabs still send it. The restaurant itself comes from the login session.
+  restaurant_id: z.guid().optional(),
   table_id: z.guid(),
   party_size: z.number().int().min(1).max(50),
   booking_id: z.guid().nullish(),
@@ -19,19 +20,23 @@ const bodySchema = z.object({
 const fail = (error: string, status: number) => NextResponse.json({ success: false, error }, { status });
 
 export async function POST(request: Request) {
-  const denied = requireDashboardSession(request);
-  if (denied) return denied;
+  const auth = requireStaff(request);
+  if (!auth.ok) return auth.response;
+  const rid = auth.staff.restaurantId;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return fail(`invalid body: ${parsed.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}`, 400);
   }
-  const { restaurant_id, table_id, party_size, booking_id } = parsed.data;
+  const { table_id, party_size, booking_id } = parsed.data;
+  const mismatch = restaurantMismatch(parsed.data.restaurant_id, auth.staff);
+  if (mismatch) return mismatch;
+  const restaurant_id = rid;
 
   // Three independent lookups, in parallel.
   const [tableRes, openRes, bookingRes] = await Promise.all([
     supabaseAdmin.from("restaurant_tables").select("id, seats").eq("id", table_id).eq("restaurant_id", restaurant_id).maybeSingle(),
-    supabaseAdmin.from("table_sessions").select("id").eq("table_id", table_id).is("cleared_at", null).limit(1),
+    supabaseAdmin.from("table_sessions").select("id").eq("table_id", table_id).eq("restaurant_id", restaurant_id).is("cleared_at", null).limit(1),
     booking_id
       ? supabaseAdmin.from("bookings").select("id, status").eq("id", booking_id).eq("restaurant_id", restaurant_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),

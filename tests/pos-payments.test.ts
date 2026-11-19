@@ -2,9 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { POST as pricePreview } from "@/app/api/staff/price-preview/route";
 import { POST as manualOrder } from "@/app/api/staff/manual-order/route";
 import { POST as recordPayment } from "@/app/api/staff/record-payment/route";
-import { SESSION_COOKIE, createSessionToken } from "@/lib/dashboard-auth";
+import { SESSION_COOKIE } from "@/lib/session";
 import { computeBill, discountSchema, percentOf, roundPence, type BillSettingsRow } from "@/lib/order-pricing";
-import { RID, RUN_MARKER, cleanupTestOrders, db } from "./helpers/helpers";
+import { RID, RUN_MARKER, cleanupTestOrders, db, sessionToken } from "./helpers/helpers";
 
 // POS P2a: the bill (discount, delivery fee, service charge, tax, rounding) and
 // payments. The pure maths is tested directly; the routes are tested against a
@@ -22,7 +22,7 @@ async function callStaff(
   cookie: string | null | undefined = undefined, // undefined = valid login, null = no cookie
 ): Promise<{ status: number; json: Record<string, any> }> {
   const headers: Record<string, string> = { "content-type": "application/json" };
-  if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? createSessionToken()}`;
+  if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? sessionToken(rid)}`;
   const res = await handler(
     new Request("http://localhost/api/staff/test", { method: "POST", headers, body: JSON.stringify(body) }),
   );
@@ -397,7 +397,8 @@ describe("record-payment", () => {
 
   it("tenant isolation: another restaurant cannot pay this order", async () => {
     const id = await newOrder();
-    const { status, json } = await callStaff(recordPayment, payBody(id, { restaurant_id: RID }));
+    // P8a: the restaurant comes from the login, so "another restaurant" = a login of the demo restaurant.
+    const { status, json } = await callStaff(recordPayment, payBody(id, { restaurant_id: RID }), sessionToken(RID));
     expect(status).toBe(404);
     expect(json.success).toBe(false);
     expect((await db.from("order_payments").select("id").eq("order_id", id)).data).toHaveLength(0);

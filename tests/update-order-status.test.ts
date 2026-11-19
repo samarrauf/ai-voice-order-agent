@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { POST as updateStatus } from "@/app/api/staff/update-order-status/route";
-import { SESSION_COOKIE, createSessionToken } from "@/lib/dashboard-auth";
-import { RID, RUN_MARKER, cleanupTestOrders, db } from "./helpers/helpers";
+import { SESSION_COOKIE } from "@/lib/session";
+import { RID, RUN_MARKER, cleanupTestOrders, db, sessionToken } from "./helpers/helpers";
 
 // Staff route, called like the dashboard would: with the login cookie
 // (or without it, to prove it refuses). Uses one throwaway order.
@@ -9,7 +9,7 @@ import { RID, RUN_MARKER, cleanupTestOrders, db } from "./helpers/helpers";
 /* eslint-disable @typescript-eslint/no-explicit-any -- JSON test responses are untyped, as in the other tests */
 async function call(body: unknown, cookie: string | null | undefined = undefined) {
   const headers: Record<string, string> = { "content-type": "application/json" };
-  if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? createSessionToken()}`;
+  if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? sessionToken()}`;
   const res = await updateStatus(
     new Request("http://localhost/api/staff/update-order-status", { method: "POST", headers, body: JSON.stringify({ restaurant_id: RID, ...(body as object) }) }),
   );
@@ -82,15 +82,20 @@ describe("POST /api/staff/update-order-status", () => {
 
   it("refuses to change the status of another restaurant's order (404) and changes nothing", async () => {
     const id = await makeOrder("new");
-    const r = await call({ restaurant_id: "22222222-2222-4222-8222-222222222222", order_id: id, status: "preparing" });
+    // P8a: the restaurant comes from the login, so this is a login of another restaurant.
+    const other = "22222222-2222-4222-8222-222222222222";
+    const r = await call({ restaurant_id: other, order_id: id, status: "preparing" }, sessionToken(other));
     expect(r.status).toBe(404);
     expect(await statusInDb(id)).toBe("new");
   });
 
-  it("requires restaurant_id (400)", async () => {
+  // P8a: restaurant_id in the body is no longer needed (the login decides), so a
+  // body without it works for the login's own restaurant. (Was: "requires restaurant_id (400)".)
+  it("works without restaurant_id in the body: the login decides the restaurant", async () => {
     const id = await makeOrder("new");
     const r = await call({ restaurant_id: undefined, order_id: id, status: "preparing" });
-    expect(r.status).toBe(400);
+    expect(r.status).toBe(200);
+    expect(await statusInDb(id)).toBe("preparing");
   });
 
   it.each(["completed", "cancelled"])("cannot reopen a %s order (409)", async (finalStatus) => {

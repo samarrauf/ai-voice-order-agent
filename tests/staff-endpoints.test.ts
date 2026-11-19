@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { POST as seatTable } from "@/app/api/staff/seat-table/route";
 import { POST as clearTable } from "@/app/api/staff/clear-table/route";
 import { POST as manualOrder } from "@/app/api/staff/manual-order/route";
-import { SESSION_COOKIE, createSessionToken } from "@/lib/dashboard-auth";
-import { ITEMS, RID, db } from "./helpers/helpers";
+import { SESSION_COOKIE } from "@/lib/session";
+import { ITEMS, RID, db, sessionToken } from "./helpers/helpers";
 
 // Needs migration 0008 applied. Staff routes are called like the dashboard
 // would: with the login cookie (or without it, to prove they refuse).
@@ -17,7 +17,7 @@ async function callStaff(
   cookie: string | null | undefined = undefined, // undefined = valid login, null = no cookie
 ): Promise<{ status: number; json: Record<string, any> }> {
   const headers: Record<string, string> = { "content-type": "application/json" };
-  if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? createSessionToken()}`;
+  if (cookie !== null) headers.cookie = `${SESSION_COOKIE}=${cookie ?? sessionToken()}`;
   const res = await handler(
     new Request("http://localhost/api/staff/test", { method: "POST", headers, body: JSON.stringify(body) }),
   );

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireDashboardSession } from "@/lib/staff-auth";
+import { requireStaff, restaurantMismatch } from "@/lib/staff-auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 // Staff action: move an order along the kitchen board
@@ -13,7 +13,8 @@ const BOARD_STATUSES = ["new", "preparing", "ready", "completed"] as const;
 const FINAL_STATUSES = ["cancelled", "completed"];
 
 const bodySchema = z.object({
-  restaurant_id: z.guid(),
+  // Optional: older dashboard tabs still send it. The restaurant itself comes from the login session.
+  restaurant_id: z.guid().optional(),
   order_id: z.guid(),
   status: z.enum(BOARD_STATUSES),
 });
@@ -21,16 +22,20 @@ const bodySchema = z.object({
 const fail = (error: string, status: number) => NextResponse.json({ success: false, error }, { status });
 
 export async function POST(request: Request) {
-  const denied = requireDashboardSession(request);
-  if (denied) return denied;
+  const auth = requireStaff(request);
+  if (!auth.ok) return auth.response;
+  const rid = auth.staff.restaurantId;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return fail(`invalid body: restaurant_id and order_id must be valid ids and status one of ${BOARD_STATUSES.join(", ")}`, 400);
+    return fail(`invalid body: order_id (and restaurant_id, if sent) must be valid ids and status one of ${BOARD_STATUSES.join(", ")}`, 400);
   }
-  const { restaurant_id, order_id, status } = parsed.data;
+  const { order_id, status } = parsed.data;
+  const mismatch = restaurantMismatch(parsed.data.restaurant_id, auth.staff);
+  if (mismatch) return mismatch;
+  const restaurant_id = rid;
 
-  // The order must belong to this restaurant (same as the other staff routes).
+  // The order must belong to the logged-in restaurant (same as the other staff routes).
   const { data: current, error: readError } = await supabaseAdmin
     .from("orders")
     .select("id, order_number, status")

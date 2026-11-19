@@ -1,15 +1,13 @@
-import { cookies } from "next/headers";
-import { notFound, redirect } from "next/navigation";
-import { DEMO_RESTAURANT_ID } from "@/lib/agent/tools";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/dashboard-auth";
+import { notFound } from "next/navigation";
 import { loadPrintData } from "@/lib/receipt-data";
+import { requireStaffPage } from "@/lib/staff-page";
 
 // Shared start of both print pages: check the staff login, then load the order.
-// Only Napoli uses the dashboard for now (see CLAUDE.md "Dashboard auth"), so the
-// order must belong to that restaurant; anything else is a 404.
+// The order must belong to the logged-in staff member's restaurant (from the
+// login session); an order of any other restaurant is a 404.
 export async function loadOrderOr404(orderId: string) {
-  if (!verifySessionToken((await cookies()).get(SESSION_COOKIE)?.value)) redirect("/dashboard/login");
-  const data = await loadPrintData(orderId, DEMO_RESTAURANT_ID);
+  const { restaurantId } = await requireStaffPage();
+  const data = await loadPrintData(orderId, restaurantId);
   if (!data) notFound();
   return data;
 }

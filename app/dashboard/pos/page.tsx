@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { CircleAlert } from "lucide-react";
-import { DEMO_RESTAURANT_ID } from "@/lib/agent/tools";
+import { requireStaffPage } from "@/lib/staff-page";
 import { DEFAULT_CURRENCY } from "@/lib/money";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { Card, EmptyState, Skeleton } from "@/components/ui";
@@ -32,7 +32,8 @@ type OptionRow = {
 };
 
 async function Pos() {
-  const rid = DEMO_RESTAURANT_ID;
+  // The restaurant always comes from the login session.
+  const rid = (await requireStaffPage()).restaurantId;
   const [restaurantRes, categoriesRes, optionsRes, tablesRes, sessionsRes] = await Promise.all([
     supabaseAdmin.from("restaurants").select("currency").eq("id", rid).maybeSingle(),
     supabaseAdmin
