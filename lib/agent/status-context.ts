@@ -10,7 +10,8 @@
 //     "variableValues", using exactly the same text.
 //
 // WHAT TO CONFIGURE IN VAPI (Phase 4)
-// 1. Paste SYSTEM_PROMPT into the assistant's system prompt unchanged,
+// 1. Paste buildSystemPrompt(...) (lib/agent/prompt-variants.ts) for that
+//    restaurant into the assistant's system prompt unchanged (Napoli: SYSTEM_PROMPT),
 //    including the final line {{restaurant_status}}.
 // 2. On the Vapi phone number, set the "Server URL" to our endpoint
 //    (to be built in Phase 4, e.g. /api/vapi/assistant-request) instead of

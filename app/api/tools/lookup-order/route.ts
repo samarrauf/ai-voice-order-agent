@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireToolSecret } from "@/lib/auth";
 import { findOrderForCaller, ORDER_NOT_FOUND_SPEECH } from "@/lib/order-lookup";
-import { normalizePhone } from "@/lib/speech";
+import { currencyFields, moneyForSpeech, normalizePhone } from "@/lib/speech";
+import { supabaseAdmin } from "@/lib/supabase/server";
 import { timed } from "@/lib/timing";
 
 // Voice-agent tool: read-only summary of a past order, for a caller asking
@@ -31,8 +32,15 @@ export const POST = timed("lookup-order", async (request: Request, timer) => {
 
   const { restaurant_id, order_number, customer_phone } = parsed.data;
   let order;
+  let currency: string | null = null;
   try {
-    order = await findOrderForCaller(restaurant_id, order_number, customer_phone);
+    // In parallel: the order, and the restaurant's currency for the spoken total.
+    const [found, restaurantRes] = await Promise.all([
+      findOrderForCaller(restaurant_id, order_number, customer_phone),
+      supabaseAdmin.from("restaurants").select("currency").eq("id", restaurant_id).maybeSingle(),
+    ]);
+    order = found;
+    currency = restaurantRes.data?.currency ?? null;
   } catch (e) {
     console.error("lookup-order: lookup failed", e);
     return NextResponse.json(
@@ -53,8 +61,10 @@ export const POST = timed("lookup-order", async (request: Request, timer) => {
     timeZone: "Europe/London",
   });
   const itemsSpeech = order.items.map((i) => `${i.quantity} ${i.name}`).join(", ");
+  const money = currencyFields(currency);
   return NextResponse.json({
     success: true,
+    ...money,
     order: {
       order_number: order.order_number,
       date: order.created_at,
@@ -63,6 +73,6 @@ export const POST = timed("lookup-order", async (request: Request, timer) => {
       order_type: order.fulfilment_type,
       status: order.status,
     },
-    speech: `I found your ${order.fulfilment_type} order from ${date}: ${itemsSpeech}. The total was ${order.total.toFixed(2)}. Its status is ${order.status}.`,
+    speech: `I found your ${order.fulfilment_type} order from ${date}: ${itemsSpeech}. The total was ${moneyForSpeech(order.total, money.currency)}. Its status is ${order.status}.`,
   });
 });

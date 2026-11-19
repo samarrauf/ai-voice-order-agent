@@ -33,6 +33,8 @@ export type CartState = {
   customerPhone: string;
   deliveryAddress: string;
   deliveryPostcode: string;
+  /** area_list restaurants: the delivery area picked from the restaurant's list. */
+  deliveryArea: string;
   /** What staff typed for the discount. The server decides if it is allowed and what it comes to. */
   discountType: DiscountType;
   discountValue: string;
@@ -48,6 +50,7 @@ export const emptyCart = (orderType: OrderType = "dine_in"): CartState => ({
   customerPhone: "",
   deliveryAddress: "",
   deliveryPostcode: "",
+  deliveryArea: "",
   discountType: "none",
   discountValue: "",
   discountReason: "",
@@ -63,7 +66,7 @@ export type CartAction =
   | { type: "remove"; key: string }
   | { type: "setOrderType"; orderType: OrderType }
   | { type: "setTable"; table: CartTable | null }
-  | { type: "setField"; field: "customerName" | "customerPhone" | "deliveryAddress" | "deliveryPostcode" | "discountValue" | "discountReason" | "note"; value: string }
+  | { type: "setField"; field: "customerName" | "customerPhone" | "deliveryAddress" | "deliveryPostcode" | "deliveryArea" | "discountValue" | "discountReason" | "note"; value: string }
   | { type: "setDiscountType"; discountType: DiscountType }
   | { type: "reset" };
 
@@ -118,6 +121,7 @@ export function toPreviewPayload(restaurantId: string, cart: CartState) {
   return {
     restaurant_id: restaurantId,
     order_type: cart.orderType,
+    delivery_area: cart.orderType === "delivery" ? cart.deliveryArea.trim() || null : null,
     discount: toDiscountPayload(cart),
     items: toItemsPayload(cart.lines),
   };
@@ -133,6 +137,7 @@ export function toOrderPayload(restaurantId: string, cart: CartState) {
     customer_phone: cart.customerPhone.trim() || null,
     delivery_address: cart.orderType === "delivery" ? cart.deliveryAddress.trim() || null : null,
     delivery_postcode: cart.orderType === "delivery" ? cart.deliveryPostcode.trim() || null : null,
+    delivery_area: cart.orderType === "delivery" ? cart.deliveryArea.trim() || null : null,
     discount: toDiscountPayload(cart),
     notes: cart.note.trim() || null,
     items: toItemsPayload(cart.lines),

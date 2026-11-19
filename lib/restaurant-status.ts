@@ -1,6 +1,8 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { checkOpen, localClock, nextOpening, type OpeningHours } from "@/lib/opening-hours";
+import { deliveryModeOf, type DeliveryMode } from "@/lib/delivery";
+import { currencyFields } from "@/lib/speech";
 
 // "Are we open right now, and if not, when?" — shared by the restaurant-status
 // tool and the chat test rig, so both always agree with create-order.
@@ -13,12 +15,15 @@ export type RestaurantStatus = {
   next_open_spoken: string | null; // "four o'clock" / "tomorrow at four o'clock"
   now_local: string; // "Thursday 14:05"
   speech: string | null; // null when open: just greet normally
+  delivery_mode: DeliveryMode; // which prompt/tools the agent gets (lib/agent/prompt-variants.ts)
+  currency: string; // "GBP", "PKR", ...
+  currency_word: string; // "pounds", "rupees": said after every price (non-GBP)
 };
 
 export async function getRestaurantStatus(restaurantId: string, now = new Date()): Promise<RestaurantStatus | null> {
   const { data, error } = await supabaseAdmin
     .from("restaurants")
-    .select("is_accepting_orders, opening_hours, timezone")
+    .select("is_accepting_orders, opening_hours, timezone, delivery_mode, currency")
     .eq("id", restaurantId)
     .maybeSingle();
   if (error) throw error;
@@ -48,5 +53,7 @@ export async function getRestaurantStatus(restaurantId: string, now = new Date()
     next_open_spoken: next ? next.spoken : null,
     now_local: `${clock.weekday} ${clock.hhmm}`,
     speech,
+    delivery_mode: deliveryModeOf(data.delivery_mode),
+    ...currencyFields(data.currency),
   };
 }

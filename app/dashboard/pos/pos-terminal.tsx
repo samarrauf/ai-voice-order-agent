@@ -64,11 +64,17 @@ const label = "text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-fa
 export function PosTerminal({
   restaurantId,
   currency,
+  deliveryMode = "postcode",
+  deliveryAreas = [],
   categories,
   tables,
 }: {
   restaurantId: string;
   currency: string;
+  /** restaurants.delivery_mode: 'postcode' (as before), 'area_list' (pick an area) or 'none' (no Delivery button). */
+  deliveryMode?: "postcode" | "area_list" | "none";
+  /** Active delivery area names, for 'area_list'. */
+  deliveryAreas?: string[];
   categories: PosCategory[];
   tables: PosTable[];
 }) {
@@ -140,7 +146,13 @@ export function PosTerminal({
   // ---- Sending the order ------------------------------------------------
   const needsTable = cart.orderType === "dine_in" && !cart.table;
   const needsDelivery =
-    cart.orderType === "delivery" && !(cart.customerName.trim() && cart.customerPhone.trim() && cart.deliveryAddress.trim());
+    cart.orderType === "delivery" &&
+    !(
+      cart.customerName.trim() &&
+      cart.customerPhone.trim() &&
+      cart.deliveryAddress.trim() &&
+      (deliveryMode !== "area_list" || cart.deliveryArea.trim())
+    );
   const canSend = cart.lines.length > 0 && !!priced && !needsTable && !needsDelivery && !sending;
 
   async function send() {
@@ -167,6 +179,8 @@ export function PosTerminal({
         setSendError("You were logged out. Please log in again.");
       } else if (res.status === 400 && typeof json?.error === "string" && json.error.includes("discount")) {
         setSendError(`Discount not allowed: ${json.error}.`);
+      } else if (res.status === 400 && typeof json?.error === "string" && /deliver|delivery_area/.test(json.error)) {
+        setSendError(`Delivery not possible: ${json.error}.`);
       } else if (res.status === 409 || res.status === 404) {
         // The table was cleared in the meantime.
         dispatch({ type: "setTable", table: null });
@@ -188,6 +202,8 @@ export function PosTerminal({
       cart={cart}
       dispatch={dispatch}
       currency={currency}
+      deliveryMode={deliveryMode}
+      deliveryAreas={deliveryAreas}
       priced={priced}
       priceError={current && !current.ok ? current.error : null}
       onRetryPrice={() => setRetry((n) => n + 1)}
@@ -375,6 +391,8 @@ function CartPanel({
   cart,
   dispatch,
   currency,
+  deliveryMode,
+  deliveryAreas,
   priced,
   priceError,
   onRetryPrice,
@@ -389,6 +407,8 @@ function CartPanel({
   cart: CartState;
   dispatch: (action: CartAction) => void;
   currency: string;
+  deliveryMode: "postcode" | "area_list" | "none";
+  deliveryAreas: string[];
   priced: Extract<Quote, { ok: true }> | null;
   priceError: string | null;
   onRetryPrice: () => void;
@@ -406,7 +426,7 @@ function CartPanel({
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
         <FilterChips
           label="Order type"
-          chips={ORDER_TYPES}
+          chips={deliveryMode === "none" ? ORDER_TYPES.filter((t) => t.key !== "delivery") : ORDER_TYPES}
           value={cart.orderType}
           onChange={(orderType) => dispatch({ type: "setOrderType", orderType })}
         />
@@ -461,15 +481,31 @@ function CartPanel({
               autoComplete="off"
               className={input}
             />
-            <input
-              value={cart.deliveryPostcode}
-              onChange={(e) => dispatch({ type: "setField", field: "deliveryPostcode", value: e.target.value })}
-              placeholder="Postcode"
-              aria-label="Delivery postcode"
-              maxLength={12}
-              autoComplete="off"
-              className={input}
-            />
+            {deliveryMode === "area_list" ? (
+              <select
+                value={cart.deliveryArea}
+                onChange={(e) => dispatch({ type: "setField", field: "deliveryArea", value: e.target.value })}
+                aria-label="Delivery area"
+                className={input}
+              >
+                <option value="">{deliveryAreas.length ? "Area" : "No areas"}</option>
+                {deliveryAreas.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                value={cart.deliveryPostcode}
+                onChange={(e) => dispatch({ type: "setField", field: "deliveryPostcode", value: e.target.value })}
+                placeholder="Postcode"
+                aria-label="Delivery postcode"
+                maxLength={12}
+                autoComplete="off"
+                className={input}
+              />
+            )}
           </div>
         )}
 

@@ -16,6 +16,8 @@ import {
   type DbItem,
   type DbOption,
 } from "@/lib/order-pricing";
+import type { DeliveryAreaRow } from "@/lib/delivery";
+import { activeDeliveryAreas, staffDeliveryCheck } from "@/lib/staff-delivery";
 
 // Staff action: "what does this cart cost?" for the POS screen. Saves nothing.
 //
@@ -30,6 +32,8 @@ const bodySchema = z.object({
   // Optional: older dashboard tabs still send it. The restaurant itself comes from the login session.
   restaurant_id: z.guid().optional(),
   order_type: z.enum(["dine_in", "takeaway", "delivery"]).default("dine_in"),
+  // area_list restaurants (migration 0022): the area chosen so far, for its fee_override.
+  delivery_area: z.string().trim().max(80).nullish(),
   discount: discountSchema.nullish(),
   items: z.array(itemSchema).min(1).max(30),
 });
@@ -49,15 +53,17 @@ export async function POST(request: Request) {
   const mismatch = restaurantMismatch(body.restaurant_id, auth.staff);
   if (mismatch) return mismatch;
 
-  // Two queries, in parallel (no per-item lookups).
+  // Queries in parallel (no per-item lookups). Delivery areas only for a delivery.
+  const isDelivery = body.order_type === "delivery";
   const itemIds = [...new Set(body.items.map((i) => i.menu_item_id))];
-  const [itemsRes, optionsRes, settingsRes] = await Promise.all([
+  const [itemsRes, optionsRes, settingsRes, areasRes] = await Promise.all([
     supabaseAdmin.from("menu_items").select(MENU_ITEM_SELECT).eq("restaurant_id", rid).in("id", itemIds),
     supabaseAdmin.from("item_options").select(OPTION_SELECT).eq("restaurant_id", rid),
-    supabaseAdmin.from("restaurants").select(BILL_SETTINGS_SELECT).eq("id", rid).maybeSingle(),
+    supabaseAdmin.from("restaurants").select(`${BILL_SETTINGS_SELECT}, delivery_mode`).eq("id", rid).maybeSingle(),
+    isDelivery ? activeDeliveryAreas(rid) : Promise.resolve({ data: [] as DeliveryAreaRow[], error: null }),
   ]);
-  if (itemsRes.error || optionsRes.error || settingsRes.error) {
-    console.error("price-preview: lookup failed", itemsRes.error ?? optionsRes.error ?? settingsRes.error);
+  if (itemsRes.error || optionsRes.error || settingsRes.error || areasRes.error) {
+    console.error("price-preview: lookup failed", itemsRes.error ?? optionsRes.error ?? settingsRes.error ?? areasRes.error);
     return fail("database lookup failed", 500);
   }
 
@@ -65,7 +71,16 @@ export async function POST(request: Request) {
   const priced = priceLines(body.items, menuById, optionsRes.data as DbOption[]);
   if (!priced.ok) return fail(priced.error, 400);
   if (!settingsRes.data) return fail("restaurant not found", 404);
-  const billed = computeBill(priced.subtotalPence, body.order_type, settingsRes.data as BillSettingsRow, body.discount);
+  // Same delivery rules and fee as manual-order; an area not chosen yet is shown at the restaurant's fee.
+  const staffDelivery = staffDeliveryCheck(
+    isDelivery,
+    settingsRes.data as BillSettingsRow & { delivery_mode?: string | null },
+    body.delivery_area,
+    (areasRes.data ?? []) as DeliveryAreaRow[],
+    true,
+  );
+  if (!staffDelivery.ok) return fail(staffDelivery.error, 400);
+  const billed = computeBill(priced.subtotalPence, body.order_type, staffDelivery.settings, body.discount);
   if (!billed.ok) return fail(billed.error, 400);
 
   // Lines come back in the same order they were sent.

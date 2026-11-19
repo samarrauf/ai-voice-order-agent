@@ -4,7 +4,9 @@
 // Nothing in here may depend on our own code. Tool names (search_menu,
 // check_delivery, create_order, check_availability, create_booking,
 // request_callback, lookup_order, create_order_query) must match
-// lib/agent/tools.ts exactly. The last line, {{restaurant_status}}, is a
+// lib/agent/tools.ts exactly. This is the Napoli (postcode, GBP) prompt; other
+// restaurants get a variant from buildSystemPrompt (lib/agent/prompt-variants.ts).
+// The last line, {{restaurant_status}}, is a
 // placeholder filled at the start of each call (see lib/agent/status-context.ts);
 // in Vapi it is a dynamic variable. Keep it exactly as written.
 

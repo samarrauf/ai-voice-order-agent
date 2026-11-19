@@ -17,6 +17,8 @@ import {
   type DbItem,
   type DbOption,
 } from "@/lib/order-pricing";
+import { addressWithArea, type DeliveryAreaRow } from "@/lib/delivery";
+import { activeDeliveryAreas, staffDeliveryCheck } from "@/lib/staff-delivery";
 
 // Staff action: an order typed in by staff (the POS screen). Three kinds:
 //   - dine_in (the default): added to a seated table. table_session_id is
@@ -51,6 +53,8 @@ const bodySchema = z
     customer_phone: optionalText(30),
     delivery_address: optionalText(200),
     delivery_postcode: optionalText(12),
+    // area_list restaurants (migration 0022): the area chosen on the POS.
+    delivery_area: optionalText(80),
     notes: optionalText(300),
     discount: discountSchema.nullish(),
     items: z.array(itemSchema).min(1).max(30),
@@ -94,8 +98,9 @@ export async function POST(request: Request) {
   // Only a dine-in order belongs to a table, even if a session id was sent.
   const sessionId = body.order_type === "dine_in" ? body.table_session_id! : null;
 
+  const isDelivery = body.order_type === "delivery";
   const itemIds = [...new Set(body.items.map((i) => i.menu_item_id))];
-  const [sessionRes, itemsRes, optionsRes, settingsRes] = await Promise.all([
+  const [sessionRes, itemsRes, optionsRes, settingsRes, areasRes] = await Promise.all([
     sessionId
       ? supabaseAdmin
           .from("table_sessions")
@@ -106,10 +111,14 @@ export async function POST(request: Request) {
       : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from("menu_items").select(MENU_ITEM_SELECT).eq("restaurant_id", rid).in("id", itemIds),
     supabaseAdmin.from("item_options").select(OPTION_SELECT).eq("restaurant_id", rid),
-    supabaseAdmin.from("restaurants").select(BILL_SETTINGS_SELECT).eq("id", rid).maybeSingle(),
+    supabaseAdmin.from("restaurants").select(`${BILL_SETTINGS_SELECT}, delivery_mode`).eq("id", rid).maybeSingle(),
+    isDelivery ? activeDeliveryAreas(rid) : Promise.resolve({ data: [] as DeliveryAreaRow[], error: null }),
   ]);
-  if (sessionRes.error || itemsRes.error || optionsRes.error || settingsRes.error) {
-    console.error("manual-order: lookup failed", sessionRes.error ?? itemsRes.error ?? optionsRes.error ?? settingsRes.error);
+  if (sessionRes.error || itemsRes.error || optionsRes.error || settingsRes.error || areasRes.error) {
+    console.error(
+      "manual-order: lookup failed",
+      sessionRes.error ?? itemsRes.error ?? optionsRes.error ?? settingsRes.error ?? areasRes.error,
+    );
     return fail("database lookup failed", 500);
   }
   const session = sessionRes.data;
@@ -123,9 +132,18 @@ export async function POST(request: Request) {
   if (!priced.ok) return fail(priced.error, 400);
   const { lines, subtotalPence } = priced;
   if (!settingsRes.data) return fail("restaurant not found", 404);
-  const billed = computeBill(subtotalPence, body.order_type, settingsRes.data as BillSettingsRow, body.discount);
+  // Where we deliver, and the fee, by the same rules as the phone agent (lib/delivery.ts).
+  const staffDelivery = staffDeliveryCheck(
+    isDelivery,
+    settingsRes.data as BillSettingsRow & { delivery_mode?: string | null },
+    body.delivery_area,
+    (areasRes.data ?? []) as DeliveryAreaRow[],
+  );
+  if (!staffDelivery.ok) return fail(staffDelivery.error, 400);
+  const billed = computeBill(subtotalPence, body.order_type, staffDelivery.settings, body.discount);
   if (!billed.ok) return fail(billed.error, 400);
   const { bill } = billed;
+  const area = staffDelivery.area;
 
   // Dine-in and takeaway are stored as 'pickup' (the orders table only allows
   // delivery/pickup); `source` + `table_session_id` is what marks an order dine-in.
@@ -136,7 +154,8 @@ export async function POST(request: Request) {
       fulfilment_type: body.order_type === "delivery" ? "delivery" : "pickup",
       customer_name: body.customer_name,
       customer_phone: body.customer_phone,
-      delivery_address: body.order_type === "delivery" ? body.delivery_address : null,
+      // An area_list order keeps its area in the address line, as the phone agent does.
+      delivery_address: isDelivery ? addressWithArea(body.delivery_address!, area) : null,
       delivery_postcode: body.order_type === "delivery" ? body.delivery_postcode : null,
       subtotal: pounds(bill.subtotalPence),
       delivery_fee: pounds(bill.deliveryPence),
@@ -173,6 +192,7 @@ export async function POST(request: Request) {
       order_type: body.order_type,
       source: saved.source,
       table_session_id: session?.id ?? null,
+      delivery_area: area?.label ?? null,
       ...billForResponse(bill),
     },
     { status: 201 },

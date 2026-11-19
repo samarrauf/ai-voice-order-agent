@@ -1,8 +1,8 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
-import { SYSTEM_PROMPT } from "@/lib/agent/system-prompt";
-import { DEMO_RESTAURANT_ID, TOOLS, type ToolName } from "@/lib/agent/tools";
+import { buildSystemPrompt, buildTools, type AgentSettings } from "@/lib/agent/prompt-variants";
+import { DEMO_RESTAURANT_ID, type ToolName } from "@/lib/agent/tools";
 import { POST as searchMenu } from "@/app/api/tools/search-menu/route";
 import { POST as checkDelivery } from "@/app/api/tools/check-delivery/route";
 import { POST as createOrder } from "@/app/api/tools/create-order/route";
@@ -65,7 +65,7 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<To
  * Start of call: ask our restaurant-status endpoint (exactly as our Phase 4
  * Vapi webhook will) and turn the answer into the RESTAURANT STATUS block.
  */
-async function fetchStatusContext(): Promise<string> {
+async function fetchStatus(): Promise<RestaurantStatus | null> {
   const res = await restaurantStatus(
     new Request("http://localhost/api/tools/restaurant-status", {
       method: "POST",
@@ -73,8 +73,7 @@ async function fetchStatusContext(): Promise<string> {
       body: JSON.stringify({ restaurant_id: DEMO_RESTAURANT_ID }),
     }),
   );
-  const status = res.ok ? ((await res.json()) as RestaurantStatus) : null;
-  return buildStatusContext(status);
+  return res.ok ? ((await res.json()) as RestaurantStatus) : null;
 }
 
 function costUsd(u: Usage): number {
@@ -106,11 +105,16 @@ export async function POST(request: Request) {
   // The status is fetched ONCE at the start of the call and then sent back by
   // the page on every turn, so it stays fixed for the whole call (like Vapi's
   // variableValues) and the cached prompt prefix doesn't change mid-call.
+  // The restaurant's delivery mode and currency pick the prompt and tools
+  // (lib/agent/prompt-variants.ts); Napoli gets exactly the base prompt.
+  const status = await fetchStatus();
+  const settings: AgentSettings = { deliveryMode: status?.delivery_mode ?? "postcode", currency: status?.currency };
   const statusContext =
     typeof body?.statusContext === "string" && body.statusContext.length < 2000
       ? body.statusContext
-      : await fetchStatusContext();
-  const system = SYSTEM_PROMPT.replace(STATUS_PLACEHOLDER, statusContext);
+      : buildStatusContext(status);
+  const system = buildSystemPrompt(settings).replace(STATUS_PLACEHOLDER, statusContext);
+  const tools = buildTools(settings);
 
   const client = new Anthropic();
   const toolCalls: ToolCallLog[] = [];
@@ -128,7 +132,7 @@ export async function POST(request: Request) {
         // Caches the system prompt + tools + history, so each round is cheaper.
         cache_control: { type: "ephemeral" },
         system,
-        tools: TOOLS as unknown as Anthropic.Tool[],
+        tools: tools as unknown as Anthropic.Tool[],
         messages,
       });
 

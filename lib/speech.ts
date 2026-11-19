@@ -1,3 +1,5 @@
+import { CURRENCY_CONFIG, DEFAULT_CURRENCY, isCurrencyCode } from "@/lib/money";
+
 // Helpers for building the `speech` strings the voice agent reads aloud.
 // Rule: prices are bare numbers ("7.99", never "£7.99") and sizes are words
 // ("ten inch", not "10 inch"), because text-to-speech reads symbols and digits badly.
@@ -95,4 +97,25 @@ export function postcodeForSpeech(postcode: string): string {
 /** 7.9 -> "7.90". No currency symbol. */
 export function priceForSpeech(price: number | string): string {
   return Number(price).toFixed(2);
+}
+
+/**
+ * A price for the agent to say, in the restaurant's currency. Never a symbol.
+ * GBP stays a bare number exactly as before ("8.99"), so Napoli sounds the same;
+ * any other currency adds its word: "850 rupees", "8.99 euros". Whole-unit
+ * currencies (PKR) drop ".00".
+ */
+export function moneyForSpeech(price: number | string, currency?: string | null): string {
+  const code = isCurrencyCode(currency) ? currency : DEFAULT_CURRENCY;
+  if (code === "GBP") return priceForSpeech(price);
+  const info = CURRENCY_CONFIG[code];
+  const n = Number(price);
+  const whole = info.decimals === 0 && Math.round(n * 100) % 100 === 0;
+  return `${whole ? String(Math.round(n)) : n.toFixed(2)} ${info.speechWord}`;
+}
+
+/** The two currency fields every money-carrying tool response includes. */
+export function currencyFields(currency?: string | null): { currency: string; currency_word: string } {
+  const code = isCurrencyCode(currency) ? currency : DEFAULT_CURRENCY;
+  return { currency: code, currency_word: CURRENCY_CONFIG[code].speechWord };
 }

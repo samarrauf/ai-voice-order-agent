@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { CircleAlert } from "lucide-react";
 import { requireStaffPage } from "@/lib/staff-page";
 import { DEFAULT_CURRENCY } from "@/lib/money";
+import { deliveryModeOf } from "@/lib/delivery";
+import { activeDeliveryAreas } from "@/lib/staff-delivery";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { Card, EmptyState, Skeleton } from "@/components/ui";
 import { PosTerminal } from "./pos-terminal";
@@ -34,8 +36,8 @@ type OptionRow = {
 async function Pos() {
   // The restaurant always comes from the login session.
   const rid = (await requireStaffPage()).restaurantId;
-  const [restaurantRes, categoriesRes, optionsRes, tablesRes, sessionsRes] = await Promise.all([
-    supabaseAdmin.from("restaurants").select("currency").eq("id", rid).maybeSingle(),
+  const [restaurantRes, categoriesRes, optionsRes, tablesRes, sessionsRes, areasRes] = await Promise.all([
+    supabaseAdmin.from("restaurants").select("currency, delivery_mode").eq("id", rid).maybeSingle(),
     supabaseAdmin
       .from("menu_categories")
       .select(
@@ -57,9 +59,11 @@ async function Pos() {
       .order("price_delta"),
     supabaseAdmin.from("restaurant_tables").select("id, table_number, seats").eq("restaurant_id", rid),
     supabaseAdmin.from("table_sessions").select("id, table_id, party_size").eq("restaurant_id", rid).is("cleared_at", null),
+    activeDeliveryAreas(rid).order("label"),
   ]);
 
-  const error = restaurantRes.error ?? categoriesRes.error ?? optionsRes.error ?? tablesRes.error ?? sessionsRes.error;
+  const error =
+    restaurantRes.error ?? categoriesRes.error ?? optionsRes.error ?? tablesRes.error ?? sessionsRes.error ?? areasRes.error;
   if (error) {
     console.error("pos: failed to load", error);
     return (
@@ -129,6 +133,8 @@ async function Pos() {
     <PosTerminal
       restaurantId={rid}
       currency={restaurantRes.data?.currency ?? DEFAULT_CURRENCY}
+      deliveryMode={deliveryModeOf(restaurantRes.data?.delivery_mode)}
+      deliveryAreas={(areasRes.data ?? []).map((a) => a.label)}
       categories={categories}
       tables={tables}
     />

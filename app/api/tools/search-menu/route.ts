@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireToolSecret } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { priceForSpeech, sizeForSpeech } from "@/lib/speech";
+import { currencyFields, moneyForSpeech, sizeForSpeech } from "@/lib/speech";
 import { timed } from "@/lib/timing";
 
 // Voice-agent tool: fuzzy-search the menu for what the caller said.
@@ -29,7 +29,8 @@ const NO_MATCH_SPEECH =
 // If the runner-up scores within this margin of the top match, ask instead of guessing.
 const AMBIGUITY_MARGIN = 0.1;
 
-function buildSpeech(rows: SearchRow[]): string {
+function buildSpeech(rows: SearchRow[], currency: string): string {
+  const priceForSpeech = (p: number) => moneyForSpeech(p, currency);
   if (rows.length === 0) return NO_MATCH_SPEECH;
 
   const [top, second] = rows;
@@ -78,10 +79,14 @@ export const POST = timed("search-menu", async (request: Request, timer) => {
     );
   }
 
-  const { data, error } = await supabaseAdmin.rpc("search_menu", {
-    p_restaurant_id: parsed.data.restaurant_id,
-    p_query: parsed.data.query,
-  });
+  // In parallel: the fuzzy search, and the restaurant's currency for spoken prices.
+  const [{ data, error }, restaurantRes] = await Promise.all([
+    supabaseAdmin.rpc("search_menu", {
+      p_restaurant_id: parsed.data.restaurant_id,
+      p_query: parsed.data.query,
+    }),
+    supabaseAdmin.from("restaurants").select("currency").eq("id", parsed.data.restaurant_id).maybeSingle(),
+  ]);
   timer.lap("db");
 
   if (error) {
@@ -99,7 +104,9 @@ export const POST = timed("search-menu", async (request: Request, timer) => {
     sizes: r.sizes.map((s) => ({ name: s.name, price: Number(s.price) })),
   }));
 
+  const money = currencyFields(restaurantRes.data?.currency);
   return NextResponse.json({
+    ...money,
     matches: rows.map((r) => ({
       id: r.id,
       name: r.name,
@@ -108,6 +115,6 @@ export const POST = timed("search-menu", async (request: Request, timer) => {
       base_price: r.base_price,
       sizes: r.sizes,
     })),
-    speech: buildSpeech(rows),
+    speech: buildSpeech(rows, money.currency),
   });
 });

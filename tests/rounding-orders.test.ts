@@ -6,6 +6,7 @@ import { POST as recordPayment } from "@/app/api/staff/record-payment/route";
 import { POST as saveSettings } from "@/app/api/staff/settings/route";
 import { buildReceipt, type PrintInput } from "@/lib/receipt";
 import { SESSION_COOKIE } from "@/lib/session";
+import { moneyForSpeech } from "@/lib/speech";
 import { RUN_MARKER, callTool, cleanupTestOrders, db, orderBody, sessionToken, useOpenClock, useRealClock } from "./helpers/helpers";
 import { randomUUID } from "node:crypto";
 
@@ -182,7 +183,8 @@ describe("rounding step 1: agent and POS give the same whole-rupee bill", () => 
       }
 
       // Speech: the total the caller hears is the saved one, and rounding is mentioned because it is not 0.
-      expect(preview.json.speech).toContain(`${expected.total.toFixed(2)} in total`);
+      // (P9a-B: a PKR total is spoken with its currency word, e.g. "3017 rupees in total".)
+      expect(preview.json.speech).toContain(`${moneyForSpeech(expected.total, "PKR")} in total`);
       expect(preview.json.speech).toMatch(/rounding/i);
     });
   }
