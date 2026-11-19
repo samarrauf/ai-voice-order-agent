@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireStaff, restaurantMismatch } from "@/lib/staff-auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { MAX_AMOUNT_ANY_CURRENCY, maxAmountFor } from "@/lib/money";
 import { pence, pounds } from "@/lib/order-pricing";
 
 // Staff action: record a payment against an order (POS "Take payment").
@@ -23,7 +24,8 @@ const bodySchema = z.object({
   restaurant_id: z.guid().optional(),
   order_id: z.guid(),
   method: z.enum(["cash", "card", "online", "other"]),
-  amount: z.number().finite().positive().max(100000),
+  // The ceiling over all currencies; the restaurant's own currency limit is checked right after.
+  amount: z.number().finite().positive().max(MAX_AMOUNT_ANY_CURRENCY),
   reference: z
     .string()
     .trim()
@@ -54,6 +56,14 @@ export async function POST(request: Request) {
   const body = parsed.data;
   const mismatch = restaurantMismatch(body.restaurant_id, auth.staff);
   if (mismatch) return mismatch;
+
+  // The biggest single payment depends on the restaurant's currency (one lookup by id).
+  const cur = await supabaseAdmin.from("restaurants").select("currency").eq("id", rid).maybeSingle();
+  if (cur.error || !cur.data) {
+    console.error("record-payment: could not read the restaurant currency", cur.error);
+    return fail("could not check the payment limit", 500);
+  }
+  if (body.amount > maxAmountFor(cur.data.currency)) return fail("amount is more than the limit for this currency", 400);
 
   // Whole pence only: 5.005 is a mistake, not something to round.
   const amountPence = pence(body.amount);

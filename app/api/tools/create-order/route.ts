@@ -58,6 +58,8 @@ function chargesForSpeech(bill: Bill, isDelivery: boolean): string {
   if (isDelivery) parts.push(`${priceForSpeech(pounds(bill.deliveryPence))} delivery`);
   if (bill.serviceChargePence > 0) parts.push(`${priceForSpeech(pounds(bill.serviceChargePence))} service charge`);
   if (bill.taxPence > 0) parts.push(`${priceForSpeech(pounds(bill.taxPence))} tax`);
+  if (bill.roundingPence > 0) parts.push(`${priceForSpeech(pounds(bill.roundingPence))} rounding`);
+  if (bill.roundingPence < 0) parts.push(`${priceForSpeech(pounds(-bill.roundingPence))} taken off for rounding`);
   return parts.length ? `, including ${joinForSpeech(parts)}` : "";
 }
 
@@ -283,6 +285,7 @@ export const POST = timed("create-order", async (request: Request, timer) => {
       discount_reason: bill.discount.reason,
       service_charge_amount: pounds(bill.serviceChargePence),
       tax_amount: pounds(bill.taxPence),
+      rounding_amount: pounds(bill.roundingPence),
       total: pounds(bill.totalPence),
       payment_method: body.payment_method,
       requested_time: scheduled ? scheduled.at.toISOString() : null,

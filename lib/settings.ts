@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEFAULT_CURRENCY, maxDeliveryFeeFor, maxMinOrderFor } from "@/lib/money";
 
 // The rules for every field on the owner's Settings page. Pure checks, no
 // database here, so the page, the API route and the tests all share them.
@@ -9,14 +10,16 @@ import { z } from "zod";
 //   orders   - the "taking orders" switch
 //   theme    - the five dashboard colours
 // Unknown fields are refused (strict), so nobody can slip in `id` or `restaurant_id`.
-// currency and timezone are READ-ONLY: the page shows them, nothing here (or in
-// the database function update_restaurant_settings_tx) can ever change them.
+// currency, timezone and rounding_step are READ-ONLY: the page shows them, nothing
+// here (or in the database function update_restaurant_settings_tx) can ever change them.
+// The biggest delivery fee and minimum order come from the restaurant's currency
+// (lib/money.ts), so a rupee restaurant can save 150 / 1500; GBP is still 100 / 1000.
 
 export const SECTIONS = ["profile", "money", "orders", "theme"] as const;
 export type SettingsSection = (typeof SECTIONS)[number];
 
 /** Shown on the Settings page but never changeable from it. */
-export const READ_ONLY_COLUMNS = ["currency", "timezone"] as const;
+export const READ_ONLY_COLUMNS = ["currency", "timezone", "rounding_step"] as const;
 
 /** Every restaurants column the Settings page may read (the changeable ones plus the read-only ones). */
 export const SETTINGS_COLUMNS = [
@@ -82,6 +85,17 @@ const hex = z
   .regex(/^#[0-9A-Fa-f]{6}$/, "must look like #1E293B")
   .transform((v) => v.toUpperCase());
 
+/** The money section for one currency: the biggest delivery fee and minimum order come from lib/money.ts. */
+const moneySchema = (currency: string) =>
+  z.strictObject({
+    delivery_fee: amount(maxDeliveryFeeFor(currency)),
+    min_order_value: amount(maxMinOrderFor(currency)),
+    tax_rate_percent: amount(100),
+    service_charge_percent: amount(100),
+    service_charge_applies_to: z.enum(SERVICE_CHARGE_APPLIES_TO),
+    max_discount_percent: amount(100),
+  });
+
 export const sectionSchemas = {
   profile: z.strictObject({
     name: requiredText(80),
@@ -97,14 +111,7 @@ export const sectionSchemas = {
     facebook_url: webUrl,
     receipt_footer_note: optionalText(200),
   }),
-  money: z.strictObject({
-    delivery_fee: amount(100),
-    min_order_value: amount(1000),
-    tax_rate_percent: amount(100),
-    service_charge_percent: amount(100),
-    service_charge_applies_to: z.enum(SERVICE_CHARGE_APPLIES_TO),
-    max_discount_percent: amount(100),
-  }),
+  money: moneySchema(DEFAULT_CURRENCY), // the default-currency version; parseSettings uses the restaurant's own
   orders: z.strictObject({
     is_accepting_orders: z.boolean(),
   }),
@@ -119,8 +126,11 @@ export const sectionSchemas = {
 
 export type ParsedSettings = { section: SettingsSection; values: Record<string, unknown> };
 
-/** Checks `{ section, values }` from a request. Returns the cleaned values or a list of "field: problem" messages. */
-export function parseSettings(input: unknown): { ok: true; data: ParsedSettings } | { ok: false; errors: string[] } {
+/**
+ * Checks `{ section, values }` from a request. Returns the cleaned values or a list of "field: problem" messages.
+ * `currency` is the restaurant's own currency code (it sets the money limits); missing means the default (GBP).
+ */
+export function parseSettings(input: unknown, currency: string = DEFAULT_CURRENCY): { ok: true; data: ParsedSettings } | { ok: false; errors: string[] } {
   const body = input as { section?: unknown; values?: unknown } | null;
   const section = body?.section;
   if (typeof section !== "string" || !(SECTIONS as readonly string[]).includes(section)) {
@@ -132,7 +142,8 @@ export function parseSettings(input: unknown): { ok: true; data: ParsedSettings 
       if (field in body.values) return { ok: false, errors: [`${field}: read-only, it cannot be changed from Settings`] };
     }
   }
-  const parsed = sectionSchemas[section as SettingsSection].safeParse(body?.values);
+  const schema = section === "money" ? moneySchema(currency) : sectionSchemas[section as SettingsSection];
+  const parsed = schema.safeParse(body?.values);
   if (!parsed.success) {
     return { ok: false, errors: parsed.error.issues.map((i) => `${i.path.join(".") || "values"}: ${i.message}`) };
   }

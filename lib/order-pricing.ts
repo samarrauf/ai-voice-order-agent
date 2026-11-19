@@ -1,10 +1,13 @@
 import { z } from "zod";
+import { MAX_AMOUNT_ANY_CURRENCY, maxAmountFor } from "@/lib/money";
 import { numberToWords, sizeForSpeech } from "@/lib/speech";
 
 // Shared order pricing. Used by the phone-order tool (/api/tools/create-order)
 // and the staff manual-order route, so there is exactly ONE copy of the price
 // maths. THE MONEY RULE: every price comes from the menu tables; nothing
-// price-like from a request is ever read. All arithmetic is in whole pence.
+// price-like from a request is ever read. All arithmetic is in whole minor
+// units (pence for GBP, paisa for PKR: hundredths of the main unit, so the
+// names pence()/pounds() mean that for every currency).
 
 export const MAX_QTY = 20;
 
@@ -217,7 +220,11 @@ export function toOrderItemsPayload(lines: PricedLine[]) {
 //   5. service charge  = service_charge_percent of `discounted` (food only, not
 //                        delivery), if service_charge_applies_to allows this order type
 //   6. tax             = tax_rate_percent of (discounted + delivery + service charge)
-//   7. total           = discounted + delivery + service charge + tax
+//   7. rounding        = the restaurant's rounding_step (0.01, 0.5 or 1). The total
+//                        before rounding is moved to the nearest multiple of the step
+//                        (half or more rounds up). With 0.01 this is always 0.
+//   8. total           = discounted + delivery + service charge + tax + rounding
+//   (Rounding comes last, so it never changes the discount rules above.)
 // Tax is ADDED on top of the prices. With tax_rate_percent = 0 (the default
 // until the client confirms it) nothing is added.
 // ---------------------------------------------------------------------------
@@ -231,7 +238,8 @@ export const discountSchema = z.object({
     .number()
     .finite()
     .min(0)
-    .max(100000)
+    // The ceiling over all currencies; computeBill then checks the restaurant's own currency limit.
+    .max(MAX_AMOUNT_ANY_CURRENCY)
     .refine((v) => Math.abs(Math.round(v * 100) - v * 100) < 1e-6, { message: "must have at most 2 decimals" })
     .default(0),
   reason: z
@@ -245,7 +253,7 @@ export type DiscountInput = z.infer<typeof discountSchema>;
 
 /** The restaurants columns the bill needs. */
 export const BILL_SETTINGS_SELECT =
-  "delivery_fee, tax_rate_percent, service_charge_percent, service_charge_applies_to, max_discount_percent";
+  "delivery_fee, tax_rate_percent, service_charge_percent, service_charge_applies_to, max_discount_percent, rounding_step, currency";
 
 export type BillSettingsRow = {
   delivery_fee: number | string | null;
@@ -253,7 +261,14 @@ export type BillSettingsRow = {
   service_charge_percent: number | string;
   service_charge_applies_to: string;
   max_discount_percent: number | string;
+  /** 0.01 (no rounding), 0.5 or 1. Missing means 0.01. */
+  rounding_step?: number | string | null;
+  /** Only used for the currency's limit on a fixed discount. Missing means the default currency. */
+  currency?: string | null;
 };
+
+/** The rounding steps a restaurant may use (restaurants_rounding_step_check, migration 0021). */
+export const ROUNDING_STEPS = [0.01, 0.5, 1] as const;
 
 /** The ONE rounding rule: a pence amount is rounded half up to a whole penny. */
 export const roundPence = (n: number) => Math.round(n);
@@ -267,6 +282,8 @@ export type Bill = {
   deliveryPence: number;
   serviceChargePence: number;
   taxPence: number;
+  /** Added to (or taken off) the bill so the total is a multiple of the rounding step. 0 when the step is 0.01. */
+  roundingPence: number;
   totalPence: number;
   discount: { type: "none" | "percent" | "fixed"; value: number; reason: string | null };
 };
@@ -308,6 +325,11 @@ export function computeBill(
   if (![maxPercent, taxPercent, servicePercent].every((n) => Number.isFinite(n) && n >= 0 && n <= 100)) {
     return { ok: false, error: "restaurant bill settings are invalid" };
   }
+  const roundingStep = settings.rounding_step === undefined || settings.rounding_step === null ? 0.01 : Number(settings.rounding_step);
+  if (!(ROUNDING_STEPS as readonly number[]).includes(roundingStep)) {
+    return { ok: false, error: "restaurant bill settings are invalid" };
+  }
+  const stepPence = Math.round(roundingStep * 100);
 
   // 2. Discount
   let discountPence = 0;
@@ -317,6 +339,7 @@ export function computeBill(
     discountPence = percentOf(subtotalPence, d.value);
   } else if (d.type === "fixed") {
     if (d.value <= 0) return { ok: false, error: "discount value must be more than 0" };
+    if (d.value > maxAmountFor(settings.currency)) return { ok: false, error: "discount is more than the limit for this currency" };
     discountPence = pence(d.value);
   }
   if (discountPence > subtotalPence) return { ok: false, error: "discount cannot be more than the subtotal" };
@@ -348,6 +371,17 @@ export function computeBill(
   // 6. Tax on everything charged so far
   const taxPence = percentOf(discounted + deliveryPence + serviceChargePence, taxPercent);
 
+  // 7. Rounding, last of all: the nearest multiple of the step, half or more rounds up
+  // (integer maths, so no floating-point doubt). A positive bill never rounds down to
+  // nothing (that would be a free order); a zero bill (100% discount) stays zero.
+  const beforeRounding = discounted + deliveryPence + serviceChargePence + taxPence;
+  let totalPence = beforeRounding;
+  if (stepPence > 1) {
+    totalPence = Math.floor((2 * beforeRounding + stepPence) / (2 * stepPence)) * stepPence;
+    if (beforeRounding > 0 && totalPence === 0) totalPence = stepPence;
+  }
+  const roundingPence = totalPence - beforeRounding;
+
   return {
     ok: true,
     bill: {
@@ -356,13 +390,14 @@ export function computeBill(
       deliveryPence,
       serviceChargePence,
       taxPence,
-      totalPence: discounted + deliveryPence + serviceChargePence + taxPence,
+      roundingPence,
+      totalPence,
       discount: { type: d.type, value: d.type === "none" ? 0 : d.value, reason: d.type === "none" ? null : d.reason },
     },
   };
 }
 
-/** The bill in pounds, as sent back to the screen. */
+/** The bill in main currency units (pounds, rupees), as sent back to the screen. */
 export function billForResponse(b: Bill) {
   return {
     subtotal: pounds(b.subtotalPence),
@@ -370,6 +405,7 @@ export function billForResponse(b: Bill) {
     delivery_fee: pounds(b.deliveryPence),
     service_charge: pounds(b.serviceChargePence),
     tax: pounds(b.taxPence),
+    rounding: pounds(b.roundingPence),
     total: pounds(b.totalPence),
   };
 }

@@ -52,7 +52,7 @@ const TINTS = [
 ];
 
 // The server's whole bill for the cart. Every number here came from /api/staff/price-preview.
-type Bill = { subtotal: number; discount: number; delivery_fee: number; service_charge: number; tax: number; total: number };
+type Bill = { subtotal: number; discount: number; delivery_fee: number; service_charge: number; tax: number; rounding: number; total: number };
 type Quote =
   | ({ sig: string; ok: true; lines: { unit_price: number; line_total: number }[] } & Bill)
   | { sig: string; ok: false; error: string };
@@ -577,6 +577,7 @@ function CartPanel({
             )}
             {priced.service_charge > 0 && <BreakdownRow name="Service charge" amount={priced.service_charge} currency={currency} />}
             {priced.tax > 0 && <BreakdownRow name="Tax" amount={priced.tax} currency={currency} />}
+            {priced.rounding !== 0 && <BreakdownRow name="Rounding" amount={priced.rounding} currency={currency} />}
           </dl>
         )}
         <div className="flex items-baseline justify-between">

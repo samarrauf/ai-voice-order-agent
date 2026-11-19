@@ -218,7 +218,15 @@ function OrdersCard({ initial }: { initial: SettingsValues }) {
   );
 }
 
-/** Currency and timezone: shown, never editable (the server refuses them too). */
+/** 0.01 = to the penny (no rounding); 0.5 and 1 round the total to the nearest half or whole unit. */
+function roundingLabel(step: SettingsValues[string]): string {
+  const n = Number(step);
+  if (n === 0.5) return "Nearest 0.50";
+  if (n === 1) return "Nearest whole unit";
+  return "No rounding (exact)";
+}
+
+/** Currency, timezone and rounding: shown, never editable (the server refuses them too). */
 function FixedCard({ initial }: { initial: SettingsValues }) {
   return (
     <Card className="mt-4">
@@ -231,6 +239,10 @@ function FixedCard({ initial }: { initial: SettingsValues }) {
         <div>
           <dt className="text-xs font-medium text-ink-muted">Timezone</dt>
           <dd className="mt-1 font-semibold">{String(initial.timezone ?? "")}</dd>
+        </div>
+        <div>
+          <dt className="text-xs font-medium text-ink-muted">Bill rounding</dt>
+          <dd className="mt-1 font-semibold">{roundingLabel(initial.rounding_step)}</dd>
         </div>
       </dl>
       <p className="mt-3 text-xs text-ink-faint">To change these, please contact us.</p>

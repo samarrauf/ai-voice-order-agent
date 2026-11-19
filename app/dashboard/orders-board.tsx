@@ -59,7 +59,7 @@ const formatTime = (iso: string) =>
 // Icon shown next to where the order came from. Anything else is a table order.
 const SOURCE_ICON: Record<string, typeof Phone> = { phone: Phone, staff_phone: Phone, walk_in: Store };
 
-export function OrdersBoard({ orders, restaurantId }: { orders: BoardOrder[]; restaurantId: string }) {
+export function OrdersBoard({ orders, restaurantId, currency }: { orders: BoardOrder[]; restaurantId: string; currency: string }) {
   const router = useRouter();
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("new");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -185,7 +185,7 @@ export function OrdersBoard({ orders, restaurantId }: { orders: BoardOrder[]; re
 
                 <div className="mt-4 flex items-baseline justify-between border-t border-line pt-4">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint">Total</span>
-                  <span className="text-2xl font-bold tabular-nums">{formatMoney(o.total)}</span>
+                  <span className="text-2xl font-bold tabular-nums">{formatMoney(o.total, currency)}</span>
                 </div>
 
                 <PrintButtons orderId={o.id} className="mt-4" />

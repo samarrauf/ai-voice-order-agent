@@ -51,6 +51,8 @@ export type ReceiptOrder = {
   delivery_fee: Num;
   service_charge_amount: Num;
   tax_amount: Num;
+  /** Rounding added to (or taken off) the bill (migration 0021). Missing or 0: no Rounding line. */
+  rounding_amount?: Num;
   total: Num;
   payment_status: string;
   paid_amount: Num;
@@ -209,6 +211,8 @@ export function buildReceipt({ restaurant, order, items, payments }: PrintInput)
   if (num(order.delivery_fee) > 0) rows.push({ label: "Delivery", value: money(order.delivery_fee) });
   if (num(order.service_charge_amount) > 0) rows.push({ label: "Service charge", value: money(order.service_charge_amount) });
   if (num(order.tax_amount) > 0) rows.push({ label: "Tax", value: money(order.tax_amount) });
+  // Only when the restaurant rounds its totals and this order was actually rounded.
+  if (num(order.rounding_amount) !== 0) rows.push({ label: "Rounding", value: money(order.rounding_amount) });
   rows.push({ label: "TOTAL", value: money(order.total), kind: "total" });
 
   // Balance is whole pence arithmetic so 0.1 + 0.2 style noise never shows on paper.

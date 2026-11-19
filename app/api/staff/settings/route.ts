@@ -21,7 +21,13 @@ export async function POST(request: Request) {
   if (!auth.ok) return auth.response;
   const { restaurantId: rid, staffId } = auth.staff;
 
-  const parsed = parseSettings(await request.json().catch(() => null));
+  // The money limits depend on the restaurant's currency (read-only; one lookup by id).
+  const cur = await supabaseAdmin.from("restaurants").select("currency").eq("id", rid).maybeSingle();
+  if (cur.error || !cur.data) {
+    console.error("settings: could not read the restaurant currency", cur.error);
+    return fail("could not load settings", 500);
+  }
+  const parsed = parseSettings(await request.json().catch(() => null), cur.data.currency);
   if (!parsed.ok) return fail("invalid settings", 400, parsed.errors);
   const { section, values } = parsed.data;
 

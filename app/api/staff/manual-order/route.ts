@@ -146,6 +146,7 @@ export async function POST(request: Request) {
       discount_reason: bill.discount.reason,
       service_charge_amount: pounds(bill.serviceChargePence),
       tax_amount: pounds(bill.taxPence),
+      rounding_amount: pounds(bill.roundingPence),
       total: pounds(bill.totalPence),
       payment_method: null,
       requested_time: null,

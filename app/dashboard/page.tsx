@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { requireStaffPage } from "@/lib/staff-page";
+import { DEFAULT_CURRENCY } from "@/lib/money";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { CircleAlert } from "lucide-react";
 import { Card, EmptyState, Skeleton, SkeletonCard } from "@/components/ui";
@@ -10,6 +11,8 @@ import { OrdersBoard, type BoardOrder } from "./orders-board";
 async function Orders() {
   // The restaurant always comes from the login session.
   const { restaurantId } = await requireStaffPage();
+  const currencyRes = await supabaseAdmin.from("restaurants").select("currency").eq("id", restaurantId).maybeSingle();
+  const currency = currencyRes.data?.currency ?? DEFAULT_CURRENCY;
   const { data, error } = await supabaseAdmin
     .from("orders")
     .select(
@@ -52,7 +55,7 @@ async function Orders() {
     };
   });
 
-  return <OrdersBoard orders={orders} restaurantId={restaurantId} />;
+  return <OrdersBoard orders={orders} restaurantId={restaurantId} currency={currency} />;
 }
 
 /** Shown while the orders load: the same shape as the real page, in shimmering grey. */
