@@ -18,6 +18,9 @@ import {
 } from "@/lib/order-pricing";
 import type { DeliveryAreaRow } from "@/lib/delivery";
 import { activeDeliveryAreas, staffDeliveryCheck } from "@/lib/staff-delivery";
+import { can } from "@/lib/permissions";
+import { lineProfit, unitCostFor, type CostMaps } from "@/lib/profit";
+import { loadCostMaps } from "@/lib/profit-data";
 
 // Staff action: "what does this cart cost?" for the POS screen. Saves nothing.
 //
@@ -27,6 +30,10 @@ import { activeDeliveryAreas, staffDeliveryCheck } from "@/lib/staff-delivery";
 // (lib/order-pricing.ts), so the preview and the saved order always agree.
 // zod strips any "price"/"total" keys the browser might send. It returns the
 // whole bill: subtotal, discount, delivery fee, service charge, tax and total.
+//
+// COST (B2): only a role with view_profit (owner) gets `cost` on each line
+// ({unit_cost, line_cost, profit}, null = cost not set). For everyone else the cost
+// table is not even read and the response has no cost field at all.
 
 const bodySchema = z.object({
   // Optional: older dashboard tabs still send it. The restaurant itself comes from the login session.
@@ -56,11 +63,13 @@ export async function POST(request: Request) {
   // Queries in parallel (no per-item lookups). Delivery areas only for a delivery.
   const isDelivery = body.order_type === "delivery";
   const itemIds = [...new Set(body.items.map((i) => i.menu_item_id))];
-  const [itemsRes, optionsRes, settingsRes, areasRes] = await Promise.all([
+  const showProfit = can(auth.staff.role, "view_profit");
+  const [itemsRes, optionsRes, settingsRes, areasRes, costs] = await Promise.all([
     supabaseAdmin.from("menu_items").select(MENU_ITEM_SELECT).eq("restaurant_id", rid).is("archived_at", null).in("id", itemIds),
     supabaseAdmin.from("item_options").select(OPTION_SELECT).eq("restaurant_id", rid),
     supabaseAdmin.from("restaurants").select(`${BILL_SETTINGS_SELECT}, delivery_mode`).eq("id", rid).maybeSingle(),
     isDelivery ? activeDeliveryAreas(rid) : Promise.resolve({ data: [] as DeliveryAreaRow[], error: null }),
+    showProfit ? loadCostMaps(rid).catch((e) => (console.error("price-preview: cost lookup failed", e), null)) : Promise.resolve(null),
   ]);
   if (itemsRes.error || optionsRes.error || settingsRes.error || areasRes.error) {
     console.error("price-preview: lookup failed", itemsRes.error ?? optionsRes.error ?? settingsRes.error ?? areasRes.error);
@@ -94,7 +103,14 @@ export async function POST(request: Request) {
       quantity: l.quantity,
       unit_price: pounds(l.unitPence),
       line_total: pounds(l.linePence),
+      ...(showProfit ? { cost: lineCostOf(l, costs) } : {}),
     })),
     ...billForResponse(billed.bill),
   });
+}
+
+/** Owner-only cost line for one priced line. No cost table (lookup failed) = cost not set. */
+function lineCostOf(l: { item: { id: string }; sizeName: string | null; chosen: { id: string }[]; unitPence: number; quantity: number }, costs: CostMaps | null) {
+  const unitCost = costs ? unitCostFor({ menuItemId: l.item.id, sizeName: l.sizeName, optionIds: l.chosen.map((o) => o.id) }, costs) : null;
+  return lineProfit(pounds(l.unitPence), unitCost, l.quantity);
 }

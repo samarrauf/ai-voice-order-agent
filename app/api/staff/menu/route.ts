@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { restaurantMismatch, requireCapability } from "@/lib/staff-auth";
-import { diffItem, menuActionSchema, type Change, type StoredItem } from "@/lib/menu-admin";
+import { diffItem, hasCostFields, menuActionSchema, type Change, type StoredItem } from "@/lib/menu-admin";
+import { can } from "@/lib/permissions";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 // Menu editor actions (capability menu_edit: owner + manager; staff get 403).
@@ -11,7 +12,10 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 //   - "Delete" is always archive (archived_at): old orders keep their saved names and prices
 //     (order_items stores a snapshot), and archived items disappear from the POS and the voice agent.
 //   - Every changed field is written to menu_changes (who, what, old -> new).
-//   - item_save runs in ONE database function (save_menu_item_tx, migration 0024).
+//   - item_save runs in ONE database function (save_menu_item_tx, migrations 0024 + 0025).
+//   - Cost (B2): cost_price on the item, sizes and extras may only be SENT by view_cost (owner);
+//     anyone else sending one gets 403. A save without cost fields keeps the costs as they
+//     were (also for the owner). Costs are never written to menu_changes and never returned.
 
 const fail = (error: string, status: number, details?: string[]) =>
   NextResponse.json({ success: false, error, ...(details ? { details } : {}) }, { status });
@@ -244,6 +248,8 @@ export async function POST(request: Request) {
     }
 
     case "item_save": {
+      const setCosts = hasCostFields(body.item);
+      if (setCosts && !can(auth.staff.role, "view_cost")) return fail("forbidden", 403);
       let old: StoredItem | null = null;
       if (body.id) {
         const r = await supabaseAdmin
@@ -276,6 +282,7 @@ export async function POST(request: Request) {
         p_sizes: sizes,
         p_options: options,
         p_changes: diffItem(old, body.item),
+        p_set_costs: setCosts,
       });
       if (error || !data) {
         console.error("menu: item save failed (nothing was saved)", error);

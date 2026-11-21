@@ -10,6 +10,7 @@ import {
   UserCog,
   Users,
   UtensilsCrossed,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import type { NavIconName } from "@/lib/nav";
@@ -25,6 +26,7 @@ export const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   customers: Users,
   tables: Armchair,
   menu: UtensilsCrossed,
+  expenses: Wallet,
   staff: UserCog,
   settings: Settings,
   password: KeyRound,

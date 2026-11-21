@@ -3,11 +3,15 @@ import { buildSalesReport, OPEN_STATUSES, orderTypeOf, periodFor, type OrderType
 import { DEFAULT_CURRENCY } from "@/lib/money";
 import { can, type StaffRole } from "@/lib/permissions";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { rangeForHome } from "@/lib/expenses";
+import type { ProfitSummary } from "@/lib/profit";
+import { loadProfitSummary } from "@/lib/profit-data";
 
 // Loads everything the Home dashboard shows. THE role gate lives here: a role
 // without `view_reports` (staff) never even queries sales columns (total, tax,
 // paid, order lines), and the object it gets back has no `reports` part and no
-// money field anywhere. The restaurant always comes from the login session.
+// money field anywhere. A role without `view_profit` (everyone but the owner) never
+// queries cost/expenses and gets no `profit` part. The restaurant always comes from the login session.
 
 export type LiveOrder = {
   id: string;
@@ -34,6 +38,8 @@ export type HomeData = {
   ops: HomeOps;
   /** null for roles without view_reports. */
   reports: SalesReport | null;
+  /** Owner only (view_profit): net profit for the chosen range. Absent for everyone else. */
+  profit?: ProfitSummary;
 };
 
 const PAGE = 1000; // PostgREST returns at most 1000 rows per request
@@ -114,11 +120,20 @@ export async function loadHome(input: { restaurantId: string; role: StaffRole; r
   const currency = restaurant.data?.currency || DEFAULT_CURRENCY;
 
   const ops = loadOps(restaurantId, wantsReports);
+  const wantsProfit = can(role, "view_profit");
+  const profit = wantsProfit ? loadProfitSummary(restaurantId, rangeForHome(range, now, timeZone)) : null;
   let reports: SalesReport | null = null;
   if (wantsReports) {
     const period = periodFor(range, now, timeZone);
     const [orders, items] = await Promise.all([fetchOrders(restaurantId, period.prevStart, period.end), fetchItems(restaurantId, period.start, period.end)]);
     reports = buildSalesReport({ orders, items, range, now, timeZone });
   }
-  return { restaurantName: restaurant.data?.name ?? "", timeZone, currency, ops: await ops, reports };
+  return {
+    restaurantName: restaurant.data?.name ?? "",
+    timeZone,
+    currency,
+    ops: await ops,
+    reports,
+    ...(profit ? { profit: await profit } : {}),
+  };
 }

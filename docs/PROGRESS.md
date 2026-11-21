@@ -12,7 +12,7 @@ Har stage ke aakhir mein yeh file update karna lazmi hai (status, faislay, masai
 | A3a | Glass design system aur naya app shell | baqi |
 | A3b | Naya Home dashboard (KPI, charts, animations) | baqi |
 | B1 | Menu editor aur photos | baqi |
-| B2 | Cost, expenses, profit (sirf owner ko) | baqi |
+| B2 | Cost, expenses, profit (sirf owner ko) | DONE, commit ka intezar |
 | B3 | Tables aur venue management | baqi |
 | B4a | Hold/resume, table badalna, merge | baqi |
 | B4b | Cancel, void, refund | baqi |
@@ -59,7 +59,14 @@ Phase D (baqi): QR table ordering, rider management.
 - Test hygiene: orders restaurants se cascade nahi hote, isliye throwaway restaurant hatane se pehle orders hatao.
 
 ## Agla stage
-B10 (har page ka andar ka look naye glass design mein), B5 (Reports, dashboard-stats ka wahi hisaab use karega) aur B2 (net profit, sirf owner). Navigation mein naya page lib/nav.ts mein ek line se judta hai. A3b commit/push ke baad.
+B5 (Reports: dashboard-stats aur lib/profit-data.ts ka wahi hisaab), B10 (har page ka andar ka look naye glass design mein), B3 (Tables). Navigation mein naya page lib/nav.ts mein ek line se judta hai. B2 commit/push ke baad.
+
+## B2 (cost, expenses, profit) ka khulasa
+- Status: migration 0025 owner ne run ki; menu editor mein Cost (owner), POS/Orders board par owner ki "Cost · Profit" line, Home par Net profit card, /dashboard/expenses (add, filter, void, summary); lint, type-check, build, poora suite pass.
+- Faislay: cost alag private table menu_costs mein (menu tables public hain); snapshot create_order_tx DB mein nikalta hai; size chuna ho to sirf size ki cost (item ki cost par fallback nahi); extra ki cost khaali = "maloom nahi" (0 likhna hoga); cost_total = maloom lines ka jod, cost_complete batata hai.
+- Faislay: munafa = subtotal - discount - cost_total (delivery, service, tax, rounding bahar; cancelled bahar); manager ki menu save cost ko naam se mila kar mehfooz rakhti hai; cost menu_changes mein nahi likhi jati; kharcha void hota hai, delete nahi.
+- Baqi masail: purane orders ki cost null (backfill nahi); category/restaurant-level extras ki cost editor se set nahi hoti; kharchon ki category ko band/rename karne ka UI nahi; Expenses page pehli visit par default categories banata hai.
+- Agla: B5 Reports (charts) loadProfitSummary aur dashboard-stats ka hisaab use kare.
 
 ## A3b (Home dashboard) ka khulasa
 - Status: Home /dashboard par, orders board /dashboard/orders par (nav: Home, Orders); lib/dashboard-stats.ts (pure hisaab), lib/dashboard-home.ts (loader + role gate), components/charts (CapsuleBars, Donut, Gauge, Sparkline), CountUp; lint, type-check, build, naye tests pass.

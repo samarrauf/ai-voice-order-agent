@@ -8,18 +8,10 @@ import { PaymentStatusBadge } from "@/components/ui/payment-status-badge";
 import { formatMoney } from "@/lib/money";
 import { NewOrderLink } from "./new-order-link";
 import { PrintButtons } from "./print-buttons";
+import { CostLine } from "./cost-line";
+import type { BoardOrder } from "@/lib/orders-board";
 
-export type BoardOrder = {
-  id: string;
-  order_number: string;
-  status: string;
-  source: string;
-  table_number: string | null;
-  total: number;
-  payment_status: string;
-  created_at: string;
-  items: { name: string; size: string | null; quantity: number }[];
-};
+export type { BoardOrder } from "@/lib/orders-board";
 
 const TABS = [
   { key: "all", label: "All" },
@@ -177,6 +169,8 @@ export function OrdersBoard({ orders, restaurantId, currency }: { orders: BoardO
                         <span>
                           {i.name}
                           {i.size && <span className="text-ink-faint"> ({i.size})</span>}
+                          {/* Owner only: the loader adds `cost` for view_profit (lib/orders-board.ts). */}
+                          {i.cost && <CostLine cost={i.cost} currency={currency} className="mt-0.5" />}
                         </span>
                       </li>
                     ))
@@ -187,6 +181,22 @@ export function OrdersBoard({ orders, restaurantId, currency }: { orders: BoardO
                   <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint">Total</span>
                   <span className="text-2xl font-bold tabular-nums text-highlight-ink">{formatMoney(o.total, currency)}</span>
                 </div>
+
+                {o.profit && (
+                  <div className="mt-2 flex items-baseline justify-between text-xs text-ink-faint">
+                    <span>Profit (owner only)</span>
+                    {o.profit.profit === null ? (
+                      <span>Cost not set</span>
+                    ) : (
+                      <span className="tabular-nums">
+                        <span className={o.profit.profit < 0 ? "font-semibold text-danger" : "font-semibold text-ink-muted"}>
+                          {formatMoney(o.profit.profit, currency)}
+                        </span>
+                        {!o.profit.complete && <span> · some costs not set</span>}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 <PrintButtons orderId={o.id} className="mt-4" />
 

@@ -19,6 +19,8 @@ import {
 } from "./cart-store";
 import { ErrorNote, ItemDialog, Modal, SentDialog, Stepper, TableDialog, type SentOrder } from "./dialogs";
 import { PaymentDialog } from "./payment-dialog";
+import { CostLine } from "../cost-line";
+import type { LineCost } from "@/lib/profit";
 import type { PosCategory, PosItem, PosTable } from "./pos-types";
 
 // The POS screen. Left: search, category chips and the item tiles. Right: the
@@ -47,7 +49,7 @@ const TINTS = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => `var(--chart-${n})`);
 // The server's whole bill for the cart. Every number here came from /api/staff/price-preview.
 type Bill = { subtotal: number; discount: number; delivery_fee: number; service_charge: number; tax: number; rounding: number; total: number };
 type Quote =
-  | ({ sig: string; ok: true; lines: { unit_price: number; line_total: number }[] } & Bill)
+  | ({ sig: string; ok: true; lines: { unit_price: number; line_total: number; cost?: LineCost }[] } & Bill)
   | { sig: string; ok: false; error: string };
 
 const input =
@@ -523,6 +525,8 @@ function CartPanel({
                     <Skeleton className="h-5 w-12 shrink-0" />
                   )}
                 </div>
+                {/* Owner only: the server sends `cost` only to view_profit (lib/profit.ts). */}
+                {priced?.lines[index].cost && <CostLine cost={priced.lines[index].cost} currency={currency} />}
                 <div className="mt-2 flex items-center justify-between">
                   <Stepper
                     label={`Quantity of ${line.name}`}

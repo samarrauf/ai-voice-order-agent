@@ -15,6 +15,17 @@ export const priceSchema = (currency?: string | null) =>
     .max(maxAmountFor(currency), "price is too high")
     .refine((v) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-6, "price can have at most two decimals");
 
+/** A cost price (B2, owner only): same rules as a price. null = clear it ("cost not set"); omitted = leave it. */
+export const costSchema = (currency?: string | null) =>
+  z
+    .number("cost must be a number")
+    .finite()
+    .min(0, "cost cannot be negative")
+    .max(maxAmountFor(currency), "cost is too high")
+    .refine((v) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-6, "cost can have at most two decimals")
+    .nullable()
+    .optional();
+
 const name = (max: number) => z.string().trim().min(1, "name is required").max(max, `name is too long (max ${max})`);
 
 export const CATEGORY_NAME = name(80);
@@ -34,14 +45,16 @@ const aliasesSchema = z
 
 export function itemSchema(currency?: string | null) {
   const price = priceSchema(currency);
+  const cost = costSchema(currency);
   return z
     .object({
       category_id: guid,
       name: ITEM_NAME,
       description: z.string().trim().max(DESCRIPTION_MAX, `description is too long (max ${DESCRIPTION_MAX})`).default(""),
       base_price: price,
+      cost_price: cost,
       sizes: z
-        .array(z.object({ name: name(40), price, is_default: z.boolean().default(false) }).strict())
+        .array(z.object({ name: name(40), price, is_default: z.boolean().default(false), cost_price: cost }).strict())
         .max(10, "too many sizes")
         .default([]),
       options: z
@@ -52,6 +65,7 @@ export function itemSchema(currency?: string | null) {
               name: name(60),
               price_delta: price,
               max_select: z.number().int().min(1).max(20).default(1),
+              cost_price: cost,
             })
             .strict(),
         )
@@ -81,6 +95,11 @@ export function itemSchema(currency?: string | null) {
     });
 }
 export type ItemInput = z.infer<ReturnType<typeof itemSchema>>;
+
+/** True when the save carries any cost field (item, size or extra). Only view_cost (owner) may send one. */
+export function hasCostFields(item: ItemInput): boolean {
+  return item.cost_price !== undefined || item.sizes.some((s) => s.cost_price !== undefined) || item.options.some((o) => o.cost_price !== undefined);
+}
 
 /** The whole body of POST /api/staff/menu. restaurant_id may be sent (old tabs) but is only compared, never used. */
 export function menuActionSchema(currency?: string | null) {

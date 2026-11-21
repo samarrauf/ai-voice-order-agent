@@ -18,8 +18,10 @@ export type EditorItem = {
   aliases: string[];
   sort_order: number;
   image_url: string | null;
-  sizes: { name: string; price: number; is_default: boolean }[];
-  options: { group_name: string; name: string; price_delta: number; max_select: number }[];
+  sizes: { name: string; price: number; is_default: boolean; cost_price?: number | null }[];
+  options: { group_name: string; name: string; price_delta: number; max_select: number; cost_price?: number | null }[];
+  /** Owner only (view_cost): the page adds cost_price only for the owner. */
+  cost_price?: number | null;
 };
 export type EditorArchived = {
   categories: { id: string; name: string }[];
@@ -53,7 +55,18 @@ async function resizePhoto(file: File): Promise<File> {
   return new File([blob], blob.type === "image/webp" ? "photo.webp" : "photo.jpg", { type: blob.type });
 }
 
-export function MenuEditor({ categories, currency, archived }: { categories: EditorCategory[]; currency: string; archived: EditorArchived }) {
+export function MenuEditor({
+  categories,
+  currency,
+  archived,
+  showCost = false,
+}: {
+  categories: EditorCategory[];
+  currency: string;
+  archived: EditorArchived;
+  /** view_cost (owner): show and send the Cost fields. Everyone else never sees or sends them. */
+  showCost?: boolean;
+}) {
   const router = useRouter();
   const [selected, setSelected] = useState(categories[0]?.id ?? "");
   const [msg, setMsg] = useState<Msg>(null);
@@ -166,6 +179,7 @@ export function MenuEditor({ categories, currency, archived }: { categories: Edi
             categoryId={category.id}
             categories={categories}
             currency={currency}
+            showCost={showCost}
             send={send}
             onClose={() => setEditing(null)}
           />
@@ -243,14 +257,18 @@ export function MenuEditor({ categories, currency, archived }: { categories: Edi
   );
 }
 
-type SizeRow = { name: string; price: string; is_default: boolean };
-type OptionRow = { group_name: string; name: string; price_delta: string; max_select: string };
+type SizeRow = { name: string; price: string; is_default: boolean; cost: string };
+type OptionRow = { group_name: string; name: string; price_delta: string; max_select: string; cost: string };
+
+const costText = (v: number | null | undefined) => (v === null || v === undefined ? "" : String(v));
+const costValue = (v: string) => (v.trim() === "" ? null : Number(v));
 
 function ItemForm({
   item,
   categoryId,
   categories,
   currency,
+  showCost,
   send,
   onClose,
 }: {
@@ -258,6 +276,7 @@ function ItemForm({
   categoryId: string;
   categories: EditorCategory[];
   currency: string;
+  showCost: boolean;
   send: (body: Record<string, unknown>) => Promise<{ ok: boolean; json: Record<string, unknown> }>;
   onClose: () => void;
 }) {
@@ -266,10 +285,11 @@ function ItemForm({
   const [description, setDescription] = useState(item?.description ?? "");
   const [category, setCategory] = useState(item?.category_id ?? categoryId);
   const [price, setPrice] = useState(String(item?.base_price ?? ""));
-  const [sizes, setSizes] = useState<SizeRow[]>((item?.sizes ?? []).map((s) => ({ name: s.name, price: String(s.price), is_default: s.is_default })));
+  const [sizes, setSizes] = useState<SizeRow[]>((item?.sizes ?? []).map((s) => ({ name: s.name, price: String(s.price), is_default: s.is_default, cost: costText(s.cost_price) })));
   const [options, setOptions] = useState<OptionRow[]>(
-    (item?.options ?? []).map((o) => ({ group_name: o.group_name, name: o.name, price_delta: String(o.price_delta), max_select: String(o.max_select) })),
+    (item?.options ?? []).map((o) => ({ group_name: o.group_name, name: o.name, price_delta: String(o.price_delta), max_select: String(o.max_select), cost: costText(o.cost_price) })),
   );
+  const [cost, setCost] = useState(costText(item?.cost_price));
   const [veg, setVeg] = useState(item?.is_vegetarian ?? false);
   const [spice, setSpice] = useState(item?.spice_level == null ? "" : String(item.spice_level));
   const [aliases, setAliases] = useState((item?.aliases ?? []).join(", "));
@@ -290,8 +310,16 @@ function ItemForm({
         name,
         description,
         base_price: Number(price),
-        sizes: sizes.map((s) => ({ name: s.name, price: Number(s.price), is_default: s.is_default })),
-        options: options.map((o) => ({ group_name: o.group_name, name: o.name, price_delta: Number(o.price_delta || 0), max_select: Number(o.max_select || 1) })),
+        // Cost fields are sent ONLY by the owner (the API refuses them from anyone else).
+        ...(showCost ? { cost_price: costValue(cost) } : {}),
+        sizes: sizes.map((s) => ({ name: s.name, price: Number(s.price), is_default: s.is_default, ...(showCost ? { cost_price: costValue(s.cost) } : {}) })),
+        options: options.map((o) => ({
+          group_name: o.group_name,
+          name: o.name,
+          price_delta: Number(o.price_delta || 0),
+          max_select: Number(o.max_select || 1),
+          ...(showCost ? { cost_price: costValue(o.cost) } : {}),
+        })),
         is_vegetarian: veg,
         spice_level: spice === "" ? null : Number(spice),
         aliases,
@@ -368,6 +396,13 @@ function ItemForm({
           <input className={input} inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} required />
           <span className="text-xs text-ink-faint">Used when the dish has no sizes.</span>
         </label>
+        {showCost && (
+          <label className="grid gap-1.5 text-sm">
+            <span className="font-medium">Cost ({currency}, owner only)</span>
+            <input className={input} inputMode="decimal" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="Not set" aria-label="Item cost" />
+            <span className="text-xs text-ink-faint">What one portion costs you. Used when the dish has no sizes; leave empty if unknown.</span>
+          </label>
+        )}
         <label className="grid gap-1.5 text-sm">
           <span className="font-medium">Aliases (comma separated, for the voice agent)</span>
           <input className={input} value={aliases} onChange={(e) => setAliases(e.target.value)} placeholder="marg, margarita" />
@@ -380,6 +415,9 @@ function ItemForm({
           <div key={i} className="flex flex-wrap items-center gap-2">
             <input className={`${input} max-w-40`} placeholder="Name" aria-label="Size name" value={s.name} onChange={(e) => setSize(i, { name: e.target.value })} />
             <input className={`${input} max-w-28`} placeholder="Price" aria-label="Size price" inputMode="decimal" value={s.price} onChange={(e) => setSize(i, { price: e.target.value })} />
+            {showCost && (
+              <input className={`${input} max-w-28`} placeholder="Cost" aria-label="Size cost" inputMode="decimal" value={s.cost} onChange={(e) => setSize(i, { cost: e.target.value })} />
+            )}
             <label className="flex items-center gap-1.5 text-sm">
               <input type="radio" name="default-size" checked={s.is_default} onChange={() => makeDefault(i)} /> Default
             </label>
@@ -389,7 +427,7 @@ function ItemForm({
           </div>
         ))}
         <div>
-          <Button onClick={() => setSizes((l) => [...l, { name: "", price: "", is_default: l.length === 0 }])}>
+          <Button onClick={() => setSizes((l) => [...l, { name: "", price: "", is_default: l.length === 0, cost: "" }])}>
             <Plus size={16} /> Add size
           </Button>
         </div>
@@ -397,19 +435,23 @@ function ItemForm({
 
       <fieldset className="grid gap-2">
         <legend className="mb-1 text-sm font-semibold">Extras</legend>
+        {showCost && <p className="text-xs text-ink-faint">Cost (owner only): an empty cost means &quot;not set&quot; and the order shows &quot;Cost not set&quot;. Put 0 for an extra that costs you nothing.</p>}
         {options.map((o, i) => (
           <div key={i} className="flex flex-wrap items-center gap-2">
             <input className={`${input} max-w-36`} placeholder="Group" aria-label="Extra group" value={o.group_name} onChange={(e) => setOption(i, { group_name: e.target.value })} />
             <input className={`${input} max-w-40`} placeholder="Name" aria-label="Extra name" value={o.name} onChange={(e) => setOption(i, { name: e.target.value })} />
             <input className={`${input} max-w-24`} placeholder="Price +" aria-label="Extra price" inputMode="decimal" value={o.price_delta} onChange={(e) => setOption(i, { price_delta: e.target.value })} />
             <input className={`${input} max-w-20`} placeholder="Max" aria-label="Max select" inputMode="numeric" value={o.max_select} onChange={(e) => setOption(i, { max_select: e.target.value })} />
+            {showCost && (
+              <input className={`${input} max-w-24`} placeholder="Cost" aria-label="Extra cost" inputMode="decimal" value={o.cost} onChange={(e) => setOption(i, { cost: e.target.value })} />
+            )}
             <IconButton label="Remove extra" onClick={() => setOptions((l) => l.filter((_, k) => k !== i))}>
               <Trash2 size={15} />
             </IconButton>
           </div>
         ))}
         <div>
-          <Button onClick={() => setOptions((l) => [...l, { group_name: "", name: "", price_delta: "0", max_select: "1" }])}>
+          <Button onClick={() => setOptions((l) => [...l, { group_name: "", name: "", price_delta: "0", max_select: "1", cost: "" }])}>
             <Plus size={16} /> Add extra
           </Button>
         </div>

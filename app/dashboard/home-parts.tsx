@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
-import { Armchair, BellRing, ChefHat, CircleDollarSign, Coins, Inbox, ShoppingBag } from "lucide-react";
+import { Armchair, BellRing, ChefHat, CircleDollarSign, Coins, Inbox, ShoppingBag, Wallet } from "lucide-react";
 import { CapsuleBars, Donut, Gauge, Sparkline } from "@/components/charts";
 import { CountUp, EmptyState, GlassCard, KpiCard, StatusBadge, cn } from "@/components/ui";
 import type { HomeData, LiveOrder } from "@/lib/dashboard-home";
@@ -119,6 +119,23 @@ export function QuickCards({ data, start }: { data: HomeData; start: number }) {
           </div>
         </GlassCard>
       </Link>
+      {data.profit && (
+        // Owner only: loadHome adds `profit` for view_profit.
+        <Link href="/dashboard/expenses" className="home-rise block rounded-card focus-visible:outline-2" style={rise(start + 2)}>
+          <KpiCard
+            label="Net profit"
+            value={formatMoney(data.profit.netProfit, data.currency)}
+            figure={<CountUp value={data.profit.netProfit} currency={data.currency} />}
+            icon={<Wallet size={18} />}
+            tone={4}
+            note={
+              `After ${formatMoney(data.profit.expenses, data.currency)} expenses` +
+              (data.profit.incompleteOrders > 0 ? ` · ${data.profit.incompleteOrders} orders without cost` : "")
+            }
+            className="h-full"
+          />
+        </Link>
+      )}
       {tables && (
         <Link href="/dashboard/tables" className="home-rise block rounded-card focus-visible:outline-2" style={rise(start + 1)}>
           <GlassCard lift className="flex h-full items-center gap-4">

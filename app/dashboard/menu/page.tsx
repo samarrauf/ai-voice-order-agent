@@ -1,6 +1,8 @@
 import { Card, PageHeader } from "@/components/ui";
 import { requireCapabilityPage } from "@/lib/staff-page";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { can } from "@/lib/permissions";
+import { loadCostsById } from "@/lib/profit-data";
 import { MenuEditor, type EditorCategory, type EditorItem, type EditorArchived } from "./menu-editor";
 
 // Menu editor. Capability menu_edit (owner + manager, lib/permissions.ts); staff are sent
@@ -24,7 +26,7 @@ type Row = {
     aliases: string[] | null;
     sort_order: number;
     image_url: string | null;
-    item_sizes: { name: string; price: number | string; is_default: boolean; sort_order: number }[];
+    item_sizes: { id: string; name: string; price: number | string; is_default: boolean; sort_order: number }[];
   }[];
 };
 
@@ -32,13 +34,15 @@ export default async function MenuPage() {
   const me = await requireCapabilityPage("menu_edit");
   const rid = me.restaurantId;
 
-  const [cats, options, restaurant, archivedCats, archivedItems] = await Promise.all([
+  // Cost (B2): only view_cost (owner) loads menu_costs; a manager's page never contains a cost.
+  const showCost = can(me.role, "view_cost");
+  const [cats, options, restaurant, archivedCats, archivedItems, costs] = await Promise.all([
     supabaseAdmin
       .from("menu_categories")
       .select(
         `id, name, sort_order, is_active,
          menu_items ( id, category_id, name, description, base_price, is_available, is_vegetarian,
-           spice_level, aliases, sort_order, image_url, item_sizes ( name, price, is_default, sort_order ) )`,
+           spice_level, aliases, sort_order, image_url, item_sizes ( id, name, price, is_default, sort_order ) )`,
       )
       .eq("restaurant_id", rid)
       .is("archived_at", null)
@@ -48,7 +52,7 @@ export default async function MenuPage() {
       .order("created_at", { referencedTable: "menu_items" }),
     supabaseAdmin
       .from("item_options")
-      .select("menu_item_id, group_name, name, price_delta, max_select")
+      .select("id, menu_item_id, group_name, name, price_delta, max_select")
       .eq("restaurant_id", rid)
       .not("menu_item_id", "is", null)
       .order("created_at"),
@@ -60,9 +64,10 @@ export default async function MenuPage() {
       .eq("restaurant_id", rid)
       .not("archived_at", "is", null)
       .order("archived_at", { ascending: false }),
+    showCost ? loadCostsById(rid).then((m) => ({ data: m, error: null }), (e) => ({ data: null, error: e })) : Promise.resolve({ data: null, error: null }),
   ]);
 
-  if (cats.error || options.error || restaurant.error || archivedCats.error || archivedItems.error) {
+  if (cats.error || options.error || restaurant.error || archivedCats.error || archivedItems.error || costs.error) {
     console.error("menu page: could not load", cats.error?.message ?? options.error?.message ?? restaurant.error?.message);
     return (
       <div className="anim-rise">
@@ -74,10 +79,17 @@ export default async function MenuPage() {
     );
   }
 
+  const costMap = costs.data; // null unless owner
   const optionsByItem = new Map<string, EditorItem["options"]>();
   for (const o of options.data) {
     const list = optionsByItem.get(o.menu_item_id as string) ?? [];
-    list.push({ group_name: o.group_name, name: o.name, price_delta: Number(o.price_delta), max_select: o.max_select });
+    list.push({
+      group_name: o.group_name,
+      name: o.name,
+      price_delta: Number(o.price_delta),
+      max_select: o.max_select,
+      ...(costMap ? { cost_price: costMap.get(o.id) ?? null } : {}),
+    });
     optionsByItem.set(o.menu_item_id as string, list);
   }
 
@@ -100,8 +112,9 @@ export default async function MenuPage() {
         image_url: i.image_url,
         sizes: [...i.item_sizes]
           .sort((a, b) => a.sort_order - b.sort_order)
-          .map((s) => ({ name: s.name, price: Number(s.price), is_default: s.is_default })),
+          .map((s) => ({ name: s.name, price: Number(s.price), is_default: s.is_default, ...(costMap ? { cost_price: costMap.get(s.id) ?? null } : {}) })),
         options: optionsByItem.get(i.id) ?? [],
+        ...(costMap ? { cost_price: costMap.get(i.id) ?? null } : {}),
       }),
     ),
   }));
@@ -119,7 +132,7 @@ export default async function MenuPage() {
   return (
     <div className="anim-rise">
       <PageHeader title="Menu" subtitle="Categories, dishes, sizes, extras and photos. Changes reach the POS and the voice agent straight away." />
-      <MenuEditor categories={categories} currency={restaurant.data?.currency ?? "GBP"} archived={archived} />
+      <MenuEditor categories={categories} currency={restaurant.data?.currency ?? "GBP"} archived={archived} showCost={showCost} />
     </div>
   );
 }

@@ -16,6 +16,7 @@ export type NavIconName =
   | "customers"
   | "tables"
   | "menu"
+  | "expenses"
   | "staff"
   | "settings"
   | "password";
@@ -45,6 +46,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { id: "customers", label: "Customers", icon: "customers", href: "/dashboard/customers", group: "main" },
   { id: "tables", label: "Tables", icon: "tables", href: "/dashboard/tables", group: "main" },
   { id: "menu", label: "Menu", icon: "menu", href: "/dashboard/menu", capability: "menu_edit", group: "main" },
+  { id: "expenses", label: "Expenses", icon: "expenses", href: "/dashboard/expenses", capability: "manage_expenses", group: "main" },
   { id: "staff", label: "Staff", icon: "staff", href: "/dashboard/staff", capability: "staff_manage", group: "foot" },
   { id: "settings", label: "Settings", icon: "settings", href: "/dashboard/settings", capability: "settings_edit", group: "foot" },
 ];
