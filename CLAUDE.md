@@ -1,54 +1,52 @@
 # CLAUDE.md
 
-Read this file at the start of every session. Also read AGENTS.md (Next.js version notes).
+Har session ki shuruaat mein yeh file parho, phir AGENTS.md (Next.js version notes), phir `docs/PROGRESS.md` (agla stage) aur zarurat par `docs/ARCHITECTURE.md` (file paths ka nakshah). Poori repo dobara mat parho.
 
 ## Project
-An AI voice agent that answers a UK takeaway's phone and takes orders. A voice platform (Vapi) calls this app's API endpoints as tools during a live phone call.
-
-Demo restaurant: "Napoli Pizza & Grill", a fictional Manchester pizza takeaway.
-
-Built to demo and sell to restaurant owners in the UK and Europe.
-
-## Stack
-Next.js App Router + TypeScript + Tailwind, Supabase (Postgres), Vercel, vitest.
-
-## Non-negotiable rules
-1. `SUPABASE_SERVICE_ROLE_KEY` is server-only. Never import `lib/supabase/server.ts` into a client component. It bypasses RLS.
-2. Never trust prices, totals or IDs from a request body. Always recalculate from the database. The voice agent hallucinates numbers.
-3. Every `/api/tools/*` route verifies the `x-tool-secret` header before anything else.
-4. Every tool response includes a short `speech` string the agent reads aloud. Prices as "8.99", never "£8.99" — text-to-speech says "pound sign".
-5. Tool endpoints run mid-phone-call. Target under 300ms. No N+1 queries.
-6. Menu lookups must be fuzzy and alias-aware — speech-to-text mishears food names constantly.
-7. RLS stays enabled on every table.
-8. This Supabase project has "automatically expose new tables" ON. RLS policies control access. Do not add GRANT statements.
-
-## Supabase notes
-Supabase renamed its API keys. The publishable key is stored in `NEXT_PUBLIC_SUPABASE_ANON_KEY` and the secret key in `SUPABASE_SERVICE_ROLE_KEY`. These names are kept for familiarity — do not rename them.
-
-Schema lives in `supabase/migrations/`. The owner pastes migrations into the Supabase SQL Editor manually.
-
-## Owner
-The owner is learning and does not run terminal commands himself.
-- Run every command yourself.
-- Explain each file in 2-3 plain sentences before writing it.
-- Do not assume advanced programming knowledge.
-- When a decision has a trade-off, present the options instead of silently choosing.
-
-## Phases
-- Phase 1 (current): database schema + tool API endpoints
-- Phase 2: test the ordering conversation as text
-- Phase 3: kitchen board + owner dashboard
-- Phase 4: Vapi assistant wired to the endpoints
-- Phase 5: Twilio number, concurrency test, demo video
+UK/Europe ke takeaways ke liye AI voice agent: Vapi live phone call mein is app ke `/api/tools/*` endpoints ko tools ki tarah bulata hai (menu search, order, booking, delivery check). Saath mein restaurant staff ka dashboard/POS (orders board, bookings, tables, settings, print bill/KOT). Demo restaurant "Napoli Pizza & Grill" (Manchester); doosra client "Olive 'n Spice" (public site + POS). Owner restaurant owners ko yeh bechna chahta hai.
+Stack: Next.js 16 App Router + TypeScript + Tailwind, Supabase (Postgres), Vercel, vitest.
 
 ## Commands
-- `npm run dev` — start the local dev server
-- `npm test` — run vitest
-- `npm run build` — production build
+- `npm run dev` dev server | `npm run build` production build
+- `npm run lint` | `npm run type-check` (tsc --noEmit)
+- `npm run test:pure` network-free tests (~1s), development mein bar bar
+- `npm run test:file -- tests/<naam>.test.ts` ek file (live DB wali ho to .env.local chahiye)
+- `npm test` poora suite (live Supabase, slow) — stage ke aakhir mein EK dafa
+
+## Folders
+- `app/api/tools/*` voice agent endpoints | `app/api/staff/*` dashboard actions | `app/dashboard/*` staff pages | `app/olive-n-spice/*` public site
+- `lib/` server logic (money, order-pricing, auth, session, hosts, delivery, booking...), `lib/agent/` prompts/tools, `lib/supabase/{server,client}.ts`
+- `supabase/migrations/` schema (0001...), `supabase/seed*.sql`
+- `tests/` vitest (`*.pure.test.ts` = network-free), `tests/helpers/` | `scripts/` | `proxy.ts` host routing + dashboard guard
+- Poora nakshah: `docs/ARCHITECTURE.md`. Stage ki halat: `docs/PROGRESS.md`.
+
+## Standing qaide (har stage mein)
+1. Reports Roman Urdu mein, 40 lines se kam, is tarteeb se: (1) kya badla (files) (2) tests (3) migration chahiye? (4) farq/sawal. Code aur comments English mein.
+2. Database ki tabdeeli sirf migration/SQL file se, jo owner clipboard ke zariye Supabase SQL Editor mein khud run karta hai. Service key ya CLI se seedha schema/data mat badlo. Naye functions par `anon` aur `authenticated` ka EXECUTE revoke karo (dekho 0020). GRANT statements nahi (tables "auto expose" hain, RLS control karti hai).
+3. Koi naya npm package nahi. Koi secret plain-text nahi (file, log, test, commit, report).
+4. `restaurant_id` hamesha session se (`requireStaff()` / `requireStaffPage()`); body ka alag `restaurant_id` = 403. Kabhi body ya constant se nahi.
+5. Paisa sirf `computeBill` (lib/order-pricing.ts) aur `formatMoney` (lib/money.ts) se. Body ki prices/totals/IDs par bharosa nahi: DB se dobara hisab.
+6. Tests sirf throwaway "vitest-run-" restaurants/rows par; Napoli aur Olive ki live rows kabhi nahi badalni. Tests kabhi skip, kam ya kamzor nahi; fail ho to asal wajah theek karo.
+7. Do vitest runs kabhi ek saath nahi (globalSetup doosre ke "vitest-run-" rows mita deta hai).
+8. Context bachao: pehle CLAUDE.md/ARCHITECTURE.md, bade search ke liye Explore subagent, lambi output nahi (`tail`, `--reporter=dot`), development mein sirf mutaliqa tests, poora suite aakhir mein EK dafa.
+9. Commit/push khud nahi. Kaam ke baad likho: "Ab commit aur push ka waqt hai. Commit message: ..." aur sirf owner ke "commit push kar do" par commit + main par push, phir Vercel deploy READY hone ka intezar.
+10. Stage khatam hone par docs/PROGRESS.md update karo, phir likho "Ab /clear kar sakte hain." Context bhar raha ho to batao ke /compact ka waqt hai. Ek stage = ek session.
+11. Owner programmer nahi: har command khud chalao, har file likhne se pehle 2-3 saaf jumlon mein batao, trade-off ho to options do.
+
+## Project ke qaide (tool endpoints)
+- `SUPABASE_SERVICE_ROLE_KEY` server-only: `lib/supabase/server.ts` kabhi client component mein import nahi (RLS bypass).
+- Har `/api/tools/*` route sab se pehle `x-tool-secret` verify kare (`requireToolSecret`).
+- Har tool response mein chhota `speech` string; prices "8.99" likho, "£8.99" nahi (TTS "pound sign" bolta hai).
+- Tool endpoints call ke dauran chalte hain: 300ms se kam, N+1 queries nahi.
+- Menu lookup fuzzy aur alias-aware (speech-to-text khane ke naam galat sunta hai).
+- RLS har table par enabled rahe.
+
+## Supabase notes
+Key names purane hi hain, rename mat karo: publishable key `NEXT_PUBLIC_SUPABASE_ANON_KEY`, secret key `SUPABASE_SERVICE_ROLE_KEY`. Env variable ke sirf naam: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, TOOL_API_SECRET, ANTHROPIC_API_KEY, SESSION_SECRET.
 
 ## Dashboard auth
-Each restaurant has its own staff logins (table `staff_accounts`, migration 0017): username + scrypt password hash, role `owner` or `staff`, 5 wrong passwords lock the account for 15 minutes. A login gives a signed cookie (`staff_session`, HMAC-SHA256 with `SESSION_SECRET`, 12 hours) holding staff id, restaurant id and role.
-- The restaurant for /dashboard and /api/staff/* ALWAYS comes from that session (`requireStaff()` in lib/staff-auth.ts, `requireStaffPage()` in lib/staff-page.ts). Never from the request body or a constant. A body `restaurant_id` different from the session is a 403.
-- Every page load and every /api/staff/* call also looks the account up in `staff_accounts` (lib/staff-active.ts): `is_active = false`, a deleted account or a moved restaurant is refused at once (401), and the role is read from the database, so a demotion is instant too. Fails closed if the lookup errors.
-- New accounts: `node --env-file=.env.local scripts/create-staff-account.mjs --restaurant <id or exact name> --username <name> --role owner|staff` (prints a random password once).
-- The voice agent's /api/tools/* routes are separate (x-tool-secret) and do not use staff logins.
+Har restaurant ke apne staff logins (`staff_accounts`, migration 0017): username + scrypt hash, role `owner`/`staff`, 5 ghalat passwords par 15 minute lock. Login se signed cookie `staff_session` (HMAC-SHA256, `SESSION_SECRET`, 12 ghante) jis mein staff id, restaurant id, role hain.
+- /dashboard aur /api/staff/* ka restaurant HAMESHA session se.
+- Har page load aur /api/staff/* call `staff_accounts` mein account dobara dekhta hai (`lib/staff-active.ts`): `is_active=false`, delete ya restaurant badla = foran 401; role DB se parha jata hai. Lookup fail ho to band (fail closed).
+- Naya account: `node --env-file=.env.local scripts/create-staff-account.mjs --restaurant <id ya exact naam> --username <naam> --role owner|staff` (random password ek dafa chhapta hai).
+- Voice agent ke `/api/tools/*` alag hain (x-tool-secret), staff login use nahi karte.

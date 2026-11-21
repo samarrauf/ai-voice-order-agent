@@ -54,3 +54,7 @@ test-results/opening-hours-backup.json
 
 # local design previews (static HTML, not part of the app)
 design-samples/
+
+# logs and scratch files
+*.log
+scratch-*

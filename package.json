@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "type-check": "tsc --noEmit",
+    "test:pure": "vitest run --config vitest.pure.config.mts",
+    "test:file": "vitest run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
