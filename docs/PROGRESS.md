@@ -51,7 +51,13 @@ Phase D (baqi): QR table ordering, rider management.
 - `lint` script `eslint` hai; type-check ke liye ab `npm run type-check`.
 
 ## Agla stage
-A3a (glass design system, app shell, lib/nav.ts). A2 commit/push aur Vercel deploy READY ke baad.
+B10 (har page ka andar ka look naye glass design mein) aur home dashboard; navigation mein naya page lib/nav.ts mein ek line se judta hai. A3a commit/push ke baad.
+
+## A3a (glass design system) ka khulasa
+- Status: tokens (globals.css), lib/color.ts, lib/nav.ts, lib/lite-mode.ts, naye components/ui, app-shell.tsx (sidebar, top bar, avatar menu) aur login ka naya look tayyar; lint, type-check, build, poora suite pass; commit ka intezar. Screenshots design-samples/a3a/ (gitignored).
+- Faislay: purane tokens (surface/line/ink) hi glass values par le gaye, is liye saare purane pages khud naye look mein; accent resolveAccent() se (AA text, bohat gaharay accent halke kiye jate hain); print pages/readableOn/print.css untouched.
+- Faislay: Lite mode = html[data-lite] (blur/animation band, splash hidden); default weak device (<=4 cores) ya reduced-motion; user ka choice localStorage "dash-lite" mein, page paint se pehle inline script lagu karti hai.
+- Baqi masail: Orders page par apna "New Order" button top bar ke saath doharaya hai (B10 mein hataya jaye); search bar abhi nahi; Fraunces font hata diya (headings bhi Plus Jakarta Sans).
 
 ## A2 (P8c) ka khulasa
 - Status: migration 0023 owner ne run ki; lint, type-check, poora suite (38 files, 611 tests) aur build pass; commit ka intezar.

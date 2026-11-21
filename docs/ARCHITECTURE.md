@@ -4,7 +4,7 @@ Next 16.4.6 / React 19.3 / Supabase / vitest 5 / zod 4. Koi secret ya key ki val
 
 ## 1. Top-level folders
 - `app/` App Router: `api/`, `dashboard/`, `olive-n-spice/` (public site), `test-chat/`, `page.tsx`, `layout.tsx`, `globals.css`
-- `components/ui/` shared UI (button, card, kpi-card, status-badge, payment-status-badge, pill-tabs, filter-chips, skeleton, empty-state, page-header, cn.ts, index.ts)
+- `components/ui/` shared UI, import from `@/components/ui`: GlassCard (default/accent/flat), Card, KpiCard (accent, icon, count-up), Button (primary/secondary/ghost), IconButton, Badge (=Pill), FilterChips (=FilterPills), SearchInput, Avatar, Tooltip (CSS), SectionHeader, EmptyState, Skeleton, PageHeader, PillTabs, StatusBadge, NAV_ICONS (icons.tsx, lucide)
 - `lib/` server logic (neeche section 2) | `data/sites/olive-n-spice/{config,hero,menu}.ts` typed site data
 - `supabase/` `migrations/`, `seed.sql` (Napoli), `seed/olive-n-spice.sql`, `seed_tables.sql`
 - `scripts/`, `tests/`, `test-results/`, `design-samples/` (gitignored), `public/`, `proxy.ts`, `.claude/launch.json`
@@ -25,6 +25,7 @@ Next 16.4.6 / React 19.3 / Supabase / vitest 5 / zod 4. Koi secret ya key ki val
 - `delivery.ts` delivery rules (postcode/areas/none) | `staff-delivery.ts` POS side
 - `booking.ts` shared availability/create-booking | `opening-hours.ts` checkOpen | `restaurant-status.ts` open/closed + next open
 - `order-lookup.ts` past order by number+phone | `caller-details.ts` junk guard
+- `color.ts` contrast, onAccent, resolveAccent (dashboard accent, AA safe; print uses branding.readableOn) | `nav.ts` NAV_ITEMS + navFor(role) + pageTitleFor (nayi page = ek line) | `lite-mode.ts` decideLite + LITE_INIT_SCRIPT
 - `branding.ts` name/colours | `receipt.ts` receipt model | `receipt-data.ts` loadPrintData(orderId, restaurantId) | `print-links.ts` printBillHref/printKotHref
 - `settings.ts` owner settings validation | `speech.ts` speech helpers | `timing.ts` timed/startTimer
 - `agent/` system-prompt, prompt-variants, status-context, tools (voice agent prompt aur tools, per restaurant)
@@ -55,6 +56,9 @@ Next 16.4.6 / React 19.3 / Supabase / vitest 5 / zod 4. Koi secret ya key ki val
 - `priceLines` (DB se prices) -> `computeBill` (tax, service charge, discount, delivery fee, rounding step, pence integer math) -> `billForResponse`. Text mein paisa sirf `formatMoney`.
 - Order banana: `/api/tools/create-order` (voice) aur `/api/staff/manual-order` (POS), dono RPC `create_order_tx` + shared computeBill. Preview: `/api/staff/price-preview`. Payment: `/api/staff/record-payment` -> `record_payment_tx`.
 - Status: `/api/staff/update-order-status` (new|preparing|ready|completed; cancelled/completed final). Bookings: update-booking-status, seat-table, clear-table.
+
+## 7b. Dashboard shell
+`app/dashboard/layout.tsx` (session, branding, accent vars, pending-orders count, lite script) -> `app-shell.tsx` (client: floating sidebar lg+, bottom bar below lg, top bar, avatar menu with `lite-switch.tsx`, `restaurant-clock.tsx`). Glass tokens/classes (.glass, .glass-accent, .stagger, html[data-lite]) `app/globals.css`.
 
 ## 8. Print
 `app/dashboard/print/{bill,kot}/[orderId]/page.tsx`, `load.ts` (requireStaffPage + loadPrintData), `layout.tsx`, `print-controls.tsx` (400ms baad window.print()), `print.css`. Buttons: `app/dashboard/print-buttons.tsx` (orders board, POS). Links: `lib/print-links.ts`.

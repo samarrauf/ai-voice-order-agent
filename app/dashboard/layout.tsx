@@ -1,47 +1,70 @@
 import { Suspense } from "react";
 import type { CSSProperties } from "react";
-import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
-import { LockKeyhole, LogOut } from "lucide-react";
-import { type Branding, DEFAULT_BRANDING, getBranding, readableOn } from "@/lib/branding";
-import type { StaffRole } from "@/lib/permissions";
+import { Plus_Jakarta_Sans } from "next/font/google";
+import { LockKeyhole } from "lucide-react";
+import { DEFAULT_BRANDING, getBranding, readableOn } from "@/lib/branding";
+import { resolveAccent } from "@/lib/color";
+import { LITE_INIT_SCRIPT } from "@/lib/lite-mode";
 import { getStaffSession } from "@/lib/staff-page";
+import { supabaseAdmin } from "@/lib/supabase/server";
 import { cn } from "@/components/ui";
 import { logout } from "./actions";
-import { BottomNav, MainTabs, SecondaryLinks } from "./nav-links";
+import { AppShell } from "./app-shell";
 import { PasswordForm } from "./password/password-form";
-import { NewOrderLink } from "./new-order-link";
 import { Splash } from "./splash";
-import { TodayDate } from "./today-date";
 
-// Dashboard fonts: an elegant serif for headings, a modern sans for everything
-// else. next/font downloads them at build time and serves them from our own site.
-const displayFont = Fraunces({ subsets: ["latin"], variable: "--font-display-face" });
+// One geometric, rounded sans for the whole dashboard (headings and text).
+// next/font downloads it at build time and serves it from our own site.
+// Print pages keep their own fonts: they are styled by print/print.css.
 const uiFont = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-ui-face" });
 
-// Shared frame for every /dashboard page: a slim header (restaurant badge, name,
-// date, tabs, log out) and, on phones, a bottom navigation bar.
-// The dashboard is always dark and neutral; only the accent comes from the
-// restaurant's theme in the database (lib/branding.ts), set below as CSS
-// variables on the wrapper. See the design tokens in app/globals.css.
+// Shared frame for every /dashboard page: floating sidebar, top bar and, on
+// phones, a bottom bar (app-shell.tsx; the links live in lib/nav.ts).
+// The dashboard is always dark; only the accent comes from the restaurant's
+// theme in the database (lib/branding.ts). lib/color.ts makes it safe: text on
+// the accent always has AA contrast and a too-dark accent is lightened.
 // Every full page load also plays the splash screen (./splash.tsx).
 // The login page lives under /dashboard too, so when nobody is logged in we
-// skip the header and show a neutral login frame instead: before login we do
+// skip the shell and show a neutral login frame instead: before login we do
 // not know the restaurant, so no restaurant name, theme or splash is shown.
 // After login the restaurant (and so its theme) comes from the login session.
+
+/** Name, time zone and "new orders waiting" for the shell, read in parallel. All of them fail soft. */
+async function shellInfo(staff: { staffId: string; restaurantId: string }) {
+  const [restaurant, account, pending] = await Promise.all([
+    supabaseAdmin.from("restaurants").select("timezone").eq("id", staff.restaurantId).maybeSingle(),
+    supabaseAdmin.from("staff_accounts").select("username").eq("id", staff.staffId).eq("restaurant_id", staff.restaurantId).maybeSingle(),
+    supabaseAdmin
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq("restaurant_id", staff.restaurantId)
+      .in("status", ["new", "accepted"]),
+  ]);
+  return {
+    timeZone: restaurant.data?.timezone || "Europe/London",
+    username: account.data?.username || "Staff",
+    pendingOrders: pending.count ?? 0,
+  };
+}
+
 async function Shell({ children }: { children: React.ReactNode }) {
   const staff = await getStaffSession();
-  const branding = staff ? await getBranding(staff.restaurantId) : DEFAULT_BRANDING;
+  const [branding, info] = staff
+    ? await Promise.all([getBranding(staff.restaurantId), shellInfo(staff)])
+    : [DEFAULT_BRANDING, null];
 
+  const accent = resolveAccent(branding.accent, DEFAULT_BRANDING.accent);
   const themeVars = {
     "--color-primary": branding.primary,
-    "--color-accent": branding.accent,
+    "--color-accent": accent.accent,
     "--color-secondary": branding.secondary,
-    "--color-on-accent": readableOn(branding.accent),
+    "--color-on-accent": accent.onAccent,
+    "--accent-ink": accent.ink,
     "--splash-text": readableOn(branding.primary),
   } as CSSProperties;
 
   return (
-    <div style={themeVars} className={cn("dash", displayFont.variable, uiFont.variable)}>
+    <div style={themeVars} className={cn("dash", uiFont.variable)}>
       {staff?.mustChangePassword ? (
         // A new or reset account: only the password form (and log out) until a new password is chosen.
         // Every page shows it, whatever its URL; pages that load data also redirect here (requireStaffPage).
@@ -53,10 +76,19 @@ async function Shell({ children }: { children: React.ReactNode }) {
             </button>
           </form>
         </LoginFrame>
-      ) : staff ? (
+      ) : staff && info ? (
         <>
           <Splash branding={branding} />
-          <Frame branding={branding} role={staff.role}>{children}</Frame>
+          <AppShell
+            restaurantName={branding.name}
+            role={staff.role}
+            username={info.username}
+            timeZone={info.timeZone}
+            pendingOrders={info.pendingOrders}
+            logoutAction={logout}
+          >
+            {children}
+          </AppShell>
         </>
       ) : (
         <LoginFrame>{children}</LoginFrame>
@@ -65,65 +97,7 @@ async function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Round badge with the restaurant's first letter. Stands in for the logo until a real one is added. */
-function InitialBadge({ name, large }: { name: string; large?: boolean }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "flex shrink-0 items-center justify-center rounded-full bg-accent font-display font-semibold text-on-accent ring-1 ring-accent-line ring-offset-2 ring-offset-canvas",
-        large ? "size-16 text-3xl" : "size-10 text-lg",
-      )}
-    >
-      {name.trim().charAt(0).toUpperCase()}
-    </span>
-  );
-}
-
-function Frame({ branding, role, children }: { branding: Branding; role: StaffRole; children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-30 border-b border-line bg-canvas/85 backdrop-blur-md">
-        {/* Three parts on desktop: badge + name (left), tabs (exactly centred), links (right). */}
-        <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-3 px-4 sm:px-6 lg:grid lg:h-20 lg:grid-cols-[1fr_auto_1fr]">
-          <div className="flex min-w-0 items-center gap-3">
-            <InitialBadge name={branding.name} />
-            <div className="min-w-0">
-              <p className="truncate font-display text-lg font-semibold leading-tight">{branding.name}</p>
-              <p className="truncate text-xs text-ink-faint"><TodayDate /></p>
-            </div>
-          </div>
-
-          <div className="hidden lg:block">
-            <MainTabs />
-          </div>
-
-          <div className="ml-auto flex items-center gap-1 sm:gap-2 lg:justify-self-end">
-            <NewOrderLink compact />
-            <SecondaryLinks role={role} />
-            <form action={logout}>
-              <button
-                type="submit"
-                aria-label="Log out"
-                className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-line bg-raised px-3 text-sm font-semibold transition-colors duration-200 hover:border-line-strong sm:px-4"
-              >
-                <LogOut size={16} aria-hidden />
-                {/* Icon only between lg and xl: the centred tabs leave no room for the words there. */}
-                <span className="hidden whitespace-nowrap sm:inline lg:hidden xl:inline">Log out</span>
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
-
-      {/* Extra bottom padding below lg so the bottom navigation never covers content. */}
-      <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 pb-28 pt-6 sm:px-6 sm:pt-8 lg:pb-12">{children}</main>
-      <BottomNav />
-    </div>
-  );
-}
-
-/** What a logged-out visitor sees: a neutral badge over a soft glow, with the login form below it. */
+/** What a logged-out visitor sees: a neutral badge over the warm gradient, with the glass login card below it. */
 function LoginFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-10">
@@ -132,11 +106,11 @@ function LoginFrame({ children }: { children: React.ReactNode }) {
         <div className="mb-8 flex flex-col items-center text-center">
           <span
             aria-hidden
-            className="flex size-16 items-center justify-center rounded-full bg-raised text-ink ring-1 ring-line-strong ring-offset-2 ring-offset-canvas"
+            className="glass flex size-16 items-center justify-center rounded-full text-ink"
           >
             <LockKeyhole size={26} />
           </span>
-          <p className="mt-5 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Staff dashboard</p>
+          <p className="mt-5 font-display text-3xl font-bold tracking-tight sm:text-4xl">Staff dashboard</p>
           <p className="mt-2 text-xs font-medium uppercase tracking-[0.18em] text-ink-faint">Orders · Bookings · POS</p>
         </div>
         {children}
@@ -147,8 +121,12 @@ function LoginFrame({ children }: { children: React.ReactNode }) {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <Suspense fallback={null}>
-      <Shell>{children}</Shell>
-    </Suspense>
+    <>
+      {/* Runs before the first paint so Lite mode never flashes (lib/lite-mode.ts). */}
+      <script dangerouslySetInnerHTML={{ __html: LITE_INIT_SCRIPT }} />
+      <Suspense fallback={null}>
+        <Shell>{children}</Shell>
+      </Suspense>
+    </>
   );
 }

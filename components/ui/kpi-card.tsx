@@ -1,11 +1,17 @@
+import type { CSSProperties, ReactNode } from "react";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "./cn";
 
 type Delta = { percent: number; direction: "up" | "down"; versus: string };
 
+// Whole numbers up to this size count up from 0 on load (pure CSS, see .count in globals.css).
+const MAX_COUNT = 1_000_000;
+
 /**
- * One headline number: small label, big bold figure, and underneath either an
+ * One headline number: small label, big figure, and underneath either an
  * up/down comparison ("12% vs yesterday") or a plain note.
+ * `accent` fills the card with the restaurant's accent gradient (use for the first card only);
+ * `icon` adds a small round icon at the top right.
  */
 export function KpiCard({
   label,
@@ -13,6 +19,8 @@ export function KpiCard({
   prefix,
   delta,
   note,
+  icon,
+  accent,
   className,
 }: {
   label: string;
@@ -20,27 +28,43 @@ export function KpiCard({
   prefix?: string;
   delta?: Delta;
   note?: string;
+  icon?: ReactNode;
+  accent?: boolean;
   className?: string;
 }) {
+  const counts = /^\d{1,7}$/.test(value) && Number(value) <= MAX_COUNT;
   return (
-    <div
-      className={cn(
-        "rounded-2xl border border-line bg-surface p-4 transition-colors duration-200 hover:border-line-strong",
-        className,
-      )}
-    >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint">{label}</p>
-      <p className="mt-2 text-3xl font-bold leading-none tabular-nums">
-        {prefix && <span className="mr-0.5 text-base font-semibold text-ink-muted">{prefix}</span>}
-        {value}
+    <div className={cn("lift rounded-card p-5", accent ? "glass-accent" : "glass", className)}>
+      <div className="flex items-start justify-between gap-3">
+        <p className={cn("text-[11px] font-semibold uppercase tracking-[0.12em]", accent ? "opacity-80" : "text-ink-faint")}>{label}</p>
+        {icon && (
+          <span
+            aria-hidden
+            className={cn("flex size-9 shrink-0 items-center justify-center rounded-full", accent ? "bg-black/15" : "bg-raised text-ink-muted")}
+          >
+            {icon}
+          </span>
+        )}
+      </div>
+      <p className="mt-3 text-4xl font-extrabold leading-none tracking-tight tabular-nums">
+        {prefix && <span className={cn("mr-0.5 text-lg font-semibold", accent ? "opacity-80" : "text-ink-muted")}>{prefix}</span>}
+        {counts ? (
+          <>
+            <span className="sr-only">{value}</span>
+            <span aria-hidden className="count" style={{ "--to": Number(value) } as CSSProperties} />
+          </>
+        ) : (
+          value
+        )}
       </p>
-      <p className="mt-3 flex items-center gap-1.5 text-xs text-ink-faint">
+      <p className={cn("mt-4 flex items-center gap-1.5 text-xs", accent ? "opacity-85" : "text-ink-faint")}>
         {delta ? (
           <>
             <span
               className={cn(
-                "inline-flex items-center gap-1 font-semibold tabular-nums",
-                delta.direction === "up" ? "text-status-ready" : "text-danger",
+                "inline-flex items-center gap-1 rounded-full px-2 py-1 font-semibold tabular-nums",
+                delta.direction === "up" ? "bg-success/15 text-success" : "bg-danger/15 text-danger",
+                accent && "bg-black/20 text-inherit",
               )}
             >
               {delta.direction === "up" ? <TrendingUp size={14} aria-hidden /> : <TrendingDown size={14} aria-hidden />}

@@ -5,6 +5,8 @@ const VARIANT = {
   // The one filled, accent-coloured button per area: the main thing to press.
   primary: "bg-accent text-on-accent hover:brightness-110 active:brightness-95",
   // Quiet outlined button for secondary actions (Refresh, Export, Log out).
+  // Soft glass button: next to a primary one.
+  secondary: "border border-line-strong bg-ink/10 text-ink hover:bg-ink/15",
   ghost: "border border-line bg-raised text-ink hover:border-line-strong",
 } as const;
 

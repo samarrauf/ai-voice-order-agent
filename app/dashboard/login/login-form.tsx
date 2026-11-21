@@ -11,9 +11,9 @@ const inputClass =
 export function LoginForm() {
   const [state, action, pending] = useActionState<LoginState, FormData>(login, { error: null, username: "" });
   return (
-    <form action={action} className="flex w-full flex-col gap-5 rounded-2xl border border-line bg-surface p-6 shadow-2xl shadow-black/40 sm:p-8">
+    <form action={action} className="flex w-full flex-col gap-5 glass rounded-card p-6 sm:p-8">
       <div>
-        <h1 className="font-display text-2xl font-semibold tracking-tight">Staff sign in</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight">Staff sign in</h1>
         <p className="mt-1 text-sm text-ink-muted">Use the username and password from your restaurant.</p>
       </div>
 

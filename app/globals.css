@@ -22,21 +22,29 @@
   --color-secondary: #64748b;
   --color-on-accent: #ffffff; /* readable text on top of the accent */
 
-  /* --- Neutral dark surfaces (same for every restaurant) ---------------- */
-  --color-canvas: #0b0b0b;      /* page background */
-  --color-surface: #111214;     /* cards */
-  --color-raised: #17181b;      /* things sitting on a card: chips, inputs */
-  --color-line: #222327;        /* thin borders */
-  --color-line-strong: #34363c; /* borders on hover */
-  --color-ink: #f4f4f5;         /* main text */
-  --color-ink-muted: #a3a3ad;   /* secondary text */
-  --color-ink-faint: #6e6f78;   /* labels, hints */
+  /* --- Glass surfaces (same for every restaurant) -----------------------
+     Surfaces are a light white overlay on the warm gradient (.dash). Lite mode
+     (html[data-lite], see lib/lite-mode.ts) swaps them for semi-solid colours. */
+  --color-canvas: #16110d;                 /* page background (under the gradient) */
+  --color-surface: rgb(255 255 255 / 0.06); /* glass cards */
+  --color-raised: rgb(255 255 255 / 0.09);  /* things on a card: chips, inputs */
+  --color-line: rgb(255 255 255 / 0.11);    /* thin borders */
+  --color-line-strong: rgb(255 255 255 / 0.22); /* borders on hover */
+  --color-ink: #f7f2ed;         /* text level 1: main */
+  --color-ink-muted: #bdb3aa;   /* text level 2: secondary */
+  --color-ink-faint: #9b9189;   /* text level 3: labels, hints (AA on the dark glass) */
 
   /* --- Meaning colours (order status, up/down arrows, errors) ----------- */
   --color-status-new: #60a5fa;
   --color-status-preparing: #fbbf24;
   --color-status-ready: #34d399;
   --color-danger: #f87171;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+
+  /* --- Shape and depth --------------------------------------------------- */
+  --radius-card: 1.5rem;  /* 24px: rounded-card */
+  --shadow-glass: 0 10px 40px -12px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.06);
 
   /* --- Conversation lead badges ------------------------------------------
      Warm = amber (status-preparing), Follow-up = blue (status-new) and
@@ -51,7 +59,7 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   /* Dashboard fonts (loaded with next/font in app/dashboard/layout.tsx). */
-  --font-display: var(--font-display-face), ui-serif, Georgia, serif;
+  --font-display: var(--font-ui-face), ui-sans-serif, system-ui, sans-serif;
   --font-ui: var(--font-ui-face), ui-sans-serif, system-ui, sans-serif;
   /* Shades of the accent, worked out in .dash below. */
   --color-accent-ink: var(--accent-ink);
@@ -76,16 +84,65 @@ body {
    Everything under /dashboard sits inside .dash. The accent shades are
    calculated here (not on :root) so they follow the restaurant's accent. */
 .dash {
-  --accent-ink: color-mix(in oklab, var(--color-accent) 78%, white); /* accent as text on dark */
+  /* The layout sets --accent-ink from lib/color.ts (AA contrast on the dark glass); these are fallbacks. */
+  --accent-ink: color-mix(in oklab, var(--color-accent) 78%, white);
   --accent-soft: color-mix(in oklab, var(--color-accent) 14%, transparent);
   --accent-line: color-mix(in oklab, var(--color-accent) 42%, transparent);
+  --glass-blur: 16px;
   min-height: 100vh;
-  background: var(--color-canvas);
+  /* Warm dark gradient; two soft glows take the restaurant accent, so Napoli and Olive differ. */
+  background-color: var(--color-canvas);
+  background-image:
+    radial-gradient(60rem 36rem at 88% -8%, color-mix(in oklab, var(--color-accent) 20%, transparent), transparent 70%),
+    radial-gradient(48rem 36rem at -8% 108%, color-mix(in oklab, var(--color-accent) 11%, transparent), transparent 70%),
+    linear-gradient(160deg, #231a13 0%, #16110d 55%, #0e0a08 100%);
   color: var(--color-ink);
   font-family: var(--font-ui-face), ui-sans-serif, system-ui, sans-serif;
   color-scheme: dark;
 }
 body:has(.dash) { background: var(--color-canvas); }
+
+/* In @layer components so Tailwind utilities (rounded-none, border-x-0, bg-...) can still override them. */
+@layer components {
+  /* ---- Glass surfaces (components/ui/glass-card.tsx and friends) ---- */
+  .glass {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    box-shadow: var(--shadow-glass);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
+  }
+  .glass-accent {
+    color: var(--color-on-accent);
+    border: 1px solid color-mix(in oklab, var(--color-accent) 60%, white 25%);
+    background: linear-gradient(140deg, color-mix(in oklab, var(--color-accent) 92%, white) 0%, var(--color-accent) 45%, color-mix(in oklab, var(--color-accent) 62%, black) 100%);
+    box-shadow: 0 14px 40px -14px color-mix(in oklab, var(--color-accent) 70%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.3);
+  }
+  .glass-flat { background: var(--color-raised); border: 1px solid var(--color-line); }
+  /* Hover lift for cards that opt in. */
+  .lift { transition: transform 0.2s ease, border-color 0.2s ease; }
+  .lift:hover { transform: translateY(-2px); border-color: var(--color-line-strong); }
+}
+
+/* ---- Lite mode (lib/lite-mode.ts): no blur, no animation, solid-ish surfaces ---- */
+html[data-lite] {
+  --color-surface: #221b16;
+  --color-raised: #2b231d;
+  --color-line: #3a312a;
+  --color-line-strong: #51463d;
+  --shadow-glass: none;
+}
+html[data-lite] .dash,
+html[data-lite] .dash * {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  animation: none !important;
+  transition-duration: 0.01ms !important;
+}
+html[data-lite] .dash { background-image: linear-gradient(160deg, #231a13 0%, #16110d 60%, #0e0a08 100%); }
+html[data-lite] .splash { display: none; }
+html[data-lite] .lift:hover { transform: none; }
+
 .dash :focus-visible {
   outline: 2px solid var(--accent-ink);
   outline-offset: 2px;
@@ -124,7 +181,12 @@ body:has(.dash) { background: var(--color-canvas); }
 }
 
 /* ---- Animations (all CSS, all switched off for reduced motion) ---- */
-.anim-rise { animation: rise 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.anim-rise { animation: rise 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: min(calc(var(--i, 0) * 40ms), 120ms); }
+/* Page children rise one after another: 40ms steps, 120ms at most, 400ms in total. */
+.stagger > * { animation: rise 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.stagger > :nth-child(2) { animation-delay: 40ms; }
+.stagger > :nth-child(3) { animation-delay: 80ms; }
+.stagger > :nth-child(n + 4) { animation-delay: 120ms; }
 /* A freshly arrived order: slides in, then its ring glows three times. */
 .order-new {
   animation:
@@ -154,7 +216,8 @@ body:has(.dash) { background: var(--color-canvas); }
   to { background-position: -200% 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .anim-rise, .order-new, .dot-pulse, .skeleton { animation: none; }
+  .anim-rise, .order-new, .dot-pulse, .skeleton, .stagger > * { animation: none; }
+  .lift:hover { transform: none; }
   .dash * { transition-duration: 0.01ms !important; }
 }
 
@@ -228,3 +291,17 @@ body:has(.dash) { background: var(--color-canvas); }
 @media (prefers-reduced-motion: reduce) {
   .splash-glow, .splash-name { animation: none; }
 }
+
+/* ---- Count-up numbers (components/ui/kpi-card.tsx): pure CSS, via a registered integer ---- */
+@property --count { syntax: "<integer>"; inherits: false; initial-value: 0; }
+.count {
+  --count: var(--to); /* without @property support the final number simply shows */
+  counter-reset: c var(--count);
+  animation: count-up 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.count::after { content: counter(c); }
+@keyframes count-up { from { --count: 0; } }
+@media (prefers-reduced-motion: reduce) { .count { animation: none; } }
+
+/* Print pages: the shell must not leave space for the sidebar or top bar. */
+body:has(.print-root) .shell-pad { padding: 0 !important; }

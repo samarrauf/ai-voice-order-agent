@@ -8,7 +8,7 @@ export function Skeleton({ className }: { className?: string }) {
 /** A whole card-shaped placeholder: a heading line, a few text lines and a button-sized bar. */
 export function SkeletonCard({ className }: { className?: string }) {
   return (
-    <div aria-hidden className={cn("rounded-2xl border border-line bg-surface p-5", className)}>
+    <div aria-hidden className={cn("glass rounded-card p-5", className)}>
       <div className="flex items-center justify-between">
         <Skeleton className="h-6 w-24" />
         <Skeleton className="h-6 w-20 rounded-full" />
