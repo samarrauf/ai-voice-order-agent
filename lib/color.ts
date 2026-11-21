@@ -56,12 +56,17 @@ export function onAccent(hex: string): string {
   return contrastRatio(hex, ON_ACCENT_DARK) >= contrastRatio(hex, ON_ACCENT_LIGHT) ? ON_ACCENT_DARK : ON_ACCENT_LIGHT;
 }
 
+/** How much accent the "highlight" tint holds over the dark canvas (active nav item, selected chip). */
+export const HIGHLIGHT_MIX = 0.2;
+
 export type AccentSet = {
-  /** The accent to paint with (lightened if the given one would vanish on the dark background). */
+  /** Tier 1, the button colour (lightened if the given one would vanish on the dark background). */
   accent: string;
   /** Text colour on top of `accent`: AA contrast guaranteed. */
   onAccent: string;
-  /** The accent used as text on the dark background (AA contrast guaranteed). */
+  /** Tier 2, the soft highlight: a faint accent tint on the dark canvas (active/selected backgrounds). */
+  highlight: string;
+  /** Tier 3, text on the highlight: AA (4.5:1) against `highlight` and the canvas. Also the accent used as small text. */
   ink: string;
 };
 
@@ -74,9 +79,10 @@ export function resolveAccent(hex: unknown, fallback = "#3B82F6"): AccentSet {
   for (let i = 0; i < 20 && contrastRatio(accent, DASH_CANVAS) < MIN_ACCENT_VS_CANVAS; i++) {
     accent = mix(accent, "#FFFFFF", 0.12);
   }
+  const highlight = mix(DASH_CANVAS, accent, HIGHLIGHT_MIX);
   let ink = accent;
-  for (let i = 0; i < 20 && contrastRatio(ink, DASH_CANVAS) < AA_TEXT; i++) {
+  for (let i = 0; i < 20 && (contrastRatio(ink, DASH_CANVAS) < AA_TEXT || contrastRatio(ink, highlight) < AA_TEXT); i++) {
     ink = mix(ink, "#FFFFFF", 0.12);
   }
-  return { accent, onAccent: onAccent(accent), ink };
+  return { accent, onAccent: onAccent(accent), highlight, ink };
 }

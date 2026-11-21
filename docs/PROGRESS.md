@@ -71,3 +71,7 @@ B10 (har page ka andar ka look naye glass design mein) aur home dashboard; navig
 - Status: docs + scripts tayyar, commit ka intezar.
 - Faislay: pure tests ka naam `*.pure.test.ts`; alag `vitest.pure.config.mts` (globalSetup nahi).
 - Baqi masail: branding aur receipt tests env keys maangte hain, isliye pure nahi. Do vitest runs ek saath mat chalao: ek ka globalSetup doosre ke "vitest-run-" rows mita deta hai (full run mein staff-login 5 tests isi se fail hue, akele pass; 10 tests, 30s). Full suite ~600s.
+
+## A3a Olive brand colours
+- Olive logo ka asli rang gold #CFB12C (+ hara #009147); DB theme gold #C9A227 usi family ka hai, isliye DB nahi badli. `lib/color.ts` mein 3 darje (button, highlight, ink) aur `lib/login-theme.ts` (host se login: POS host = Olive logo+naam+gold, baqi neutral grey). Gradient `.glass-accent` halka kiya.
+- Tests: color.pure + login-theme.pure naye (pure suite 13 files pass). Screenshots: design-samples/a3a-olive/.

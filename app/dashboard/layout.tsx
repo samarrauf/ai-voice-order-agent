@@ -1,10 +1,12 @@
 import { Suspense } from "react";
+import { headers } from "next/headers";
 import type { CSSProperties } from "react";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { LockKeyhole } from "lucide-react";
 import { DEFAULT_BRANDING, getBranding, readableOn } from "@/lib/branding";
 import { resolveAccent } from "@/lib/color";
 import { LITE_INIT_SCRIPT } from "@/lib/lite-mode";
+import { loginThemeForHost, type LoginTheme } from "@/lib/login-theme";
 import { getStaffSession } from "@/lib/staff-page";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { cn } from "@/components/ui";
@@ -53,7 +55,9 @@ async function Shell({ children }: { children: React.ReactNode }) {
     ? await Promise.all([getBranding(staff.restaurantId), shellInfo(staff)])
     : [DEFAULT_BRANDING, null];
 
-  const accent = resolveAccent(branding.accent, DEFAULT_BRANDING.accent);
+  // Logged out: only the public look for this host (lib/login-theme.ts); unknown host = neutral.
+  const loginTheme = staff ? null : loginThemeForHost((await headers()).get("host"));
+  const accent = resolveAccent(loginTheme ? loginTheme.accent : branding.accent, DEFAULT_BRANDING.accent);
   const themeVars = {
     "--color-primary": branding.primary,
     "--color-accent": accent.accent,
@@ -68,7 +72,7 @@ async function Shell({ children }: { children: React.ReactNode }) {
       {staff?.mustChangePassword ? (
         // A new or reset account: only the password form (and log out) until a new password is chosen.
         // Every page shows it, whatever its URL; pages that load data also redirect here (requireStaffPage).
-        <LoginFrame>
+        <LoginFrame theme={null}>
           <PasswordForm forced />
           <form action={logout} className="mt-4 text-center">
             <button type="submit" className="text-sm font-semibold text-ink-faint hover:text-ink">
@@ -91,27 +95,32 @@ async function Shell({ children }: { children: React.ReactNode }) {
           </AppShell>
         </>
       ) : (
-        <LoginFrame>{children}</LoginFrame>
+        <LoginFrame theme={loginTheme}>{children}</LoginFrame>
       )}
     </div>
   );
 }
 
-/** What a logged-out visitor sees: a neutral badge over the warm gradient, with the glass login card below it. */
-function LoginFrame({ children }: { children: React.ReactNode }) {
+/** What a logged-out visitor sees: the restaurant's public name and logo (if the host is known), then the glass login card. */
+function LoginFrame({ children, theme }: { children: React.ReactNode; theme: LoginTheme | null }) {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-10">
       <div aria-hidden className="login-glow" />
       <div className="anim-rise relative w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <span
-            aria-hidden
-            className="glass flex size-16 items-center justify-center rounded-full text-ink"
-          >
-            <LockKeyhole size={26} />
-          </span>
-          <p className="mt-5 font-display text-3xl font-bold tracking-tight sm:text-4xl">Staff dashboard</p>
-          <p className="mt-2 text-xs font-medium uppercase tracking-[0.18em] text-ink-faint">Orders · Bookings · POS</p>
+          {theme?.logoSrc ? (
+            // The logo file has a white background, so it sits on a white badge.
+            <span className="flex items-center justify-center rounded-2xl bg-white px-5 py-3 shadow-lg">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={theme.logoSrc} alt={theme.name ?? ""} width={250} height={57} className="h-auto w-56 max-w-full" />
+            </span>
+          ) : (
+            <span aria-hidden className="glass flex size-16 items-center justify-center rounded-full text-ink">
+              <LockKeyhole size={26} />
+            </span>
+          )}
+          <p className="mt-5 font-display text-3xl font-bold tracking-tight sm:text-4xl">{theme?.logoSrc ? "Staff dashboard" : (theme?.name ?? "Staff dashboard")}</p>
+          <p className="mt-2 text-xs font-medium uppercase tracking-[0.18em] text-ink-faint">{theme?.name ? theme.name : "Orders · Bookings · POS"}</p>
         </div>
         {children}
       </div>

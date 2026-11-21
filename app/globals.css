@@ -114,9 +114,10 @@ body:has(.dash) { background: var(--color-canvas); }
   }
   .glass-accent {
     color: var(--color-on-accent);
-    border: 1px solid color-mix(in oklab, var(--color-accent) 60%, white 25%);
-    background: linear-gradient(140deg, color-mix(in oklab, var(--color-accent) 92%, white) 0%, var(--color-accent) 45%, color-mix(in oklab, var(--color-accent) 62%, black) 100%);
-    box-shadow: 0 14px 40px -14px color-mix(in oklab, var(--color-accent) 70%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.3);
+    border: 1px solid color-mix(in oklab, var(--color-accent) 80%, white);
+    /* Stays close to the brand colour: only a faint sheen (no pale, washed-out top like before). */
+    background: linear-gradient(140deg, var(--color-accent) 0%, var(--color-accent) 55%, color-mix(in oklab, var(--color-accent) 82%, black) 100%);
+    box-shadow: 0 14px 40px -14px color-mix(in oklab, var(--color-accent) 60%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.18);
   }
   .glass-flat { background: var(--color-raised); border: 1px solid var(--color-line); }
   /* Hover lift for cards that opt in. */

@@ -68,3 +68,31 @@ describe("resolveAccent", () => {
     expect(isHex("#3B82F")).toBe(false);
   });
 });
+
+describe("accent tiers (button, highlight, text on highlight)", () => {
+  const brands: Record<string, string> = {
+    "deep green": "#2F5D2A",
+    "logo green": "#009147",
+    "olive gold": "#C9A227",
+    "logo gold": "#CFB12C",
+    "blue": "#3B82F6",
+    "too dark": "#101010",
+  };
+  for (const [name, hex] of Object.entries(brands)) {
+    it(`${name}: text on button AA, ink AA on highlight and canvas, highlight is a faint tint`, () => {
+      const a = resolveAccent(hex);
+      expect(contrastRatio(a.onAccent, a.accent)).toBeGreaterThanOrEqual(AA_TEXT);
+      expect(contrastRatio(a.ink, a.highlight)).toBeGreaterThanOrEqual(AA_TEXT);
+      expect(contrastRatio(a.ink, DASH_CANVAS)).toBeGreaterThanOrEqual(AA_TEXT);
+      expect(luminance(a.highlight)).toBeLessThan(luminance(a.accent));
+      expect(luminance(a.highlight)).toBeGreaterThan(luminance(DASH_CANVAS));
+    });
+  }
+  it("keeps a brand green as the button colour (not turned gold or pale)", () => {
+    expect(resolveAccent("#2F5D2A").accent).not.toBe("#C9A227");
+    expect(resolveAccent("#009147").accent).toBe("#009147");
+  });
+  it("gold stays gold on the button", () => {
+    expect(resolveAccent("#C9A227").accent).toBe("#C9A227");
+  });
+});

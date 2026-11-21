@@ -25,7 +25,7 @@ export function LoginForm() {
             type="text"
             name="username"
             defaultValue={state.username}
-            placeholder="e.g. napoli-owner"
+            placeholder="Your username"
             autoComplete="username"
             autoCapitalize="none"
             autoCorrect="off"
