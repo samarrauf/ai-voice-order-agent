@@ -65,9 +65,17 @@ describe("session token (lib/session.ts)", () => {
   it("rejects a tampered signature, a different secret and badly formed tokens", () => {
     const t = signSession(staff, now, secret);
     const [payload, sig] = t.split(".");
-    const flipped = sig.slice(0, -1) + (sig.endsWith("A") ? "B" : "A");
-    expect(verifySession(`${payload}.${flipped}`, now, secret)).toBeNull();
-    expect(verifySession(t, now, randomSecret())).toBeNull();
+    // Change a real BYTE in the middle of the signature (decode, flip, re-encode). Flipping the
+    // last base64 character is not safe: its low bits are padding and can decode to the same bytes.
+    // Repeated with fresh secrets so every possible signature is exercised, not one lucky one.
+    for (let i = 0; i < 50; i++) {
+      const s = randomSecret();
+      const [p, g] = signSession(staff, now, s).split(".");
+      const bytes = Buffer.from(g, "base64url");
+      bytes[bytes.length >> 1] ^= 0xff;
+      expect(verifySession(`${p}.${bytes.toString("base64url")}`, now, s), `round ${i}`).toBeNull();
+      expect(verifySession(`${p}.${g}`, now, s), `untouched round ${i}`).not.toBeNull(); // the loop really tests tampering
+    }    expect(verifySession(t, now, randomSecret())).toBeNull();
     for (const bad of [undefined, null, "", "garbage", "a.b.c", `${payload}.`, `.${sig}`, "123.bad"]) {
       expect(verifySession(bad, now, secret)).toBeNull();
     }
