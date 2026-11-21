@@ -32,6 +32,8 @@ Stack: Next.js 16 App Router + TypeScript + Tailwind, Supabase (Postgres), Verce
 9. Commit/push khud nahi. Kaam ke baad likho: "Ab commit aur push ka waqt hai. Commit message: ..." aur sirf owner ke "commit push kar do" par commit + main par push, phir Vercel deploy READY hone ka intezar.
 10. Stage khatam hone par docs/PROGRESS.md update karo, phir likho "Ab /clear kar sakte hain." Context bhar raha ho to batao ke /compact ka waqt hai. Ek stage = ek session.
 11. Owner programmer nahi: har command khud chalao, har file likhne se pehle 2-3 saaf jumlon mein batao, trade-off ho to options do.
+12. Koi bhi process ya browser kill mat karo (taskkill, Stop-Process waghera) bina owner se poochhe.
+13. Local mein session cookies (`staff_session`) khud mint/forge karne se pehle owner se poochho.
 
 ## Project ke qaide (tool endpoints)
 - `SUPABASE_SERVICE_ROLE_KEY` server-only: `lib/supabase/server.ts` kabhi client component mein import nahi (RLS bypass).
