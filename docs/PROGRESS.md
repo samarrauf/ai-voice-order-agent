@@ -58,8 +58,14 @@ Phase D (baqi): QR table ordering, rider management.
 - Restore: Menu page par "Archived" hissa; item_restore/category_restore (/api/staff/menu, koi migration nahi). Category restore sirf wohi items wapas laata hai jin ka archived_at category ke barabar hai; duplicate naam 409; archived category ka item pehle category restore maangta hai. menu_changes mein likha jata hai.
 - Test hygiene: orders restaurants se cascade nahi hote, isliye throwaway restaurant hatane se pehle orders hatao.
 
+## P3a (Tables & venue) ka khulasa
+- Status: migration 0026 owner ne run ki; /dashboard/tables (live floor sab roles ko, editor tables_edit: owner+manager), /api/staff/tables, lib/tables.ts (pure), lib/tables-data.ts; tests/tables.pure.test.ts + tables-venue.test.ts (25) pass; lint, type-check pass; poora suite (52 files, 855 tests) aur build pass; commit ka intezar.
+- Faislay: table delete nahi, sirf switch off (is_active); off tab hi hota hai jab koi baitha na ho aur aane wali confirmed booking na ho (90 min ke andar ki bhi). Seats chhoti karna bhi booked/baithi party se neeche nahi. Section off sirf jab us mein active table na ho; section id ka restaurant DB ke composite FK se bhi check hota hai.
+- Faislay: find_free_table, create_booking_tx (party_too_large sirf active tables par), seat-table, POS tables aur Home ka table count sirf is_active; 90 minute aur busy-status logic waisa hi. Floor se Clear table booking wale session par booking ko completed bhi karta hai (warna 90 min busy rehti).
+- Baqi masail: deactivate ka check aur update alag steps hain (booking beech mein aa jaye to bahut kam imkaan, race); floor ka UI browser mein login ke sath dekha nahi gaya (staff cookie banane se pehle poochna hota hai); section reorder up/down buttons se, drag nahi; table delete ka koi raasta nahi.
+
 ## Agla stage
-B5 (Reports: dashboard-stats aur lib/profit-data.ts ka wahi hisaab), B10 (har page ka andar ka look naye glass design mein), B3 (Tables). Navigation mein naya page lib/nav.ts mein ek line se judta hai. B2 commit/push ke baad.
+B5 (Reports: dashboard-stats aur lib/profit-data.ts ka wahi hisaab), B10 (har page ka andar ka look naye glass design mein). P3a (Tables) ho gaya. Navigation mein naya page lib/nav.ts mein ek line se judta hai. B2 commit/push ke baad.
 
 ## B2 (cost, expenses, profit) ka khulasa
 - Status: migration 0025 owner ne run ki; menu editor mein Cost (owner), POS/Orders board par owner ki "Cost · Profit" line, Home par Net profit card, /dashboard/expenses (add, filter, void, summary); lint, type-check, build, poora suite pass.

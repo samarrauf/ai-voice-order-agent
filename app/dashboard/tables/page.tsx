@@ -1,43 +1,40 @@
-import { LayoutGrid } from "lucide-react";
-import { Badge, Card, CardHeader, EmptyState, KpiCard, PageHeader } from "@/components/ui";
+import { Card, PageHeader } from "@/components/ui";
+import { can } from "@/lib/permissions";
+import { requireStaffPage } from "@/lib/staff-page";
+import { loadFloor, type Floor } from "@/lib/tables-data";
+import { AutoRefresh } from "../auto-refresh";
+import { TablesEditor } from "./tables-editor";
+import { TablesFloor } from "./tables-floor";
 
-// Tables: the dining room floor: which tables are free, seated or booked.
-// Layout only for now; live table status is wired in during a later phase.
+// Tables & venue (P3a). Everyone logged in sees the live floor and can seat / clear a table
+// (capability seat_table). Only tables_edit (owner and manager) also gets the editor below it;
+// /api/staff/tables refuses everyone else with 403. The restaurant comes from the login session.
 
-const KPIS = ["Free", "Seated", "Booked next", "Seats in use"];
+export default async function TablesPage() {
+  const me = await requireStaffPage();
+  const rid = me.restaurantId;
 
-export default function TablesPage() {
+  let floor: Floor;
+  try {
+    floor = await loadFloor(rid);
+  } catch (e) {
+    console.error("tables page: could not load", e instanceof Error ? e.message : e);
+    return (
+      <div className="anim-rise">
+        <PageHeader title="Tables" />
+        <Card>
+          <p className="text-sm text-ink-muted">Could not load the tables. Please refresh the page.</p>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="anim-rise">
-      <PageHeader
-        title="Tables"
-        subtitle={
-          <span className="inline-flex flex-wrap items-center gap-2">
-            The dining room at a glance. <Badge>Coming soon</Badge>
-          </span>
-        }
-      />
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {KPIS.map((label) => (
-          <KpiCard key={label} label={label} value="–" />
-        ))}
-      </div>
-
-      <Card className="mt-4">
-        <CardHeader title="Floor" />
-        {/* Dashed tiles hint at where each table will sit. */}
-        <div aria-hidden className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-          {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="aspect-square rounded-xl border border-dashed border-line" />
-          ))}
-        </div>
-        <EmptyState
-          icon={<LayoutGrid size={20} />}
-          title="No data yet"
-          message="Each table shows here as free, seated or booked, with one tap to seat or clear it."
-        />
-      </Card>
+      <PageHeader title="Tables" subtitle="The dining room right now: who is sitting where, and what is booked soon." />
+      <AutoRefresh seconds={30} />
+      <TablesFloor floor={floor} restaurantId={rid} />
+      {can(me.role, "tables_edit") && <TablesEditor floor={floor} restaurantId={rid} />}
     </div>
   );
 }

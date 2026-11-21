@@ -88,7 +88,7 @@ async function loadOps(restaurantId: string, withTotals: boolean): Promise<HomeO
   const [running, waiting, tablesTotal, tablesSeated, live] = await Promise.all([
     supabaseAdmin.from("orders").select("id", { count: "exact", head: true }).eq("restaurant_id", restaurantId).in("status", [...OPEN_STATUSES]),
     supabaseAdmin.from("orders").select("id", { count: "exact", head: true }).eq("restaurant_id", restaurantId).eq("status", "new"),
-    supabaseAdmin.from("restaurant_tables").select("id", { count: "exact", head: true }).eq("restaurant_id", restaurantId),
+    supabaseAdmin.from("restaurant_tables").select("id", { count: "exact", head: true }).eq("restaurant_id", restaurantId).eq("is_active", true),
     supabaseAdmin.from("table_sessions").select("id", { count: "exact", head: true }).eq("restaurant_id", restaurantId).is("cleared_at", null),
     supabaseAdmin.from("orders").select(liveColumns).eq("restaurant_id", restaurantId).order("created_at", { ascending: false }).limit(5),
   ]);

@@ -59,7 +59,7 @@ async function Pos() {
       .eq("is_available", true)
       .order("group_name")
       .order("price_delta"),
-    supabaseAdmin.from("restaurant_tables").select("id, table_number, seats").eq("restaurant_id", rid),
+    supabaseAdmin.from("restaurant_tables").select("id, table_number, seats").eq("restaurant_id", rid).eq("is_active", true),
     supabaseAdmin.from("table_sessions").select("id, table_id, party_size").eq("restaurant_id", rid).is("cleared_at", null),
     activeDeliveryAreas(rid).order("label"),
   ]);

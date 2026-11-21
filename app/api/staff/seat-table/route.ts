@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
   // Three independent lookups, in parallel.
   const [tableRes, openRes, bookingRes] = await Promise.all([
-    supabaseAdmin.from("restaurant_tables").select("id, seats").eq("id", table_id).eq("restaurant_id", restaurant_id).maybeSingle(),
+    supabaseAdmin.from("restaurant_tables").select("id, seats, is_active").eq("id", table_id).eq("restaurant_id", restaurant_id).maybeSingle(),
     supabaseAdmin.from("table_sessions").select("id").eq("table_id", table_id).eq("restaurant_id", restaurant_id).is("cleared_at", null).limit(1),
     booking_id
       ? supabaseAdmin.from("bookings").select("id, status").eq("id", booking_id).eq("restaurant_id", restaurant_id).maybeSingle()
@@ -46,6 +46,7 @@ export async function POST(request: Request) {
     return fail("database lookup failed", 500);
   }
   if (!tableRes.data) return fail("table not found for this restaurant", 404);
+  if (!tableRes.data.is_active) return fail("table is switched off", 409);
   if (party_size > tableRes.data.seats) {
     return fail(`party of ${party_size} is more than this table seats (${tableRes.data.seats})`, 400);
   }
