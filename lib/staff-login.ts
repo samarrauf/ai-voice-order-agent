@@ -71,6 +71,63 @@ async function recordFailure(row: AccountRow, now: Date): Promise<void> {
   }
 }
 
+export type OwnPasswordCheck = { ok: true; passwordHash: string } | { ok: false; reason: "wrong" | "locked" | "unavailable" };
+
+/**
+ * The "current password" check on the change-password page (/api/staff/password).
+ * The SAME lock-out as login: a wrong password counts towards the same 5-tries
+ * counter (recordFailure), a locked account is refused even with the right
+ * password, and the right password clears the counter. Only this account's row is touched.
+ * "locked" is also returned for the wrong try that sets the lock.
+ */
+export async function checkOwnPassword(staffId: string, restaurantId: string, password: string, now = new Date()): Promise<OwnPasswordCheck> {
+  const { data, error } = await supabaseAdmin
+    .from("staff_accounts")
+    .select(ACCOUNT_SELECT)
+    .eq("id", staffId)
+    .eq("restaurant_id", restaurantId)
+    .maybeSingle();
+  if (error || !data) {
+    console.error("staff-login: could not read the account for a password check", error?.message ?? "not found");
+    return { ok: false, reason: "unavailable" };
+  }
+  const row = data as AccountRow;
+  const passwordOk = await verifyPassword(password, row.password_hash);
+  if (isLocked(row, now)) return { ok: false, reason: "locked" };
+
+  if (!passwordOk) {
+    await recordFailure(row, now);
+    return { ok: false, reason: row.failed_attempts + 1 >= MAX_FAILED_ATTEMPTS ? "locked" : "wrong" };
+  }
+
+  if (row.failed_attempts !== 0 || row.locked_until !== null) {
+    const { error: resetError } = await supabaseAdmin.from("staff_accounts").update({ failed_attempts: 0, locked_until: null }).eq("id", row.id);
+    if (resetError) {
+      console.error("staff-login: could not clear the failed-attempt counter", resetError.message);
+      return { ok: false, reason: "unavailable" };
+    }
+  }
+  return { ok: true, passwordHash: row.password_hash };
+}
+
+/**
+ * After a successful authenticateStaff: the account's current session_version
+ * (goes into the cookie) and whether it must change its password first.
+ * null if the lookup fails (the login is then refused).
+ */
+export async function loadLoginState(staffId: string): Promise<{ sessionVersion: number; mustChangePassword: boolean } | null> {
+  const { data, error } = await supabaseAdmin
+    .from("staff_accounts")
+    .select("session_version, must_change_password")
+    .eq("id", staffId)
+    .maybeSingle();
+  if (error || !data) {
+    console.error("staff-login: could not read the session version", error);
+    return null;
+  }
+  return { sessionVersion: data.session_version as number, mustChangePassword: data.must_change_password === true };
+}
+
 export async function authenticateStaff(rawUsername: unknown, rawPassword: unknown, now = new Date()): Promise<LoginResult> {
   const username = typeof rawUsername === "string" ? normalizeUsername(rawUsername) : "";
   const password = typeof rawPassword === "string" ? rawPassword : "";

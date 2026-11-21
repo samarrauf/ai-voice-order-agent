@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE, hasRole, verifySession, type StaffRole, type StaffSession } from "@/lib/session";
 import { confirmStaffActive } from "@/lib/staff-active";
+import { can, type Capability } from "@/lib/permissions";
 
 // Login check for /api/staff/* routes. These are for restaurant staff using
 // the dashboard, so they use the staff login cookie (lib/session.ts), NOT the
@@ -35,20 +36,35 @@ export async function getStaffFromRequest(request: Request): Promise<StaffSessio
 
 export type StaffCheck = { ok: true; staff: StaffSession } | { ok: false; response: NextResponse };
 
+const forbidden = (error = "forbidden") => NextResponse.json({ success: false, error }, { status: 403 });
+
 /**
  * Call first in every staff route:
  *   const auth = await requireStaff(request);
  *   if (!auth.ok) return auth.response;
  *   const rid = auth.staff.restaurantId;
- * No valid login, or the account was switched off -> 401. `{ role: "owner" }` -> a staff (non-owner) login gets 403.
+ * No valid login, the account was switched off, or an old session_version -> 401.
+ * `{ role: "owner" }` -> a login below that role gets 403 (prefer requireCapability).
+ * A login that must still change its password gets 403 "password_change_required"
+ * everywhere except routes that pass `allowPasswordChange: true` (the password route).
  */
-export async function requireStaff(request: Request, options: { role?: StaffRole } = {}): Promise<StaffCheck> {
+export async function requireStaff(
+  request: Request,
+  options: { role?: StaffRole; allowPasswordChange?: boolean } = {},
+): Promise<StaffCheck> {
   const staff = await getStaffFromRequest(request);
   if (!staff) return { ok: false, response: NextResponse.json({ success: false, error: "unauthorized" }, { status: 401 }) };
-  if (options.role && !hasRole(staff, options.role)) {
-    return { ok: false, response: NextResponse.json({ success: false, error: "forbidden" }, { status: 403 }) };
-  }
+  if (staff.mustChangePassword && !options.allowPasswordChange) return { ok: false, response: forbidden("password_change_required") };
+  if (options.role && !hasRole(staff, options.role)) return { ok: false, response: forbidden() };
   return { ok: true, staff };
+}
+
+/** requireStaff plus one capability from lib/permissions.ts: not allowed -> 403. */
+export async function requireCapability(request: Request, capability: Capability): Promise<StaffCheck> {
+  const auth = await requireStaff(request);
+  if (!auth.ok) return auth;
+  if (!can(auth.staff.role, capability)) return { ok: false, response: forbidden() };
+  return auth;
 }
 
 /**

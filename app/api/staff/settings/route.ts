@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { requireStaff } from "@/lib/staff-auth";
+import { requireCapability } from "@/lib/staff-auth";
 import { parseSettings } from "@/lib/settings";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 // Owner action: save one section of the restaurant's Settings.
 // Body: { section: "profile" | "money" | "orders" | "theme", values: { ... } }
-//   - Owner logins only (a staff login gets 403). The restaurant comes from the login.
+//   - Capability settings_edit (lib/permissions.ts: owner only; manager and staff get 403). The restaurant comes from the login.
 //   - Every value is checked (lib/settings.ts); anything unknown is refused.
 //     currency and timezone are read-only: sending them is a 400.
 //   - The save and its settings_audit row are written by ONE database function
@@ -17,7 +17,7 @@ const fail = (error: string, status: number, details?: string[]) =>
   NextResponse.json({ success: false, error, ...(details ? { details } : {}) }, { status });
 
 export async function POST(request: Request) {
-  const auth = await requireStaff(request, { role: "owner" });
+  const auth = await requireCapability(request, "settings_edit");
   if (!auth.ok) return auth.response;
   const { restaurantId: rid, staffId } = auth.staff;
 

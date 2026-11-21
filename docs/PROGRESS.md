@@ -7,8 +7,8 @@ Har stage ke aakhir mein yeh file update karna lazmi hai (status, faislay, masai
 | Stage | Kaam | Halat |
 |---|---|---|
 | A1 | Test hygiene | DONE (commit f54b2ad aur flaky-test fix 9bf94ba) |
-| A1b | Context setup (CLAUDE.md, docs, test:pure) | CURRENT |
-| A2 | P8c: staff accounts, manager role, lib/permissions.ts, password change | baqi |
+| A1b | Context setup (CLAUDE.md, docs, test:pure) | DONE (6267b95) |
+| A2 | P8c: staff accounts, manager role, lib/permissions.ts, password change | DONE (commit "P8c: staff management...") |
 | A3a | Glass design system aur naya app shell | baqi |
 | A3b | Naya Home dashboard (KPI, charts, animations) | baqi |
 | B1 | Menu editor aur photos | baqi |
@@ -51,7 +51,15 @@ Phase D (baqi): QR table ordering, rider management.
 - `lint` script `eslint` hai; type-check ke liye ab `npm run type-check`.
 
 ## Agla stage
-A2 (P8c). A1b commit/push aur Vercel deploy READY ke baad.
+A3a (glass design system, app shell, lib/nav.ts). A2 commit/push aur Vercel deploy READY ke baad.
+
+## A2 (P8c) ka khulasa
+- Status: migration 0023 owner ne run ki; lint, type-check, poora suite (38 files, 611 tests) aur build pass; commit ka intezar.
+- Faislay: capabilities sirf `lib/permissions.ts` mein; cookie mein `ver` (bina ver = 1, deploy par logout nahi); password change/reset, deactivate, role change = version +1; activate version nahi badhata.
+- Faislay: owner apne aap ko role/deactivate/reset nahi kar sakta ('self'); aakhri active owner protected; reset login lock bhi hata deta hai; naya password 16 chars, sirf ek response mein.
+- Must-change: layout har page par sirf password form, API 403 `password_change_required`; nav link `app/dashboard/nav-links.tsx` mein (lib/nav.ts A3a mein banega).
+- Security fix: password page ka ghalat "current password" ab login wale lockout counter mein (checkOwnPassword, 5 ghalat = 15 min lock, 429 "locked"); sahi password counter saaf karta hai.
+- Security fix: anon key se dono staff functions par 42501 permission denied ka test; authenticated role ka check owner ke SQL Editor wale read-only query se (test mein user JWT nahi). Baqi: `create-staff-account.mjs` sirf owner/staff.
 
 ## A1b ka khulasa
 - Status: docs + scripts tayyar, commit ka intezar.

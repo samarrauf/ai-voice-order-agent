@@ -3,10 +3,12 @@ import type { CSSProperties } from "react";
 import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
 import { LockKeyhole, LogOut } from "lucide-react";
 import { type Branding, DEFAULT_BRANDING, getBranding, readableOn } from "@/lib/branding";
+import type { StaffRole } from "@/lib/permissions";
 import { getStaffSession } from "@/lib/staff-page";
 import { cn } from "@/components/ui";
 import { logout } from "./actions";
 import { BottomNav, MainTabs, SecondaryLinks } from "./nav-links";
+import { PasswordForm } from "./password/password-form";
 import { NewOrderLink } from "./new-order-link";
 import { Splash } from "./splash";
 import { TodayDate } from "./today-date";
@@ -40,10 +42,21 @@ async function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div style={themeVars} className={cn("dash", displayFont.variable, uiFont.variable)}>
-      {staff ? (
+      {staff?.mustChangePassword ? (
+        // A new or reset account: only the password form (and log out) until a new password is chosen.
+        // Every page shows it, whatever its URL; pages that load data also redirect here (requireStaffPage).
+        <LoginFrame>
+          <PasswordForm forced />
+          <form action={logout} className="mt-4 text-center">
+            <button type="submit" className="text-sm font-semibold text-ink-faint hover:text-ink">
+              Log out
+            </button>
+          </form>
+        </LoginFrame>
+      ) : staff ? (
         <>
           <Splash branding={branding} />
-          <Frame branding={branding} isOwner={staff.role === "owner"}>{children}</Frame>
+          <Frame branding={branding} role={staff.role}>{children}</Frame>
         </>
       ) : (
         <LoginFrame>{children}</LoginFrame>
@@ -67,7 +80,7 @@ function InitialBadge({ name, large }: { name: string; large?: boolean }) {
   );
 }
 
-function Frame({ branding, isOwner, children }: { branding: Branding; isOwner: boolean; children: React.ReactNode }) {
+function Frame({ branding, role, children }: { branding: Branding; role: StaffRole; children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-canvas/85 backdrop-blur-md">
@@ -87,7 +100,7 @@ function Frame({ branding, isOwner, children }: { branding: Branding; isOwner: b
 
           <div className="ml-auto flex items-center gap-1 sm:gap-2 lg:justify-self-end">
             <NewOrderLink compact />
-            <SecondaryLinks isOwner={isOwner} />
+            <SecondaryLinks role={role} />
             <form action={logout}>
               <button
                 type="submit"

@@ -1,4 +1,4 @@
-import { randomBytes, scrypt, timingSafeEqual, type ScryptOptions } from "node:crypto";
+import { randomBytes, randomInt, scrypt, timingSafeEqual, type ScryptOptions } from "node:crypto";
 
 // Password hashing for staff logins. Node's built-in scrypt, no extra package.
 //
@@ -46,6 +46,17 @@ export async function verifyPassword(password: string, stored: string): Promise<
 
   const actual = await scryptAsync(password, salt, expected.length, { N: n, r, p, maxmem: 256 * 1024 * 1024 });
   return timingSafeEqual(actual, expected);
+}
+
+// No look-alike characters (0/O, 1/l/I), so a password read off the screen is typed right first time.
+const PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+export const GENERATED_PASSWORD_LENGTH = 16; // 56^16 = about 93 bits of randomness
+
+/** A strong random password for a new or reset account (shown once, never stored as it is). */
+export function generatePassword(length = GENERATED_PASSWORD_LENGTH): string {
+  let out = "";
+  for (let i = 0; i < length; i++) out += PASSWORD_ALPHABET[randomInt(PASSWORD_ALPHABET.length)];
+  return out;
 }
 
 let dummyHash: Promise<string> | null = null;

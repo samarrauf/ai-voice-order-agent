@@ -1,14 +1,15 @@
 import { Card, CardHeader, PageHeader } from "@/components/ui";
 import { SETTINGS_COLUMNS } from "@/lib/settings";
-import { requireStaffPage } from "@/lib/staff-page";
+import { requireCapabilityPage } from "@/lib/staff-page";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { SettingsForm, type SettingsValues } from "./settings-form";
 
-// Owner-only page. A staff login is sent back to /dashboard (requireStaffPage),
-// and /api/staff/settings refuses staff too. The restaurant comes from the login.
+// Capability settings_edit (owner only, lib/permissions.ts). Anyone else is sent
+// back to /dashboard, and /api/staff/settings refuses them too (403). The
+// restaurant comes from the login.
 
 export default async function SettingsPage() {
-  const { restaurantId } = await requireStaffPage({ role: "owner" });
+  const { restaurantId } = await requireCapabilityPage("settings_edit");
 
   const [restaurant, audit] = await Promise.all([
     supabaseAdmin.from("restaurants").select(SETTINGS_COLUMNS.join(", ")).eq("id", restaurantId).maybeSingle(),

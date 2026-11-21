@@ -84,7 +84,7 @@ async function healNapoli(db: SupabaseClient) {
 }
 
 /** Delete throwaway rows. Children are removed explicitly (delivery_areas, settings_audit,
- *  order_payments, staff_accounts), even though deleting their restaurant would cascade. */
+ *  order_payments, staff_account_events, staff_accounts), even though deleting their restaurant would cascade. */
 async function removeLeftovers(db: SupabaseClient) {
   const leftovers = await Promise.all([
     db.from("bookings").delete().like("menu_preferences", MARKER).select("id"),
@@ -104,7 +104,7 @@ async function removeLeftovers(db: SupabaseClient) {
   const ids = (found.data ?? []).map((x) => x.id).filter((id) => id !== RID);
   const children: { data: unknown[] | null; error: unknown }[] = [];
   if (ids.length) {
-    for (const table of ["order_payments", "settings_audit", "delivery_areas", "staff_accounts"]) {
+    for (const table of ["order_payments", "settings_audit", "delivery_areas", "staff_account_events", "staff_accounts"]) {
       children.push(await db.from(table).delete().in("restaurant_id", ids).select("id"));
     }
   }

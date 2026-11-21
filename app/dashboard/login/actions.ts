@@ -3,7 +3,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE, sessionCookieOptions, signSession } from "@/lib/session";
-import { authenticateStaff } from "@/lib/staff-login";
+import { authenticateStaff, loadLoginState } from "@/lib/staff-login";
+import { PASSWORD_PAGE } from "@/lib/staff-page";
 
 export type LoginState = { error: string | null; username: string };
 
@@ -17,6 +18,10 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   const result = await authenticateStaff(username, formData.get("password"));
   if (!result.ok) return { error: result.reason === "unavailable" ? UNAVAILABLE : INVALID, username };
 
-  (await cookies()).set(SESSION_COOKIE, signSession(result.staff), sessionCookieOptions());
-  redirect("/dashboard");
+  const state = await loadLoginState(result.staff.staffId);
+  if (!state) return { error: UNAVAILABLE, username };
+
+  (await cookies()).set(SESSION_COOKIE, signSession({ ...result.staff, sessionVersion: state.sessionVersion }), sessionCookieOptions());
+  // A new or reset account picks its own password before anything else.
+  redirect(state.mustChangePassword ? PASSWORD_PAGE : "/dashboard");
 }

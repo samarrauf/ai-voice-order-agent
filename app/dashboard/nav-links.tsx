@@ -2,8 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, LayoutDashboard, LayoutGrid, MessagesSquare, ReceiptText, Settings, Users, UtensilsCrossed } from "lucide-react";
+import {
+  CalendarDays,
+  KeyRound,
+  LayoutDashboard,
+  LayoutGrid,
+  MessagesSquare,
+  ReceiptText,
+  Settings,
+  UserCog,
+  Users,
+  UtensilsCrossed,
+} from "lucide-react";
 import { PillTabs, cn, isActiveTab } from "@/components/ui";
+import { can, type StaffRole } from "@/lib/permissions";
 
 // The five main sections. Orders stays at /dashboard (where login lands).
 const TABS = [
@@ -25,11 +37,17 @@ export function MainTabs() {
   return <PillTabs tabs={TABS} />;
 }
 
-/** Tables + Menu: small text links on wide screens, icon buttons on narrow ones. */
-export function SecondaryLinks({ isOwner = false }: { isOwner?: boolean }) {
+/** Tables, Menu, Staff, Settings, Password: small text links on wide screens, icon buttons on narrow ones. */
+export function SecondaryLinks({ role }: { role: StaffRole }) {
   const pathname = usePathname();
-  // Settings is for owners only; staff never see the link (the page and the API refuse them too).
-  const links = isOwner ? [...SECONDARY, { href: "/dashboard/settings", label: "Settings", icon: Settings }] : SECONDARY;
+  // Staff and Settings only show for roles that may use them (lib/permissions.ts);
+  // the pages and the API refuse everyone else too. Everyone can change their own password.
+  const links = [
+    ...SECONDARY,
+    ...(can(role, "staff_manage") ? [{ href: "/dashboard/staff", label: "Staff", icon: UserCog }] : []),
+    ...(can(role, "settings_edit") ? [{ href: "/dashboard/settings", label: "Settings", icon: Settings }] : []),
+    { href: "/dashboard/password", label: "Password", icon: KeyRound },
+  ];
   return (
     <div className="flex items-center">
       {links.map((link) => {
