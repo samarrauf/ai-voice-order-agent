@@ -1,6 +1,7 @@
 import {
   CalendarDays,
   KeyRound,
+  House,
   LayoutDashboard,
   Armchair,
   MessagesSquare,
@@ -16,6 +17,7 @@ import type { NavIconName } from "@/lib/nav";
 // lucide-react is already a dependency, so no hand-drawn SVGs are needed.
 // One map from lib/nav.ts icon names to the real icons.
 export const NAV_ICONS: Record<NavIconName, LucideIcon> = {
+  home: House,
   orders: ReceiptText,
   overview: LayoutDashboard,
   bookings: CalendarDays,

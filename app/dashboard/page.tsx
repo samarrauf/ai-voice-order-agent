@@ -1,87 +1,123 @@
 import { Suspense } from "react";
-import { requireStaffPage } from "@/lib/staff-page";
-import { DEFAULT_CURRENCY } from "@/lib/money";
-import { supabaseAdmin } from "@/lib/supabase/server";
 import { CircleAlert } from "lucide-react";
 import { Card, EmptyState, Skeleton, SkeletonCard } from "@/components/ui";
-import { OrdersBoard, type BoardOrder } from "./orders-board";
+import { loadHome, type HomeData } from "@/lib/dashboard-home";
+import { isRangeKey, type RangeKey } from "@/lib/dashboard-stats";
+import { requireStaffPage } from "@/lib/staff-page";
+import { supabaseAdmin } from "@/lib/supabase/server";
+import { AutoRefresh } from "./auto-refresh";
+import { CollectedCard, KpiRow, LiveList, MixCard, QuickCards, RangePills, SalesChart } from "./home-parts";
 
-// Orders (was "Live Orders"): every order (phone, walk-in, table booking), newest first.
-// One query pulls the orders with their items and the table number (if any).
-async function Orders() {
-  // The restaurant always comes from the login session.
-  const { restaurantId } = await requireStaffPage();
-  const currencyRes = await supabaseAdmin.from("restaurants").select("currency").eq("id", restaurantId).maybeSingle();
-  const currency = currencyRes.data?.currency ?? DEFAULT_CURRENCY;
-  const { data, error } = await supabaseAdmin
-    .from("orders")
-    .select(
-      `id, order_number, status, source, total, payment_status, created_at,
-       order_items ( item_name, size_name, quantity ),
-       table_sessions ( restaurant_tables ( table_number ) )`,
-    )
-    .eq("restaurant_id", restaurantId)
-    .order("created_at", { ascending: false })
-    .limit(150);
+// Home: the first page after login (the live orders board moved to /dashboard/orders).
+// Owner and manager (view_reports) see sales, charts and payments; staff see only what
+// is going on right now (orders in progress, waiting orders, tables, latest orders).
+// All data comes from lib/dashboard-home.ts, which also enforces that split.
 
-  if (error) {
-    console.error("dashboard: failed to load orders", error);
+/** "owner-ali" -> "Owner-ali": the login name is all we have to greet with. */
+const greetingName = (username: string) => (username ? username.charAt(0).toUpperCase() + username.slice(1) : "there");
+
+async function Home({ searchParams }: { searchParams: Promise<{ range?: string | string[] }> }) {
+  // The restaurant and role always come from the login session.
+  const staff = await requireStaffPage();
+  const params = await searchParams;
+  const rawRange = Array.isArray(params.range) ? params.range[0] : params.range;
+  const range: RangeKey = isRangeKey(rawRange) ? rawRange : "today";
+
+  let data: HomeData;
+  let username = "";
+  const now = new Date();
+  try {
+    const [home, account] = await Promise.all([
+      loadHome({ restaurantId: staff.restaurantId, role: staff.role, range, now }),
+      supabaseAdmin.from("staff_accounts").select("username").eq("id", staff.staffId).eq("restaurant_id", staff.restaurantId).maybeSingle(),
+    ]);
+    data = home;
+    username = account.data?.username ?? "";
+  } catch (error) {
+    console.error("dashboard: failed to load home", error);
     return (
       <Card>
-        <EmptyState
-          className="min-h-64"
-          icon={<CircleAlert size={20} />}
-          title="Could not load orders"
-          message="Please refresh the page. If it keeps happening, check the internet connection."
-        />
+        <EmptyState className="min-h-64" icon={<CircleAlert size={20} />} title="Could not load the dashboard" message="Please refresh the page. If it keeps happening, check the internet connection." />
       </Card>
     );
   }
 
-  // Supabase types a nested to-one join loosely, so read it defensively.
-  const orders: BoardOrder[] = (data ?? []).map((o) => {
-    const session = Array.isArray(o.table_sessions) ? o.table_sessions[0] : o.table_sessions;
-    const table = Array.isArray(session?.restaurant_tables) ? session.restaurant_tables[0] : session?.restaurant_tables;
-    return {
-      id: o.id,
-      order_number: o.order_number,
-      status: o.status,
-      source: o.source,
-      table_number: table?.table_number ?? null,
-      total: Number(o.total),
-      payment_status: o.payment_status,
-      created_at: o.created_at,
-      items: (o.order_items ?? []).map((i) => ({ name: i.item_name, size: i.size_name, quantity: i.quantity })),
-    };
-  });
+  const today = new Intl.DateTimeFormat("en-GB", { timeZone: data.timeZone, weekday: "long", day: "numeric", month: "long" }).format(now);
+  const report = data.reports;
+  return (
+    <div className="grid gap-4">
+      <AutoRefresh />
+      <div className="home-rise flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Assalam o Alaikum, {greetingName(username)}</h1>
+          <p className="mt-1.5 text-sm text-ink-muted">{today}</p>
+        </div>
+        {report && <RangePills value={range} />}
+      </div>
 
-  return <OrdersBoard orders={orders} restaurantId={restaurantId} currency={currency} />;
+      <KpiRow data={data} range={range} start={1} />
+
+      {report ? (
+        <>
+          <div className="grid gap-4 lg:grid-cols-12">
+            <div className="lg:col-span-8">
+              <SalesChart report={report} range={range} currency={data.currency} i={5} />
+            </div>
+            <div className="grid content-start gap-4 sm:grid-cols-2 lg:col-span-4 lg:grid-cols-1">
+              <QuickCards data={data} start={6} />
+            </div>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-12">
+            <div className="lg:col-span-5">
+              <MixCard report={report} i={8} />
+            </div>
+            <div className="lg:col-span-3">
+              <CollectedCard report={report} currency={data.currency} i={9} />
+            </div>
+            <div className="lg:col-span-4">
+              <LiveList orders={data.ops.live} now={now} currency={data.currency} i={10} />
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-12">
+          <div className="grid content-start gap-4 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
+            <QuickCards data={data} start={5} />
+          </div>
+          <div className="lg:col-span-7">
+            <LiveList orders={data.ops.live} now={now} currency={data.currency} i={7} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
-/** Shown while the orders load: the same shape as the real page, in shimmering grey. */
-function OrdersSkeleton() {
+/** Shown while Home loads: the same bento shape in shimmering grey. */
+function HomeSkeleton() {
   return (
-    <div role="status" aria-label="Loading orders">
-      <Skeleton className="h-10 w-40" />
-      <Skeleton className="mt-3 h-4 w-56" />
-      <div className="mt-6 flex gap-2 overflow-hidden">
-        {Array.from({ length: 5 }, (_, i) => (
-          <Skeleton key={i} className="h-11 w-28 shrink-0 rounded-full" />
-        ))}
+    <div role="status" aria-label="Loading the dashboard" className="grid gap-4">
+      <div>
+        <Skeleton className="h-10 w-72 max-w-full" />
+        <Skeleton className="mt-3 h-4 w-40" />
       </div>
-      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 6 }, (_, i) => (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
           <SkeletonCard key={i} />
         ))}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-12">
+        <SkeletonCard className="h-72 lg:col-span-8" />
+        <SkeletonCard className="h-72 lg:col-span-4" />
       </div>
     </div>
   );
 }
 
-export default function DashboardPage() {
+export default function HomePage({ searchParams }: { searchParams: Promise<{ range?: string | string[] }> }) {
   return (
-    <Suspense fallback={<OrdersSkeleton />}>
-      <Orders />
+    <Suspense fallback={<HomeSkeleton />}>
+      <Home searchParams={searchParams} />
     </Suspense>
   );
 }

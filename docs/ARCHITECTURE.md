@@ -4,7 +4,7 @@ Next 16.4.6 / React 19.3 / Supabase / vitest 5 / zod 4. Koi secret ya key ki val
 
 ## 1. Top-level folders
 - `app/` App Router: `api/`, `dashboard/`, `olive-n-spice/` (public site), `test-chat/`, `page.tsx`, `layout.tsx`, `globals.css`
-- `components/ui/` shared UI, import from `@/components/ui`: GlassCard (default/accent/flat), Card, KpiCard (accent, icon, count-up), Button (primary/secondary/ghost), IconButton, Badge (=Pill), FilterChips (=FilterPills), SearchInput, Avatar, Tooltip (CSS), SectionHeader, EmptyState, Skeleton, PageHeader, PillTabs, StatusBadge, NAV_ICONS (icons.tsx, lucide)
+- `components/charts/` CapsuleBars, Donut, Gauge, Sparkline (inline SVG/CSS, --chart-1..8) | `components/ui/` shared UI (CountUp bhi), import from `@/components/ui`: GlassCard (default/accent/flat), Card, KpiCard (accent, icon, count-up), Button (primary/secondary/ghost), IconButton, Badge (=Pill), FilterChips (=FilterPills), SearchInput, Avatar, Tooltip (CSS), SectionHeader, EmptyState, Skeleton, PageHeader, PillTabs, StatusBadge, NAV_ICONS (icons.tsx, lucide)
 - `lib/` server logic (neeche section 2) | `data/sites/olive-n-spice/{config,hero,menu}.ts` typed site data
 - `supabase/` `migrations/`, `seed.sql` (Napoli), `seed/olive-n-spice.sql`, `seed_tables.sql`
 - `scripts/`, `tests/`, `test-results/`, `design-samples/` (gitignored), `public/`, `proxy.ts`, `.claude/launch.json`
@@ -25,7 +25,7 @@ Next 16.4.6 / React 19.3 / Supabase / vitest 5 / zod 4. Koi secret ya key ki val
 - `delivery.ts` delivery rules (postcode/areas/none) | `staff-delivery.ts` POS side
 - `booking.ts` shared availability/create-booking | `opening-hours.ts` checkOpen | `restaurant-status.ts` open/closed + next open
 - `order-lookup.ts` past order by number+phone | `caller-details.ts` junk guard
-- `color.ts` contrast, resolveTheme (primary/secondary/accent -> brand/sage/highlight tokens, AA safe; print uses branding.readableOn) | `chart-palette.ts` 8 chart colours (--chart-1..8) | `brand-logo.ts` top-bar logo or first letter | `nav.ts` NAV_ITEMS + navFor(role) + pageTitleFor (nayi page = ek line) | `lite-mode.ts` decideLite + LITE_INIT_SCRIPT
+- `dashboard-stats.ts` Home/Reports ka pure hisaab (Sales = total - tax, cancelled bahar, restaurant timezone, periods, buckets, shares) | `dashboard-home.ts` Home loader (role gate: view_reports ke bina sales query hi nahi) | `count-up.ts` CountUp ka hisaab | `color.ts` contrast, resolveTheme (primary/secondary/accent -> brand/sage/highlight tokens, AA safe; print uses branding.readableOn) | `chart-palette.ts` 8 chart colours (--chart-1..8) | `brand-logo.ts` top-bar logo or first letter | `nav.ts` NAV_ITEMS + navFor(role) + pageTitleFor (nayi page = ek line) | `lite-mode.ts` decideLite + LITE_INIT_SCRIPT
 - `branding.ts` name/colours | `receipt.ts` receipt model | `receipt-data.ts` loadPrintData(orderId, restaurantId) | `print-links.ts` printBillHref/printKotHref
 - `settings.ts` owner settings validation | `speech.ts` speech helpers | `timing.ts` timed/startTimer
 - `agent/` system-prompt, prompt-variants, status-context, tools (voice agent prompt aur tools, per restaurant)
@@ -38,7 +38,7 @@ Next 16.4.6 / React 19.3 / Supabase / vitest 5 / zod 4. Koi secret ya key ki val
 - Webhooks: koi nahi (Vapi seedha /api/tools/* bulata hai)
 
 ## 4. Pages aur host routing
-- Pages: `/`, `/test-chat`, `/olive-n-spice` (+ menu, events, reserve), `/dashboard` (orders board) + `overview, bookings, conversations, customers, menu, pos, settings, staff, password, stats, tables, login`, `/dashboard/print/{bill,kot}/[orderId]`
+- Pages: `/`, `/test-chat`, `/olive-n-spice` (+ menu, events, reserve), `/dashboard` (Home: KPIs, charts; `home-parts.tsx`, `auto-refresh.tsx`) + `orders` (live orders board) + `overview, bookings, conversations, customers, menu, pos, settings, staff, password, stats, tables, login`, `/dashboard/print/{bill,kot}/[orderId]`
 - `proxy.ts` (Next 16 "proxy" = middleware) -> `lib/hosts.ts` routeForHost(host, path). SITE_HOST olive-n-spice.vercel.app: /olive-n-spice/* par rewrite, /dashboard aur /api/staff = 404. POS_HOST olive-n-spice-pos.vercel.app: "/" -> /dashboard, /olive-n-spice = 404, noindex. Baqi hosts (localhost, previews, purana domain) unchanged.
 - Host se restaurant NAHI chunta; restaurant session se aata hai. Proxy /dashboard aur /api/staff par cookie check karta hai (API: 401 JSON, pages: redirect /dashboard/login). Matcher: _next, dotted files, api/ (sirf api/staff chhor kar) bahar.
 

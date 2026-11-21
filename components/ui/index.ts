@@ -5,6 +5,7 @@ export { Card, CardHeader } from "./card";
 export { EmptyState } from "./empty-state";
 export { FilterChips, type Chip } from "./filter-chips";
 export { KpiCard } from "./kpi-card";
+export { CountUp } from "./count-up";
 export { PageHeader } from "./page-header";
 export { PillTabs, isActiveTab, type PillTab } from "./pill-tabs";
 export { Skeleton, SkeletonCard } from "./skeleton";

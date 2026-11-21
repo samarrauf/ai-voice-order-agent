@@ -18,7 +18,7 @@ describe("navFor (role filter via can())", () => {
   });
   it("every role sees the everyday pages", () => {
     for (const role of STAFF_ROLES) {
-      expect(ids(role)).toEqual(expect.arrayContaining(["orders", "overview", "bookings", "calls", "customers", "tables", "menu"]));
+      expect(ids(role)).toEqual(expect.arrayContaining(["home", "orders", "overview", "bookings", "calls", "customers", "tables", "menu"]));
     }
   });
   it("no role (logged out / unknown) never sees the owner-only items", () => {
@@ -37,10 +37,17 @@ describe("navFor (role filter via can())", () => {
 });
 
 describe("active item and page title", () => {
+  const home = NAV_ITEMS.find((i) => i.id === "home")!;
   const orders = NAV_ITEMS.find((i) => i.id === "orders")!;
-  it("Orders is active only on its exact path", () => {
-    expect(isNavActive("/dashboard", orders)).toBe(true);
-    expect(isNavActive("/dashboard/bookings", orders)).toBe(false);
+  it("Home is active only on its exact path", () => {
+    expect(isNavActive("/dashboard", home)).toBe(true);
+    expect(isNavActive("/dashboard/orders", home)).toBe(false);
+    expect(isNavActive("/dashboard/bookings", home)).toBe(false);
+  });
+  it("Orders lives at /dashboard/orders (the board moved off /dashboard)", () => {
+    expect(orders.href).toBe("/dashboard/orders");
+    expect(isNavActive("/dashboard/orders", orders)).toBe(true);
+    expect(isNavActive("/dashboard", orders)).toBe(false);
   });
   it("other items are active on sub paths too", () => {
     const bookings = NAV_ITEMS.find((i) => i.id === "bookings")!;
@@ -49,7 +56,8 @@ describe("active item and page title", () => {
     expect(isNavActive("/dashboard/bookingsX", bookings)).toBe(false);
   });
   it("page titles", () => {
-    expect(pageTitleFor("/dashboard")).toBe("Orders");
+    expect(pageTitleFor("/dashboard")).toBe("Home");
+    expect(pageTitleFor("/dashboard/orders")).toBe("Orders");
     expect(pageTitleFor("/dashboard/settings")).toBe("Settings");
     expect(pageTitleFor("/dashboard/pos")).toBe("New order");
     expect(pageTitleFor("/dashboard/password")).toBe("Password");

@@ -223,6 +223,12 @@ html[data-lite] .lift:hover { transform: none; }
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }
+/* Home cards: rise with a light blur, one after another (--i = card number). */
+.home-rise { animation: rise-blur 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: min(calc(var(--i, 0) * 70ms), 700ms); }
+@keyframes rise-blur {
+  from { opacity: 0; transform: translateY(14px); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
 @keyframes rise {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
@@ -240,7 +246,7 @@ html[data-lite] .lift:hover { transform: none; }
   to { background-position: -200% 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .anim-rise, .order-new, .dot-pulse, .skeleton, .stagger > * { animation: none; }
+  .anim-rise, .home-rise, .order-new, .dot-pulse, .skeleton, .stagger > * { animation: none; }
   .lift:hover { transform: none; }
   .dash * { transition-duration: 0.01ms !important; }
 }
@@ -329,3 +335,80 @@ html[data-lite] .lift:hover { transform: none; }
 
 /* Print pages: the shell must not leave space for the sidebar or top bar. */
 body:has(.print-root) .shell-pad { padding: 0 !important; }
+
+/* ---- Charts (components/charts): inline SVG and CSS only ---- */
+.cbars { display: flex; align-items: flex-end; gap: clamp(2px, 0.8%, 8px); height: var(--h, 220px); }
+.cbar { position: relative; flex: 1 1 0; min-width: 0; outline: none; }
+.cbar-track { position: relative; display: flex; align-items: flex-end; justify-content: center; height: calc(var(--h, 220px) - 22px); }
+.cbar-fill {
+  display: block;
+  width: min(100%, 26px);
+  height: var(--v);
+  border-radius: 9999px;
+  background: var(--bar);
+  opacity: 0.92;
+  transform-origin: bottom;
+  transition: background-color 0.2s, opacity 0.2s;
+  animation: bar-grow 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: min(calc(var(--i, 0) * 22ms), 500ms);
+}
+.cbar-fill--zero { height: 4px; opacity: 0.3; }
+.cbar:hover .cbar-fill, .cbar:focus-visible .cbar-fill { background: var(--color-highlight); opacity: 1; }
+.cbar-label { display: block; height: 22px; padding-top: 6px; font-size: 10px; line-height: 16px; text-align: center; color: var(--color-ink-faint); white-space: nowrap; }
+.cbar-tip {
+  position: absolute;
+  z-index: 5;
+  bottom: calc(var(--v) + 10px);
+  left: 50%;
+  transform: translate(-50%, 4px);
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-canvas);
+  box-shadow: 0 8px 24px -8px rgb(0 0 0 / 0.6);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.cbar-tip b { font-size: 10px; font-weight: 600; color: var(--color-ink-faint); }
+.cbar-tip--l { left: 0; transform: translate(0, 4px); }
+.cbar-tip--r { left: auto; right: 0; transform: translate(0, 4px); }
+.cbar:hover .cbar-tip, .cbar:focus-visible .cbar-tip { opacity: 1; transform: translate(-50%, 0); }
+.cbar:hover .cbar-tip--l, .cbar:focus-visible .cbar-tip--l, .cbar:hover .cbar-tip--r, .cbar:focus-visible .cbar-tip--r { transform: none; }
+@keyframes bar-grow { from { transform: scaleY(0); opacity: 0; } }
+
+.donut { display: flex; flex-wrap: wrap; align-items: center; gap: 1.25rem; }
+.donut-ring { position: relative; width: 10rem; height: 10rem; flex: none; }
+.donut-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.donut-track { stroke: var(--color-line); }
+.donut-arc { animation: donut-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 120ms); }
+.donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.donut-legend { flex: 1 1 9rem; min-width: 0; display: grid; gap: 0.6rem; font-size: 13px; }
+.donut-legend li { display: flex; align-items: center; gap: 0.6rem; }
+.donut-dot { width: 10px; height: 10px; border-radius: 9999px; flex: none; }
+.donut-name { flex: 1; min-width: 0; color: var(--color-ink-muted); }
+.donut-num { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@keyframes donut-in { from { stroke-dasharray: 0 100; } }
+
+.gauge { position: relative; width: min(100%, 15rem); margin-inline: auto; }
+.gauge svg { display: block; width: 100%; }
+.gauge-track { stroke: var(--color-line); }
+.gauge-arc { animation: gauge-in 1s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.gauge-center { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; }
+.gauge-figure { font-size: 2rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.gauge-caption { margin-top: 0.25rem; font-size: 11px; color: var(--color-ink-faint); }
+@keyframes gauge-in { from { stroke-dasharray: 0 100; } }
+
+.spark { display: block; overflow: visible; }
+.spark-line { stroke-dasharray: 100; animation: spark-draw 1s ease-out both; }
+.spark-dot { animation: rise 0.3s ease-out 0.8s both; }
+@keyframes spark-draw { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .cbar-fill, .donut-arc, .gauge-arc, .spark-line, .spark-dot { animation: none; }
+}

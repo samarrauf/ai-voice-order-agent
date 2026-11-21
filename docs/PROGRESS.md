@@ -51,7 +51,12 @@ Phase D (baqi): QR table ordering, rider management.
 - `lint` script `eslint` hai; type-check ke liye ab `npm run type-check`.
 
 ## Agla stage
-B10 (har page ka andar ka look naye glass design mein) aur home dashboard; navigation mein naya page lib/nav.ts mein ek line se judta hai. A3a commit/push ke baad.
+B10 (har page ka andar ka look naye glass design mein), B5 (Reports, dashboard-stats ka wahi hisaab use karega) aur B2 (net profit, sirf owner). Navigation mein naya page lib/nav.ts mein ek line se judta hai. A3b commit/push ke baad.
+
+## A3b (Home dashboard) ka khulasa
+- Status: Home /dashboard par, orders board /dashboard/orders par (nav: Home, Orders); lib/dashboard-stats.ts (pure hisaab), lib/dashboard-home.ts (loader + role gate), components/charts (CapsuleBars, Donut, Gauge, Sparkline), CountUp; lint, type-check, build, naye tests pass.
+- Faislay: Sales = total - tax_amount, cancelled bahar (Reports bhi yahi use kare); muddat restaurant ki timezone se (Aaj = raat 12 se, business_day_start B5 mein); staff ko sales/reports ka koi field nahi (loader query hi nahi karta); order type = table_session/table_booking dine-in, delivery, baqi takeaway.
+- Baqi masail: mahine ka data 1000-row pages mein padha jata hai (SQL aggregate B5 mein); staff ka screenshot nahi bana (live staff account nahi); Overview placeholder page abhi nav mein hai (B5 mein Reports se badlega).
 
 ## A3a2 (theme ke teeno rang) ka khulasa
 - Status: resolveTheme (lib/color.ts), lib/chart-palette.ts (--chart-1..8), lib/brand-logo.ts, top bar mein logo badge, globals.css naye tokens (brand/sage/highlight), lite mode theme se; lint, type-check, build, pure tests (+theme.pure.test.ts) pass. Poora suite: 681 pass + olive-onboarding.test.ts (live data ke mutabiq mazboot kiya, 12 pass); commit ka intezar.

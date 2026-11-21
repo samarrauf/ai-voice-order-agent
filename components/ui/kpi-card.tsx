@@ -22,6 +22,8 @@ export function KpiCard({
   icon,
   tone,
   accent,
+  figure,
+  children,
   className,
 }: {
   label: string;
@@ -32,6 +34,10 @@ export function KpiCard({
   icon?: ReactNode;
   tone?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   accent?: boolean;
+  /** Replaces the big figure (e.g. <CountUp .../>); `value` is then only the fallback text. */
+  figure?: ReactNode;
+  /** Extra content under the badge row (a Sparkline, for instance). */
+  children?: ReactNode;
   className?: string;
 }) {
   const counts = /^\d{1,7}$/.test(value) && Number(value) <= MAX_COUNT;
@@ -51,7 +57,9 @@ export function KpiCard({
       </div>
       <p className="mt-3 text-4xl font-extrabold leading-none tracking-tight tabular-nums">
         {prefix && <span className={cn("mr-0.5 text-lg font-semibold", accent ? "opacity-80" : "text-ink-muted")}>{prefix}</span>}
-        {counts ? (
+        {figure ? (
+          figure
+        ) : counts ? (
           <>
             <span className="sr-only">{value}</span>
             <span aria-hidden className="count" style={{ "--to": Number(value) } as CSSProperties} />
@@ -79,6 +87,7 @@ export function KpiCard({
           (note ?? "No data yet")
         )}
       </p>
+      {children && <div className="mt-3">{children}</div>}
     </div>
   );
 }

@@ -361,7 +361,7 @@ export function SentDialog({
       <PrintButtons orderId={order.orderId} className="shrink-0 px-5 pb-3" />
       <div className="flex shrink-0 gap-3 border-t border-line px-5 py-4">
         <Link
-          href="/dashboard"
+          href="/dashboard/orders"
           className="inline-flex min-h-12 items-center justify-center rounded-xl border border-line bg-raised px-5 text-base font-semibold transition-colors duration-200 hover:border-line-strong"
         >
           View orders

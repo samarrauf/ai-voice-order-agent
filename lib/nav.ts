@@ -8,6 +8,7 @@
 import { can, type Capability, type StaffRole } from "@/lib/permissions";
 
 export type NavIconName =
+  | "home"
   | "orders"
   | "overview"
   | "bookings"
@@ -36,7 +37,8 @@ export type NavItem = {
 };
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { id: "orders", label: "Orders", icon: "orders", href: "/dashboard", exact: true, group: "main" },
+  { id: "home", label: "Home", icon: "home", href: "/dashboard", exact: true, group: "main" },
+  { id: "orders", label: "Orders", icon: "orders", href: "/dashboard/orders", group: "main" },
   { id: "overview", label: "Overview", icon: "overview", href: "/dashboard/overview", group: "main" },
   { id: "bookings", label: "Bookings", icon: "bookings", href: "/dashboard/bookings", group: "main" },
   { id: "calls", label: "Conversations", short: "Calls", icon: "calls", href: "/dashboard/conversations", group: "main" },
