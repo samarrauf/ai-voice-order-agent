@@ -109,7 +109,7 @@ export async function POST(request: Request) {
           .eq("restaurant_id", rid)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
-    supabaseAdmin.from("menu_items").select(MENU_ITEM_SELECT).eq("restaurant_id", rid).in("id", itemIds),
+    supabaseAdmin.from("menu_items").select(MENU_ITEM_SELECT).eq("restaurant_id", rid).is("archived_at", null).in("id", itemIds),
     supabaseAdmin.from("item_options").select(OPTION_SELECT).eq("restaurant_id", rid),
     supabaseAdmin.from("restaurants").select(`${BILL_SETTINGS_SELECT}, delivery_mode`).eq("id", rid).maybeSingle(),
     isDelivery ? activeDeliveryAreas(rid) : Promise.resolve({ data: [] as DeliveryAreaRow[], error: null }),

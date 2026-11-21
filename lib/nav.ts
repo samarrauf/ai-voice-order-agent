@@ -44,7 +44,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { id: "calls", label: "Conversations", short: "Calls", icon: "calls", href: "/dashboard/conversations", group: "main" },
   { id: "customers", label: "Customers", icon: "customers", href: "/dashboard/customers", group: "main" },
   { id: "tables", label: "Tables", icon: "tables", href: "/dashboard/tables", group: "main" },
-  { id: "menu", label: "Menu", icon: "menu", href: "/dashboard/menu", group: "main" },
+  { id: "menu", label: "Menu", icon: "menu", href: "/dashboard/menu", capability: "menu_edit", group: "main" },
   { id: "staff", label: "Staff", icon: "staff", href: "/dashboard/staff", capability: "staff_manage", group: "foot" },
   { id: "settings", label: "Settings", icon: "settings", href: "/dashboard/settings", capability: "settings_edit", group: "foot" },
 ];

@@ -18,8 +18,13 @@ describe("navFor (role filter via can())", () => {
   });
   it("every role sees the everyday pages", () => {
     for (const role of STAFF_ROLES) {
-      expect(ids(role)).toEqual(expect.arrayContaining(["home", "orders", "overview", "bookings", "calls", "customers", "tables", "menu"]));
+      expect(ids(role)).toEqual(expect.arrayContaining(["home", "orders", "overview", "bookings", "calls", "customers", "tables"]));
     }
+  });
+  it("Menu (menu_edit) is for owner and manager only", () => {
+    expect(ids("owner")).toContain("menu");
+    expect(ids("manager")).toContain("menu");
+    expect(ids("staff")).not.toContain("menu");
   });
   it("no role (logged out / unknown) never sees the owner-only items", () => {
     expect(ids(null)).not.toContain("settings");

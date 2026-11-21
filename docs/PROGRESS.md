@@ -50,6 +50,14 @@ Phase D (baqi): QR table ordering, rider management.
 - Full suite slow hai (live DB); development mein test:pure + mutaliqa file.
 - `lint` script `eslint` hai; type-check ke liye ab `npm run type-check`.
 
+## P7 (Menu editor) ka khulasa
+- Status: migration 0024 owner ne run ki; /dashboard/menu (menu_edit: owner+manager), /api/staff/menu aur /menu/photo, lib/menu-admin.ts; lint, type-check, build aur poora suite (48 files, 763 tests) pass; commit ka intezar.
+- Faislay: delete = archive (archived_at), order_items ka snapshot purane orders ko mehfooz rakhta hai; category archive us ke items bhi archive karta hai; item save ek DB function (save_menu_item_tx) mein, har field ki tabdeeli menu_changes mein; photo sirf server route se (bucket "menu-photos", public read, koi write policy nahi).
+- Faislay: Menu nav ab sirf menu_edit walon ko; staff ko 403. Olive ki website menu.ts se chalti hai, untouched.
+- Baqi masail: archive ka undo/restore nahi; naye item par photo save ke baad lagti hai; Olive ki menu.ts aur DB menu alag hain; menu_changes ka koi viewer page nahi; menu_items.image_url abhi POS/agent/website par dikhai nahi jati.
+- Restore: Menu page par "Archived" hissa; item_restore/category_restore (/api/staff/menu, koi migration nahi). Category restore sirf wohi items wapas laata hai jin ka archived_at category ke barabar hai; duplicate naam 409; archived category ka item pehle category restore maangta hai. menu_changes mein likha jata hai.
+- Test hygiene: orders restaurants se cascade nahi hote, isliye throwaway restaurant hatane se pehle orders hatao.
+
 ## Agla stage
 B10 (har page ka andar ka look naye glass design mein), B5 (Reports, dashboard-stats ka wahi hisaab use karega) aur B2 (net profit, sirf owner). Navigation mein naya page lib/nav.ts mein ek line se judta hai. A3b commit/push ke baad.
 

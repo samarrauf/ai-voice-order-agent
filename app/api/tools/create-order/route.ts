@@ -145,6 +145,7 @@ export const POST = timed("create-order", async (request: Request, timer) => {
       .from("menu_items")
       .select(MENU_ITEM_SELECT)
       .eq("restaurant_id", body.restaurant_id)
+      .is("archived_at", null)
       .in("id", itemIds),
     supabaseAdmin
       .from("item_options")

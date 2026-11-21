@@ -56,6 +56,8 @@ async function getMenu(restaurantId: string) {
       )
       .eq("restaurant_id", restaurantId)
       .eq("is_active", true)
+      .is("archived_at", null)
+      .is("menu_items.archived_at", null)
       .order("sort_order")
       .order("sort_order", { referencedTable: "menu_items" })
       .order("sort_order", { referencedTable: "menu_items.item_sizes" }),
