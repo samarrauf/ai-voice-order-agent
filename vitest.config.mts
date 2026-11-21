@@ -20,7 +20,8 @@ export default defineConfig({
     // Some tests temporarily change shared rows (an item's availability, the
     // delivery fee). Run files one at a time so they never collide.
     fileParallelism: false,
-    testTimeout: 30_000,
-    hookTimeout: 30_000,
+    // 90s: the tests talk to the real Supabase over the network, which can be slow.
+    testTimeout: 90_000,
+    hookTimeout: 90_000,
   },
 });

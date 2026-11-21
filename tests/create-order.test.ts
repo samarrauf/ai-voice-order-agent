@@ -110,19 +110,35 @@ describe("create-order", () => {
   });
 
   it("an unavailable item is rejected, naming the item", async () => {
-    await db.from("menu_items").update({ is_available: false }).eq("id", ITEMS.coleslaw);
+    // A throwaway restaurant with an item that is born unavailable (same hours as Napoli,
+    // read only): Napoli's real menu is never switched off, even if the run is interrupted.
+    const napoli = await db.from("restaurants").select("opening_hours, timezone").eq("id", RID).single();
+    if (napoli.error) throw napoli.error;
+    const made = await db
+      .from("restaurants")
+      .insert({ name: `${RUN_MARKER}-unavail`, opening_hours: napoli.data.opening_hours, timezone: napoli.data.timezone, delivery_fee: 0 })
+      .select("id")
+      .single();
+    if (made.error) throw made.error;
     try {
+      const item = await db
+        .from("menu_items")
+        .insert({ restaurant_id: made.data.id, name: "Vitest Coleslaw", base_price: 2, is_available: false })
+        .select("id")
+        .single();
+      if (item.error) throw item.error;
       const { status, json } = await callTool(
         POST,
         orderBody({
+          restaurant_id: made.data.id,
           fulfilment_type: "pickup",
-          items: [{ menu_item_id: ITEMS.coleslaw, size_name: null, quantity: 1, options: [] }],
+          items: [{ menu_item_id: item.data.id, size_name: null, quantity: 1, options: [] }],
         }),
       );
       expect(status).toBe(400);
       expect(json.speech).toContain("Coleslaw");
     } finally {
-      await db.from("menu_items").update({ is_available: true }).eq("id", ITEMS.coleslaw);
+      await db.from("restaurants").delete().eq("id", made.data.id); // its menu goes with it
     }
   });
 

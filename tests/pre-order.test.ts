@@ -105,13 +105,27 @@ describe("create-order pre-orders", () => {
 
   it("owner has switched orders off: a valid pre-order is still rejected", async () => {
     useClosedClock();
+    // A throwaway restaurant that is born switched off (same hours as Napoli, read only):
+    // the live Napoli row is never touched, so a crash cannot leave the phone line off.
+    const napoli = await db.from("restaurants").select("opening_hours, timezone").eq("id", RID).single();
+    if (napoli.error) throw napoli.error;
+    const made = await db
+      .from("restaurants")
+      .insert({ name: `${RUN_MARKER}-off`, opening_hours: napoli.data.opening_hours, timezone: napoli.data.timezone, is_accepting_orders: false, delivery_fee: 0 })
+      .select("id")
+      .single();
+    if (made.error) throw made.error;
     try {
-      await db.from("restaurants").update({ is_accepting_orders: false }).eq("id", RID);
-      const { status, json } = await callTool(createOrder, pickup({ requested_time: "16:15" }));
+      const item = await db.from("menu_items").insert({ restaurant_id: made.data.id, name: "Vitest Dish", base_price: 10 }).select("id").single();
+      if (item.error) throw item.error;
+      const { status, json } = await callTool(
+        createOrder,
+        pickup({ restaurant_id: made.data.id, requested_time: "16:15", items: [{ menu_item_id: item.data.id, size_name: null, quantity: 1, options: [] }] }),
+      );
       expect(status).toBe(400);
       expect(json.speech).toMatch(/not taking any orders/i);
     } finally {
-      await db.from("restaurants").update({ is_accepting_orders: true }).eq("id", RID);
+      await db.from("restaurants").delete().eq("id", made.data.id); // its menu goes with it
     }
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { POST } from "@/app/api/tools/check-delivery/route";
-import { RID, callTool, db } from "./helpers/helpers";
+import { RID, RUN_MARKER, callTool, db } from "./helpers/helpers";
 
 function check(postcode: unknown) {
   return callTool(POST, { restaurant_id: RID, postcode });
@@ -26,20 +26,16 @@ describe("check-delivery", () => {
   });
 
   it("a null delivery_fee does NOT produce a free-delivery message", async () => {
-    const { data: before, error } = await db.from("restaurants").select("delivery_fee").eq("id", RID).single();
-    if (error) throw error;
-
-    await db.from("restaurants").update({ delivery_fee: null }).eq("id", RID);
+    // A throwaway restaurant born with a null fee: the live Napoli row is never touched.
+    const made = await db.from("restaurants").insert({ name: `${RUN_MARKER}-nullfee`, delivery_fee: null }).select("id").single();
+    if (made.error) throw made.error;
     try {
-      const { json } = await check("M14 5TP");
+      const { json } = await callTool(POST, { restaurant_id: made.data.id, postcode: "M14 5TP" });
       expect(json.deliverable).toBe(false);
       expect(json.speech).not.toMatch(/free/i);
       expect(json.speech).toMatch(/hold on|check/i);
     } finally {
-      // Always put the real fee back, even if an assertion failed.
-      await db.from("restaurants").update({ delivery_fee: before.delivery_fee }).eq("id", RID);
+      await db.from("restaurants").delete().eq("id", made.data.id);
     }
-    const { data: after } = await db.from("restaurants").select("delivery_fee").eq("id", RID).single();
-    expect(after!.delivery_fee).toBe(before.delivery_fee);
   });
 });

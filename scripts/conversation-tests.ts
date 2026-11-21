@@ -16,7 +16,7 @@
 // in `finally` — even if a conversation crashes or you press Ctrl+C.
 
 import { createClient } from "@supabase/supabase-js";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const RID = "11111111-1111-1111-1111-111111111111";
 const CHAT_URL = "http://localhost:3000/api/chat";
@@ -894,12 +894,22 @@ async function main() {
   const only = process.argv.slice(2).map(Number).filter(Boolean);
 
   // 1) Back up the real hours BEFORE touching anything.
-  const { data: before, error: readErr } = await db.from("restaurants").select("opening_hours").eq("id", RID).single();
-  if (readErr || !before) throw new Error(`could not read opening hours: ${readErr?.message}`);
+  const { data: live, error: readErr } = await db.from("restaurants").select("opening_hours").eq("id", RID).single();
+  if (readErr || !live) throw new Error(`could not read opening hours: ${readErr?.message}`);
   mkdirSync(OUT_DIR, { recursive: true });
   const backupPath = `${OUT_DIR}/opening-hours-backup.json`;
-  writeFileSync(backupPath, JSON.stringify(before.opening_hours, null, 2));
-  console.log(`Real opening hours backed up to ${backupPath}`);
+  // If a stopped earlier run left the all-day hours in place, NEVER overwrite the good
+  // backup with them: restore from that backup first (tests/helpers/global-setup.ts does
+  // the same self-heal before `npm test`).
+  let before = live;
+  if (JSON.stringify(live.opening_hours) === JSON.stringify(ALL_DAY)) {
+    if (!existsSync(backupPath)) throw new Error(`Napoli still has the test all-day hours and there is no ${backupPath} to restore from. Fix the hours first.`);
+    before = { opening_hours: JSON.parse(readFileSync(backupPath, "utf8")) };
+    console.log("Napoli had leftover all-day hours from an earlier stopped run: using the saved backup as the real hours.");
+  } else {
+    writeFileSync(backupPath, JSON.stringify(live.opening_hours, null, 2));
+    console.log(`Real opening hours backed up to ${backupPath}`);
+  }
 
   let restored = false;
   const restore = async () => {
@@ -915,11 +925,13 @@ async function main() {
     console.log(same ? "Real opening hours restored and verified." : `!!! Hours restore could not be verified — check ${backupPath}`);
   };
   const results: Result[] = [];
-  process.on("SIGINT", async () => {
-    await restore();
-    await cleanup(results);
-    process.exit(130);
-  });
+  for (const sig of ["SIGINT", "SIGTERM"] as const) {
+    process.on(sig, async () => {
+      await restore();
+      await cleanup(results);
+      process.exit(130);
+    });
+  }
 
   try {
     // 2) Open all day for the run.
