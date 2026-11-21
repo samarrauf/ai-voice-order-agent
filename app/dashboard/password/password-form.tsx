@@ -85,7 +85,7 @@ export function PasswordForm({ forced = false }: { forced?: boolean }) {
             {busy ? "Saving..." : "Change password"}
           </Button>
           {message && (
-            <span role="status" className={message.ok ? "text-sm text-accent-ink" : "text-sm text-danger"}>
+            <span role="status" className={message.ok ? "text-sm text-brand-ink" : "text-sm text-danger"}>
               {message.text}
             </span>
           )}

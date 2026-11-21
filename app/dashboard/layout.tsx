@@ -4,7 +4,9 @@ import type { CSSProperties } from "react";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { LockKeyhole } from "lucide-react";
 import { DEFAULT_BRANDING, getBranding, readableOn } from "@/lib/branding";
-import { resolveAccent } from "@/lib/color";
+import { topBarLogo } from "@/lib/brand-logo";
+import { chartCssVars, chartPalette } from "@/lib/chart-palette";
+import { resolveTheme } from "@/lib/color";
 import { LITE_INIT_SCRIPT } from "@/lib/lite-mode";
 import { loginThemeForHost, type LoginTheme } from "@/lib/login-theme";
 import { getStaffSession } from "@/lib/staff-page";
@@ -57,14 +59,31 @@ async function Shell({ children }: { children: React.ReactNode }) {
 
   // Logged out: only the public look for this host (lib/login-theme.ts); unknown host = neutral.
   const loginTheme = staff ? null : loginThemeForHost((await headers()).get("host"));
-  const accent = resolveAccent(loginTheme ? loginTheme.accent : branding.accent, DEFAULT_BRANDING.accent);
+  // The three theme colours (primary, secondary, accent) become the dashboard's tokens (lib/color.ts resolveTheme).
+  const colours = loginTheme ?? branding;
+  const t = resolveTheme(colours.primary, colours.secondary, colours.accent);
   const themeVars = {
     "--color-primary": branding.primary,
-    "--color-accent": accent.accent,
+    "--color-accent": branding.accent,
     "--color-secondary": branding.secondary,
-    "--color-on-accent": accent.onAccent,
-    "--accent-ink": accent.ink,
     "--splash-text": readableOn(branding.primary),
+    "--color-canvas": t.canvas,
+    "--color-brand": t.brand,
+    "--color-on-brand": t.onBrand,
+    "--color-brand-ink": t.brandInk,
+    "--color-brand-tint": t.brandTint,
+    "--color-brand-line": `color-mix(in oklab, ${t.brand} 55%, transparent)`,
+    "--color-sage": t.sage,
+    "--color-sage-ink": t.sageInk,
+    "--color-highlight": t.highlight,
+    "--color-highlight-ink": t.highlightInk,
+    "--color-on-highlight": t.onHighlight,
+    // Solid stand-ins for the glass layers; only Lite mode uses them (globals.css).
+    "--lite-surface": t.surface,
+    "--lite-raised": t.raised,
+    "--lite-line": t.line,
+    "--lite-line-strong": t.lineStrong,
+    ...chartCssVars(chartPalette(colours.primary, colours.secondary, colours.accent)),
   } as CSSProperties;
 
   return (
@@ -85,6 +104,7 @@ async function Shell({ children }: { children: React.ReactNode }) {
           <Splash branding={branding} />
           <AppShell
             restaurantName={branding.name}
+            logo={topBarLogo(branding.name, branding.logoUrl)}
             role={staff.role}
             username={info.username}
             timeZone={info.timeZone}

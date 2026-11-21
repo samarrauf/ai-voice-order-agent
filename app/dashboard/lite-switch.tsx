@@ -40,7 +40,7 @@ export function LiteSwitch() {
         Lite mode
         <span className="block text-xs font-normal text-ink-faint">No blur or animation</span>
       </span>
-      <span aria-hidden className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ${lite ? "bg-accent" : "bg-ink/20"}`}>
+      <span aria-hidden className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ${lite ? "bg-brand" : "bg-ink/20"}`}>
         <span className={`absolute top-0.5 size-5 rounded-full bg-white transition-all duration-200 ${lite ? "left-[1.375rem]" : "left-0.5"}`} />
       </span>
     </button>

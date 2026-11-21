@@ -125,7 +125,7 @@ export function PaymentDialog({
                   onClick={() => setMethod(m.key)}
                   className={cn(
                     "min-h-11 rounded-xl border text-sm font-semibold transition-colors duration-200",
-                    method === m.key ? "border-accent-line bg-accent-soft text-accent-ink" : "border-line bg-raised hover:border-line-strong",
+                    method === m.key ? "border-brand-line bg-brand-tint text-brand-ink" : "border-line bg-raised hover:border-line-strong",
                   )}
                 >
                   {m.label}

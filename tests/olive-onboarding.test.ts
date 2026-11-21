@@ -5,7 +5,8 @@ import PrintKotPage from "@/app/dashboard/print/kot/[orderId]/page";
 import { menu } from "@/data/sites/olive-n-spice/menu";
 import { checkOpen, type OpeningHours } from "@/lib/opening-hours";
 import { BILL_SETTINGS_SELECT, computeBill, type BillSettingsRow } from "@/lib/order-pricing";
-import { sessionToken, db, RID as NAPOLI } from "./helpers/helpers";
+import { signSession } from "@/lib/session";
+import { db, RID as NAPOLI } from "./helpers/helpers";
 
 // P9b: Olive 'n Spice onboarding. READ-ONLY against the live database: the seed
 // (supabase/seed/olive-n-spice.sql) is never re-run here, and no order is ever
@@ -23,12 +24,13 @@ vi.mock("next/headers", () => ({
 /* eslint-disable @typescript-eslint/no-explicit-any -- JSON test responses are untyped, as in the other tests */
 async function oliveCookie(): Promise<string> {
   // The REAL olive-owner account (made by scripts/create-staff-account.mjs), not a throwaway one.
-  const acc = await db.from("staff_accounts").select("id, restaurant_id, role, is_active").eq("username", "olive-owner").single();
+  const acc = await db.from("staff_accounts").select("id, restaurant_id, role, is_active, session_version").eq("username", "olive-owner").single();
   if (acc.error) throw acc.error;
   expect(acc.data.restaurant_id).toBe(OLIVE);
   expect(acc.data.role).toBe("owner");
   expect(acc.data.is_active).toBe(true);
-  return sessionToken(OLIVE, "owner", acc.data.id);
+  // Read-only: the cookie carries the account's CURRENT session_version (password changes and resets raise it), never a fixed 1.
+  return signSession({ staffId: acc.data.id, restaurantId: OLIVE, role: "owner", sessionVersion: acc.data.session_version ?? 1 });
 }
 
 async function call(body: unknown, cookieValue: string) {
@@ -117,21 +119,44 @@ describe("Olive's menu in the database matches data/sites/olive-n-spice/menu.ts"
 });
 
 describe("Olive's restaurant row", () => {
-  it("is PKR, whole-rupee rounding, closed to orders, no delivery, owner-set charges at 0", async () => {
+  it("fixed facts never change: id, name, PKR, Karachi time, whole-rupee rounding, area-list delivery", async () => {
     const r = await db.from("restaurants").select("*").eq("id", OLIVE).single();
     if (r.error) throw r.error;
     expect(r.data).toMatchObject({
+      id: OLIVE,
       name: "Olive 'n Spice",
       currency: "PKR",
       timezone: "Asia/Karachi",
       rounding_step: 1,
-      is_accepting_orders: false,
-      delivery_fee: 0,
-      min_order_value: 0,
-      tax_rate_percent: 0,
-      service_charge_percent: 0,
-      max_discount_percent: 0,
+      delivery_mode: "area_list",
     });
+  });
+
+  it("owner-editable settings (Settings page) are valid, whatever value the owner chose", async () => {
+    const r = await db
+      .from("restaurants")
+      .select("is_accepting_orders, delivery_fee, min_order_value, tax_rate_percent, service_charge_percent, max_discount_percent")
+      .eq("id", OLIVE)
+      .single();
+    if (r.error) throw r.error;
+    expect(typeof r.data.is_accepting_orders).toBe("boolean");
+    for (const k of ["delivery_fee", "min_order_value", "tax_rate_percent", "service_charge_percent", "max_discount_percent"] as const) {
+      expect(Number(r.data[k]), k).toBeGreaterThanOrEqual(0);
+    }
+    for (const k of ["tax_rate_percent", "service_charge_percent", "max_discount_percent"] as const) expect(Number(r.data[k]), k).toBeLessThanOrEqual(100);
+  });
+
+  it("a discount above the owner's max_discount_percent is rejected, one at the max is accepted", async () => {
+    const r = await db.from("restaurants").select(BILL_SETTINGS_SELECT).eq("id", OLIVE).single();
+    if (r.error) throw r.error;
+    const settings = r.data as unknown as BillSettingsRow;
+    const max = Number(settings.max_discount_percent);
+    const atMax = computeBill(100000, "takeaway", settings, { type: "percent", value: max, reason: null });
+    expect(atMax.ok).toBe(true);
+    if (max < 100) {
+      const over = computeBill(100000, "takeaway", settings, { type: "percent", value: max + 1, reason: null });
+      expect(over.ok).toBe(false);
+    }
   });
 
   it("is always open (24 hours, every day), checked with lib/opening-hours.ts", async () => {
@@ -152,10 +177,11 @@ describe("Olive's restaurant row", () => {
 });
 
 describe("Olive's sample bill is in whole rupees", () => {
-  it("with Olive's real settings (computeBill)", async () => {
+  it("with Olive's real currency and rounding, charges at 0 (computeBill)", async () => {
     const r = await db.from("restaurants").select(BILL_SETTINGS_SELECT).eq("id", OLIVE).single();
     if (r.error) throw r.error;
-    const settings = r.data as unknown as BillSettingsRow;
+    // The owner may set tax, service charge or delivery fee in Settings; this test is about the menu sum and rounding, so those are zeroed.
+    const settings = { ...(r.data as unknown as BillSettingsRow), tax_rate_percent: 0, service_charge_percent: 0, delivery_fee: 0 };
     // 2 x Good Good Burger 699 + Masala Fries 349 + 2 x Fresh Lime 225 = 2197 rupees
     const subtotalPence = (2 * 699 + 349 + 2 * 225) * 100;
     const res = computeBill(subtotalPence, "takeaway", settings);

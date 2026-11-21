@@ -11,6 +11,8 @@ export type Branding = {
   primary: string;
   accent: string;
   secondary: string;
+  /** logo_url from the restaurants table (a path or https URL), or null. Checked again in lib/brand-logo.ts. */
+  logoUrl: string | null;
   background: string;
   text: string;
 };
@@ -22,6 +24,7 @@ export const DEFAULT_BRANDING: Branding = {
   primary: "#1E293B",
   accent: "#3B82F6",
   secondary: "#64748B",
+  logoUrl: null,
   background: "#FFFFFF",
   text: "#1A1A1A",
 };
@@ -57,6 +60,7 @@ export function brandingFromRow(row: Record<string, unknown> | null | undefined)
     primary: sanitizeHex(row.theme_primary, d.primary),
     accent: sanitizeHex(row.theme_accent, d.accent),
     secondary: sanitizeHex(row.theme_secondary, d.secondary),
+    logoUrl: typeof row.logo_url === "string" && row.logo_url.trim() ? row.logo_url.trim() : null,
     background: sanitizeHex(row.theme_background, d.background),
     text: sanitizeHex(row.theme_text, d.text),
   };

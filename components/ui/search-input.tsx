@@ -10,7 +10,7 @@ export function SearchInput({ label, className, ...rest }: Omit<ComponentProps<"
       <input
         type="search"
         aria-label={label}
-        className="min-h-11 w-full rounded-full border border-line bg-raised pl-11 pr-4 text-sm transition-colors duration-200 placeholder:text-ink-faint hover:border-line-strong focus:border-accent-line [&::-webkit-search-cancel-button]:hidden"
+        className="min-h-11 w-full rounded-full border border-line bg-raised pl-11 pr-4 text-sm transition-colors duration-200 placeholder:text-ink-faint hover:border-line-strong focus:border-brand-line [&::-webkit-search-cancel-button]:hidden"
         {...rest}
       />
     </span>

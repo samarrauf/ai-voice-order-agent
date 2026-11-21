@@ -89,7 +89,7 @@ export function Stepper({
 const choice = (active: boolean) =>
   cn(
     "flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border px-3.5 text-left text-sm font-medium transition-colors duration-200 disabled:opacity-40",
-    active ? "border-accent-line bg-accent-soft text-accent-ink" : "border-line bg-raised text-ink enabled:hover:border-line-strong",
+    active ? "border-brand-line bg-brand-tint text-brand-ink" : "border-line bg-raised text-ink enabled:hover:border-line-strong",
   );
 
 const groupLabel = "mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint";
@@ -305,7 +305,7 @@ export function TableDialog({
                     }}
                     className={cn(
                       "flex min-h-24 w-full flex-col items-start justify-between gap-2 rounded-2xl border p-3 text-left transition-colors duration-200",
-                      selectedId === t.id ? "border-accent-line bg-accent-soft" : "border-line bg-raised hover:border-line-strong",
+                      selectedId === t.id ? "border-brand-line bg-brand-tint" : "border-line bg-raised hover:border-line-strong",
                     )}
                   >
                     <span className="flex w-full items-center justify-between gap-2">

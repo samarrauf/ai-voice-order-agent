@@ -20,19 +20,34 @@
   --color-primary: #1e293b;
   --color-accent: #3b82f6;
   --color-secondary: #64748b;
-  --color-on-accent: #ffffff; /* readable text on top of the accent */
+  --color-on-accent: #ffffff;
+
+  /* --- Dashboard colours from the theme (A3a2) --------------------------
+     brand = primary (buttons, active marks), sage = secondary (chips, inactive,
+     borders), highlight = accent (small things: badges, totals, notification dot).
+     Fallbacks only: the dashboard layout sets them per restaurant (lib/color.ts resolveTheme). */
+  --color-brand: #6b727f;
+  --color-on-brand: #ffffff;
+  --color-brand-ink: #9398a2;
+  --color-brand-tint: #24272e;
+  --color-brand-line: rgb(107 114 127 / 0.55);
+  --color-sage: #64748b;
+  --color-sage-ink: #828fa1;
+  --color-highlight: #3b82f6;
+  --color-highlight-ink: #4f8ff7;
+  --color-on-highlight: #050505;
 
   /* --- Glass surfaces (same for every restaurant) -----------------------
      Surfaces are a light white overlay on the warm gradient (.dash). Lite mode
      (html[data-lite], see lib/lite-mode.ts) swaps them for semi-solid colours. */
-  --color-canvas: #16110d;                 /* page background (under the gradient) */
-  --color-surface: rgb(255 255 255 / 0.06); /* glass cards */
+  --color-canvas: #090a0d;                 /* page background: a very dark tint of the primary (layout sets it) */
+  --color-surface: rgb(255 255 255 / 0.06); /* glass cards (.dash tints them with the brand colour) */
   --color-raised: rgb(255 255 255 / 0.09);  /* things on a card: chips, inputs */
-  --color-line: rgb(255 255 255 / 0.11);    /* thin borders */
+  --color-line: rgb(255 255 255 / 0.11);    /* thin borders (.dash: sage) */
   --color-line-strong: rgb(255 255 255 / 0.22); /* borders on hover */
-  --color-ink: #f7f2ed;         /* text level 1: main */
-  --color-ink-muted: #bdb3aa;   /* text level 2: secondary */
-  --color-ink-faint: #9b9189;   /* text level 3: labels, hints (AA on the dark glass) */
+  --color-ink: #f3f5f0;         /* text level 1: main (INK in lib/color.ts) */
+  --color-ink-muted: #b9c1b2;   /* text level 2: secondary */
+  --color-ink-faint: #a3ac9c;   /* text level 3: labels, hints (AA on the dark glass) */
 
   /* --- Meaning colours (order status, up/down arrows, errors) ----------- */
   --color-status-new: #60a5fa;
@@ -61,10 +76,15 @@
   /* Dashboard fonts (loaded with next/font in app/dashboard/layout.tsx). */
   --font-display: var(--font-ui-face), ui-sans-serif, system-ui, sans-serif;
   --font-ui: var(--font-ui-face), ui-sans-serif, system-ui, sans-serif;
-  /* Shades of the accent, worked out in .dash below. */
-  --color-accent-ink: var(--accent-ink);
-  --color-accent-soft: var(--accent-soft);
-  --color-accent-line: var(--accent-line);
+  /* Chart series colours, set per restaurant by the layout (lib/chart-palette.ts). */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -81,21 +101,23 @@ body {
 }
 
 /* ---- Dashboard wrapper ----
-   Everything under /dashboard sits inside .dash. The accent shades are
-   calculated here (not on :root) so they follow the restaurant's accent. */
+   Everything under /dashboard sits inside .dash. The layout sets the theme
+   colours (--color-brand, --color-sage, --color-highlight, --color-canvas ...)
+   on it; the glass layers and borders are worked out from them here. */
 .dash {
-  /* The layout sets --accent-ink from lib/color.ts (AA contrast on the dark glass); these are fallbacks. */
-  --accent-ink: color-mix(in oklab, var(--color-accent) 78%, white);
-  --accent-soft: color-mix(in oklab, var(--color-accent) 14%, transparent);
-  --accent-line: color-mix(in oklab, var(--color-accent) 42%, transparent);
+  --color-surface: color-mix(in srgb, var(--color-brand) 9%, rgb(255 255 255 / 0.04));
+  --color-raised: color-mix(in srgb, var(--color-brand) 11%, rgb(255 255 255 / 0.08));
+  --color-line: color-mix(in srgb, var(--color-sage) 26%, transparent);
+  --color-line-strong: color-mix(in srgb, var(--color-sage) 50%, transparent);
   --glass-blur: 16px;
   min-height: 100vh;
-  /* Warm dark gradient; two soft glows take the restaurant accent, so Napoli and Olive differ. */
+  /* Dark green-black (or whatever the primary is) with soft glows in the three theme colours. */
   background-color: var(--color-canvas);
   background-image:
-    radial-gradient(60rem 36rem at 88% -8%, color-mix(in oklab, var(--color-accent) 20%, transparent), transparent 70%),
-    radial-gradient(48rem 36rem at -8% 108%, color-mix(in oklab, var(--color-accent) 11%, transparent), transparent 70%),
-    linear-gradient(160deg, #231a13 0%, #16110d 55%, #0e0a08 100%);
+    radial-gradient(60rem 36rem at 88% -8%, color-mix(in oklab, var(--color-brand) 30%, transparent), transparent 70%),
+    radial-gradient(48rem 36rem at -8% 108%, color-mix(in oklab, var(--color-sage) 14%, transparent), transparent 70%),
+    radial-gradient(30rem 22rem at 100% 100%, color-mix(in oklab, var(--color-highlight) 7%, transparent), transparent 70%),
+    linear-gradient(160deg, color-mix(in oklab, var(--color-canvas) 90%, var(--color-brand)) 0%, var(--color-canvas) 55%, color-mix(in oklab, var(--color-canvas) 70%, black) 100%);
   color: var(--color-ink);
   font-family: var(--font-ui-face), ui-sans-serif, system-ui, sans-serif;
   color-scheme: dark;
@@ -112,12 +134,12 @@ body:has(.dash) { background: var(--color-canvas); }
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
     backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
   }
-  .glass-accent {
-    color: var(--color-on-accent);
-    border: 1px solid color-mix(in oklab, var(--color-accent) 80%, white);
-    /* Stays close to the brand colour: only a faint sheen (no pale, washed-out top like before). */
-    background: linear-gradient(140deg, var(--color-accent) 0%, var(--color-accent) 55%, color-mix(in oklab, var(--color-accent) 82%, black) 100%);
-    box-shadow: 0 14px 40px -14px color-mix(in oklab, var(--color-accent) 60%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.18);
+  .glass-brand {
+    color: var(--color-on-brand);
+    border: 1px solid color-mix(in oklab, var(--color-brand) 80%, white);
+    /* Stays close to the brand colour: only a faint sheen (no pale, washed-out top). */
+    background: linear-gradient(140deg, var(--color-brand) 0%, var(--color-brand) 55%, color-mix(in oklab, var(--color-brand) 82%, black) 100%);
+    box-shadow: 0 14px 40px -14px color-mix(in oklab, var(--color-brand) 60%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.18);
   }
   .glass-flat { background: var(--color-raised); border: 1px solid var(--color-line); }
   /* Hover lift for cards that opt in. */
@@ -126,12 +148,13 @@ body:has(.dash) { background: var(--color-canvas); }
 }
 
 /* ---- Lite mode (lib/lite-mode.ts): no blur, no animation, solid-ish surfaces ---- */
-html[data-lite] {
-  --color-surface: #221b16;
-  --color-raised: #2b231d;
-  --color-line: #3a312a;
-  --color-line-strong: #51463d;
-  --shadow-glass: none;
+html[data-lite] { --shadow-glass: none; }
+/* Lite mode: solid surfaces (worked out from the theme by the layout) instead of glass. */
+html[data-lite] .dash {
+  --color-surface: var(--lite-surface);
+  --color-raised: var(--lite-raised);
+  --color-line: var(--lite-line);
+  --color-line-strong: var(--lite-line-strong);
 }
 html[data-lite] .dash,
 html[data-lite] .dash * {
@@ -140,15 +163,15 @@ html[data-lite] .dash * {
   animation: none !important;
   transition-duration: 0.01ms !important;
 }
-html[data-lite] .dash { background-image: linear-gradient(160deg, #231a13 0%, #16110d 60%, #0e0a08 100%); }
+html[data-lite] .dash { background-image: linear-gradient(160deg, color-mix(in oklab, var(--color-canvas) 90%, var(--color-brand)) 0%, var(--color-canvas) 60%, color-mix(in oklab, var(--color-canvas) 70%, black) 100%); }
 html[data-lite] .splash { display: none; }
 html[data-lite] .lift:hover { transform: none; }
 
 .dash :focus-visible {
-  outline: 2px solid var(--accent-ink);
+  outline: 2px solid var(--color-highlight-ink);
   outline-offset: 2px;
 }
-.dash ::selection { background: var(--accent-line); }
+.dash ::selection { background: color-mix(in oklab, var(--color-highlight) 35%, transparent); }
 
 /* Soft glow behind the login card. */
 .login-glow {
@@ -159,7 +182,7 @@ html[data-lite] .lift:hover { transform: none; }
   height: 44rem;
   max-width: 160vw;
   transform: translateX(-50%);
-  background: radial-gradient(closest-side, var(--accent-soft), transparent);
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--color-brand) 28%, transparent), transparent);
   pointer-events: none;
 }
 
@@ -171,7 +194,7 @@ html[data-lite] .lift:hover { transform: none; }
    Each menu category sets --tile to one of the design-system colours; the
    tile is the card surface with a light wash of that colour. */
 .pos-tile {
-  --tile-tint: var(--tile, var(--color-accent));
+  --tile-tint: var(--tile, var(--color-brand));
   background: color-mix(in oklab, var(--tile-tint) 9%, var(--color-surface));
   border-color: color-mix(in oklab, var(--tile-tint) 22%, var(--color-line));
 }

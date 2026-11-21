@@ -173,7 +173,7 @@ export function OrdersBoard({ orders, restaurantId, currency }: { orders: BoardO
                   ) : (
                     o.items.map((i, n) => (
                       <li key={n} className="flex gap-2">
-                        <span className="w-7 shrink-0 font-bold tabular-nums text-accent-ink">{i.quantity}×</span>
+                        <span className="w-7 shrink-0 font-bold tabular-nums text-highlight-ink">{i.quantity}×</span>
                         <span>
                           {i.name}
                           {i.size && <span className="text-ink-faint"> ({i.size})</span>}
@@ -185,7 +185,7 @@ export function OrdersBoard({ orders, restaurantId, currency }: { orders: BoardO
 
                 <div className="mt-4 flex items-baseline justify-between border-t border-line pt-4">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint">Total</span>
-                  <span className="text-2xl font-bold tabular-nums">{formatMoney(o.total, currency)}</span>
+                  <span className="text-2xl font-bold tabular-nums text-highlight-ink">{formatMoney(o.total, currency)}</span>
                 </div>
 
                 <PrintButtons orderId={o.id} className="mt-4" />

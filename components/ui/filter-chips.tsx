@@ -38,7 +38,7 @@ export function FilterChips<K extends string>({
             className={cn(
               "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors duration-200 disabled:cursor-default",
               active
-                ? "border-accent-line bg-accent-soft text-accent-ink"
+                ? "border-brand-line bg-brand-tint text-brand-ink"
                 : "border-line bg-raised text-ink-muted enabled:hover:border-line-strong enabled:hover:text-ink",
             )}
           >
@@ -47,7 +47,7 @@ export function FilterChips<K extends string>({
               <span
                 className={cn(
                   "min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs font-bold tabular-nums",
-                  active ? "bg-accent text-on-accent" : "bg-ink/10 text-ink-muted",
+                  active ? "bg-brand text-on-brand" : "bg-sage/20 text-sage-ink",
                 )}
               >
                 {chip.count}

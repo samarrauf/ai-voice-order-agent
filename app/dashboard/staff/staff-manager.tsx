@@ -57,7 +57,7 @@ function OneTimePassword({ secret, onDone }: { secret: NonNullable<Secret>; onDo
     }
   }
   return (
-    <Card className="mb-4 border-accent-line">
+    <Card className="mb-4 border-brand-line">
       <CardHeader title={secret.reason === "created" ? `Login created: ${secret.username}` : `New password for ${secret.username}`} />
       <p className="mb-3 flex items-start gap-2 rounded-xl border border-danger/30 bg-danger/12 px-3 py-2.5 text-sm text-danger">
         <TriangleAlert size={16} aria-hidden className="mt-0.5 shrink-0" />
@@ -195,7 +195,7 @@ export function StaffManager({ meId, accounts, events }: { meId: string; account
       </Card>
 
       {message && (
-        <p role="status" className={message.ok ? "mt-4 text-sm text-accent-ink" : "mt-4 text-sm text-danger"}>
+        <p role="status" className={message.ok ? "mt-4 text-sm text-brand-ink" : "mt-4 text-sm text-danger"}>
           {message.text}
         </p>
       )}

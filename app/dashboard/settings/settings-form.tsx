@@ -60,7 +60,7 @@ type Message = { ok: boolean; text: string } | null;
 function Status({ message }: { message: Message }) {
   if (!message) return null;
   return (
-    <span role="status" className={message.ok ? "text-sm text-accent-ink" : "text-sm text-red-400"}>
+    <span role="status" className={message.ok ? "text-sm text-brand-ink" : "text-sm text-red-400"}>
       {message.text}
     </span>
   );

@@ -170,7 +170,7 @@ export function BookingsBoard({
             aria-label="Pick a date"
             value={customDate}
             onChange={(e) => e.target.value && goTo("custom", e.target.value)}
-            className="min-h-11 rounded-xl border border-line bg-raised px-3 text-sm text-ink [color-scheme:dark] focus:border-accent-line focus:outline-none"
+            className="min-h-11 rounded-xl border border-line bg-raised px-3 text-sm text-ink [color-scheme:dark] focus:border-brand-line focus:outline-none"
           />
         )}
         {range === "today" && <span className="text-xs text-ink-faint">{formatDate(today)}</span>}
@@ -184,7 +184,7 @@ export function BookingsBoard({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search name, phone or B-2001"
-          className="min-h-11 w-full rounded-xl border border-line bg-raised pl-11 pr-4 text-sm text-ink placeholder:text-ink-faint focus:border-accent-line focus:outline-none"
+          className="min-h-11 w-full rounded-xl border border-line bg-raised pl-11 pr-4 text-sm text-ink placeholder:text-ink-faint focus:border-brand-line focus:outline-none"
         />
       </label>
 

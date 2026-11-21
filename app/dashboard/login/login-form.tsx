@@ -6,7 +6,7 @@ import { Button } from "@/components/ui";
 import { login, type LoginState } from "./actions";
 
 const inputClass =
-  "min-h-12 w-full rounded-xl border border-line bg-raised pl-11 pr-4 text-base transition-colors duration-200 placeholder:text-ink-faint hover:border-line-strong focus:border-accent-line";
+  "min-h-12 w-full rounded-xl border border-line bg-raised pl-11 pr-4 text-base transition-colors duration-200 placeholder:text-ink-faint hover:border-line-strong focus:border-brand-line";
 
 export function LoginForm() {
   const [state, action, pending] = useActionState<LoginState, FormData>(login, { error: null, username: "" });

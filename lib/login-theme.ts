@@ -10,16 +10,20 @@ export type LoginTheme = {
   name: string | null;
   /** Public path under /public, or null. */
   logoSrc: string | null;
-  /** #RRGGBB, run through resolveAccent() before use. */
+  /** #RRGGBB theme colours, run through resolveTheme() (lib/color.ts) before use. */
+  primary: string;
+  secondary: string;
   accent: string;
 };
 
-export const NEUTRAL_LOGIN_THEME: LoginTheme = { name: null, logoSrc: null, accent: "#D4D4D8" };
+export const NEUTRAL_LOGIN_THEME: LoginTheme = { name: null, logoSrc: null, primary: "#3F3F46", secondary: "#A1A1AA", accent: "#D4D4D8" };
 
-// Gold of the Olive 'n Spice logo (the logo's main colour); same family as the saved theme_accent.
+// Olive 'n Spice's saved theme colours: green, sage and the gold of the logo.
 export const OLIVE_LOGIN_THEME: LoginTheme = {
   name: "Olive 'n Spice",
   logoSrc: "/brand/olive-n-spice-logo.png",
+  primary: "#556B3F",
+  secondary: "#8FA377",
   accent: "#C9A227",
 };
 

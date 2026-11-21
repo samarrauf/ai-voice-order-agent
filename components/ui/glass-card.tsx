@@ -5,7 +5,7 @@ const VARIANT = {
   /** Frosted glass: light overlay, thin border, blur (see .glass in globals.css). */
   default: "glass",
   /** Filled with the restaurant's accent gradient: use for ONE hero card per page. */
-  accent: "glass-accent",
+  accent: "glass-brand",
   /** Plain raised surface, no blur: for big lists or cards nested inside glass. */
   flat: "glass-flat",
 } as const;

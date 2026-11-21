@@ -53,6 +53,13 @@ Phase D (baqi): QR table ordering, rider management.
 ## Agla stage
 B10 (har page ka andar ka look naye glass design mein) aur home dashboard; navigation mein naya page lib/nav.ts mein ek line se judta hai. A3a commit/push ke baad.
 
+## A3a2 (theme ke teeno rang) ka khulasa
+- Status: resolveTheme (lib/color.ts), lib/chart-palette.ts (--chart-1..8), lib/brand-logo.ts, top bar mein logo badge, globals.css naye tokens (brand/sage/highlight), lite mode theme se; lint, type-check, build, pure tests (+theme.pure.test.ts) pass. Poora suite: 681 pass + olive-onboarding.test.ts (live data ke mutabiq mazboot kiya, 12 pass); commit ka intezar.
+- Faislay: brand=primary (buttons, active), sage=secondary (chips, inactive, borders), highlight=accent (qeematein, totals, notification dot); canvas primary ka bohat gehra tint; Napoli ke apne rang (slate/neela). Purani accent classes brand/highlight mein badli (bg-accent -> bg-brand waghera).
+- Faislay: chart palette = brand + sage + highlight + unse bane rang, farthest-first (min deltaE 14), red-green paas paas nahi, 3:1; abhi koi chart nahi (A3b). KpiCard mein optional tone 1-8.
+- Baqi masail: olive-onboarding.test.ts ab cookie DB ke session_version se banata hai aur owner-editable settings ka behaviour (max discount) check karta hai, fixed facts sakht. Dev warning (purana): verifySession mein Date.now() prerender.
+- Screenshots design-samples/a3a2/ (gitignored). resolveAccent ab layout mein use nahi hota (tests ke liye rakha).
+
 ## A3a (glass design system) ka khulasa
 - Status: tokens (globals.css), lib/color.ts, lib/nav.ts, lib/lite-mode.ts, naye components/ui, app-shell.tsx (sidebar, top bar, avatar menu) aur login ka naya look tayyar; lint, type-check, build, poora suite pass; commit ka intezar. Screenshots design-samples/a3a/ (gitignored).
 - Faislay: purane tokens (surface/line/ink) hi glass values par le gaye, is liye saare purane pages khud naye look mein; accent resolveAccent() se (AA text, bohat gaharay accent halke kiye jate hain); print pages/readableOn/print.css untouched.

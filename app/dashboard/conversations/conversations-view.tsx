@@ -124,7 +124,7 @@ function Chip({
           "inline-flex min-h-11 items-center gap-2 rounded-full border py-0 pl-4 text-sm font-medium transition-colors duration-200",
           hint ? "pr-9" : "pr-4",
           active
-            ? "border-accent-line bg-accent-soft text-accent-ink"
+            ? "border-brand-line bg-brand-tint text-brand-ink"
             : "border-line bg-raised text-ink-muted hover:border-line-strong hover:text-ink",
         )}
       >
@@ -132,7 +132,7 @@ function Chip({
         <span
           className={cn(
             "min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs font-bold tabular-nums",
-            active ? "bg-accent text-on-accent" : "bg-ink/10 text-ink-muted",
+            active ? "bg-brand text-on-brand" : "bg-ink/10 text-ink-muted",
           )}
         >
           {count}
@@ -194,7 +194,7 @@ function ConversationCard({
       aria-current={active ? "true" : undefined}
       className={cn(
         "flex w-full flex-col gap-2 rounded-xl border p-4 text-left transition-colors duration-200",
-        active ? "border-accent-line bg-accent-soft" : "border-line bg-raised hover:border-line-strong",
+        active ? "border-brand-line bg-brand-tint" : "border-line bg-raised hover:border-line-strong",
       )}
     >
       <div className="flex items-center justify-between gap-3">
@@ -248,7 +248,7 @@ function ChatThread({ conversation: c, onBack }: { conversation: Conversation; o
                 className={cn(
                   "max-w-[85%] rounded-2xl border px-4 py-2.5 text-sm leading-relaxed",
                   agent
-                    ? "rounded-br-sm border-accent-line bg-accent-soft text-ink"
+                    ? "rounded-br-sm border-brand-line bg-brand-tint text-ink"
                     : "rounded-bl-sm border-line bg-raised text-ink",
                 )}
               >

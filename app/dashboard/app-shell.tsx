@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { KeyRound, LogOut, Plus } from "lucide-react";
 import { Avatar, NAV_ICONS, Tooltip, cn } from "@/components/ui";
+import type { TopBarLogo } from "@/lib/brand-logo";
 import { isNavActive, navFor, pageTitleFor, type NavItem } from "@/lib/nav";
 import { ROLE_LABELS, type StaffRole } from "@/lib/permissions";
 import { LiteSwitch } from "./lite-switch";
@@ -16,6 +17,8 @@ import { RestaurantClock } from "./restaurant-clock";
 
 type ShellProps = {
   restaurantName: string;
+  /** From lib/brand-logo.ts: the logo file, or null (then the first letter shows). */
+  logo: TopBarLogo;
   role: StaffRole;
   username: string;
   timeZone: string;
@@ -25,7 +28,7 @@ type ShellProps = {
   children: React.ReactNode;
 };
 
-export function AppShell({ restaurantName, role, username, timeZone, pendingOrders, logoutAction, children }: ShellProps) {
+export function AppShell({ restaurantName, logo, role, username, timeZone, pendingOrders, logoutAction, children }: ShellProps) {
   const pathname = usePathname();
   const onPos = pathname.startsWith("/dashboard/pos");
   const main = navFor(role, "main");
@@ -39,12 +42,17 @@ export function AppShell({ restaurantName, role, username, timeZone, pendingOrde
         <header className="glass sticky top-0 z-30 rounded-none border-x-0 border-t-0 shadow-none">
           <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-3 px-4 sm:px-6 lg:h-20 lg:pl-0">
             <div className="glass flex min-w-0 items-center gap-3 rounded-full py-1.5 pl-1.5 pr-5">
-              <span
-                aria-hidden
-                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-bold text-on-accent"
-              >
-                {restaurantName.trim().charAt(0).toUpperCase()}
-              </span>
+              {logo.src ? (
+                // Logo files have a white background: they sit on a white round badge.
+                <span className="flex h-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white px-2.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={logo.src} alt="" className="h-7 w-auto max-w-[8.5rem] object-contain" />
+                </span>
+              ) : (
+                <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand text-lg font-bold text-on-brand">
+                  {logo.initial}
+                </span>
+              )}
               <p className="min-w-0 truncate text-sm font-bold leading-tight">
                 {restaurantName}
                 <span className="block truncate text-xs font-medium text-ink-faint">{pageTitleFor(pathname)}</span>
@@ -55,7 +63,7 @@ export function AppShell({ restaurantName, role, username, timeZone, pendingOrde
               <Link
                 href="/dashboard/pos"
                 aria-label="New order"
-                className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-accent px-3 text-sm font-bold text-on-accent shadow-[0_8px_24px_-8px_var(--color-accent)] transition duration-200 hover:brightness-110 active:scale-95 sm:px-5"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-brand px-3 text-sm font-bold text-on-brand shadow-[0_8px_24px_-8px_var(--color-brand)] transition duration-200 hover:brightness-110 active:scale-95 sm:px-5"
               >
                 <Plus size={18} aria-hidden />
                 <span className="hidden sm:inline">New order</span>
@@ -78,7 +86,7 @@ export function AppShell({ restaurantName, role, username, timeZone, pendingOrde
 
 function NavDot({ show }: { show: boolean }) {
   if (!show) return null;
-  return <span aria-label="New" className="dot-pulse absolute right-1.5 top-1.5 size-2.5 rounded-full border-2 border-canvas bg-accent" />;
+  return <span aria-label="New" className="dot-pulse absolute right-1.5 top-1.5 size-2.5 rounded-full border-2 border-canvas bg-highlight" />;
 }
 
 function Sidebar({
@@ -106,7 +114,7 @@ function Sidebar({
             aria-current={active ? "page" : undefined}
             className={cn(
               "relative flex size-11 items-center justify-center rounded-full transition duration-200 active:scale-95",
-              active ? "bg-ink text-canvas" : "text-ink-muted hover:bg-ink/10 hover:text-ink",
+              active ? "bg-brand text-on-brand shadow-[0_6px_18px_-6px_var(--color-brand)]" : "text-sage-ink hover:bg-sage/15 hover:text-ink",
             )}
           >
             <Icon size={20} aria-hidden />
@@ -160,10 +168,10 @@ function BottomBar({ items, pathname, badges }: { items: NavItem[]; pathname: st
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-colors duration-200",
-                  active ? "text-ink" : "text-ink-faint hover:text-ink",
+                  active ? "text-ink" : "text-sage-ink hover:text-ink",
                 )}
               >
-                <span className={cn("relative flex h-7 w-11 items-center justify-center rounded-full transition-colors duration-200", active && "bg-ink text-canvas")}>
+                <span className={cn("relative flex h-7 w-11 items-center justify-center rounded-full transition-colors duration-200", active && "bg-brand text-on-brand")}>
                   <Icon size={18} aria-hidden />
                   <NavDot show={!!badges[item.id] && !active} />
                 </span>

@@ -41,15 +41,8 @@ const DISCOUNT_TYPES: readonly { key: DiscountType; label: string }[] = [
   { key: "fixed", label: "Fixed" },
 ];
 
-// Soft tile tints, one per category in turn. Design-system colours only.
-const TINTS = [
-  "var(--color-accent)",
-  "var(--color-status-new)",
-  "var(--color-status-preparing)",
-  "var(--color-status-ready)",
-  "var(--color-lead-hot)",
-  "var(--color-secondary)",
-];
+// Soft tile tints, one per category in turn: the restaurant's chart palette (lib/chart-palette.ts, set as --chart-N by the layout).
+const TINTS = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => `var(--chart-${n})`);
 
 // The server's whole bill for the cart. Every number here came from /api/staff/price-preview.
 type Bill = { subtotal: number; discount: number; delivery_fee: number; service_charge: number; tax: number; rounding: number; total: number };
@@ -290,7 +283,7 @@ export function PosTerminal({
                             ) : (
                               <>
                                 {item.sizes.length > 1 && <span className="mr-1 text-ink-faint">from</span>}
-                                <span className="font-bold text-ink">
+                                <span className="font-bold text-highlight-ink">
                                   {formatMoney(item.sizes.length > 1 ? Math.min(...item.sizes.map((s) => s.price)) : item.price, currency)}
                                 </span>
                               </>
@@ -437,7 +430,7 @@ function CartPanel({
             onClick={onChooseTable}
             className={cn(
               "flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border px-3.5 text-sm font-semibold transition-colors duration-200",
-              cart.table ? "border-accent-line bg-accent-soft text-accent-ink" : "border-dashed border-line-strong bg-raised text-ink hover:border-accent-line",
+              cart.table ? "border-brand-line bg-brand-tint text-brand-ink" : "border-dashed border-line-strong bg-raised text-ink hover:border-brand-line",
             )}
           >
             <span className="flex items-center gap-2">
@@ -621,7 +614,7 @@ function CartPanel({
           {empty ? (
             <span className="text-2xl font-bold tabular-nums text-ink-faint">–</span>
           ) : priced ? (
-            <span className="text-3xl font-bold tabular-nums">{formatMoney(priced.total, currency)}</span>
+            <span className="text-3xl font-bold tabular-nums text-highlight-ink">{formatMoney(priced.total, currency)}</span>
           ) : (
             <Skeleton className="h-9 w-24" />
           )}

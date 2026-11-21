@@ -25,7 +25,7 @@ Next 16.4.6 / React 19.3 / Supabase / vitest 5 / zod 4. Koi secret ya key ki val
 - `delivery.ts` delivery rules (postcode/areas/none) | `staff-delivery.ts` POS side
 - `booking.ts` shared availability/create-booking | `opening-hours.ts` checkOpen | `restaurant-status.ts` open/closed + next open
 - `order-lookup.ts` past order by number+phone | `caller-details.ts` junk guard
-- `color.ts` contrast, onAccent, resolveAccent (dashboard accent, AA safe; print uses branding.readableOn) | `nav.ts` NAV_ITEMS + navFor(role) + pageTitleFor (nayi page = ek line) | `lite-mode.ts` decideLite + LITE_INIT_SCRIPT
+- `color.ts` contrast, resolveTheme (primary/secondary/accent -> brand/sage/highlight tokens, AA safe; print uses branding.readableOn) | `chart-palette.ts` 8 chart colours (--chart-1..8) | `brand-logo.ts` top-bar logo or first letter | `nav.ts` NAV_ITEMS + navFor(role) + pageTitleFor (nayi page = ek line) | `lite-mode.ts` decideLite + LITE_INIT_SCRIPT
 - `branding.ts` name/colours | `receipt.ts` receipt model | `receipt-data.ts` loadPrintData(orderId, restaurantId) | `print-links.ts` printBillHref/printKotHref
 - `settings.ts` owner settings validation | `speech.ts` speech helpers | `timing.ts` timed/startTimer
 - `agent/` system-prompt, prompt-variants, status-context, tools (voice agent prompt aur tools, per restaurant)

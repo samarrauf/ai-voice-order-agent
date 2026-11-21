@@ -33,7 +33,7 @@ export function PillTabs({ tabs, className }: { tabs: PillTab[]; className?: str
             className={cn(
               "inline-flex min-h-11 shrink-0 items-center rounded-full px-5 text-sm font-semibold transition-colors duration-200",
               active
-                ? "bg-accent text-on-accent shadow-[0_0_18px_-2px_var(--color-accent)]"
+                ? "bg-brand text-on-brand shadow-[0_0_18px_-2px_var(--color-brand)]"
                 : "text-ink-muted hover:bg-ink/5 hover:text-ink",
             )}
           >

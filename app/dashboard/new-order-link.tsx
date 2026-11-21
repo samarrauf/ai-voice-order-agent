@@ -13,7 +13,7 @@ export function NewOrderLink({ compact, className }: { compact?: boolean; classN
       href="/dashboard/pos"
       aria-label="New order"
       className={cn(
-        "inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-accent px-3 text-sm font-semibold text-on-accent shadow-[0_0_18px_-4px_var(--color-accent)] transition duration-200 hover:brightness-110 active:scale-[0.98]",
+        "inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-brand px-3 text-sm font-semibold text-on-brand shadow-[0_0_18px_-4px_var(--color-brand)] transition duration-200 hover:brightness-110 active:scale-[0.98]",
         !compact && "px-5",
         className,
       )}

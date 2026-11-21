@@ -11,7 +11,7 @@ const MAX_COUNT = 1_000_000;
  * One headline number: small label, big figure, and underneath either an
  * up/down comparison ("12% vs yesterday") or a plain note.
  * `accent` fills the card with the restaurant's accent gradient (use for the first card only);
- * `icon` adds a small round icon at the top right.
+ * `icon` adds a small round icon at the top right; `tone` (1-8) colours it from the chart palette (--chart-N, lib/chart-palette.ts), so a row of cards is a mix of the theme colours.
  */
 export function KpiCard({
   label,
@@ -20,6 +20,7 @@ export function KpiCard({
   delta,
   note,
   icon,
+  tone,
   accent,
   className,
 }: {
@@ -29,18 +30,20 @@ export function KpiCard({
   delta?: Delta;
   note?: string;
   icon?: ReactNode;
+  tone?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   accent?: boolean;
   className?: string;
 }) {
   const counts = /^\d{1,7}$/.test(value) && Number(value) <= MAX_COUNT;
   return (
-    <div className={cn("lift rounded-card p-5", accent ? "glass-accent" : "glass", className)}>
+    <div className={cn("lift rounded-card p-5", accent ? "glass-brand" : "glass", className)}>
       <div className="flex items-start justify-between gap-3">
         <p className={cn("text-[11px] font-semibold uppercase tracking-[0.12em]", accent ? "opacity-80" : "text-ink-faint")}>{label}</p>
         {icon && (
           <span
             aria-hidden
-            className={cn("flex size-9 shrink-0 items-center justify-center rounded-full", accent ? "bg-black/15" : "bg-raised text-ink-muted")}
+            className={cn("flex size-9 shrink-0 items-center justify-center rounded-full", accent ? "bg-black/15" : tone ? "text-[var(--tone)]" : "bg-raised text-ink-muted")}
+            style={tone && !accent ? ({ "--tone": `var(--chart-${tone})`, background: "color-mix(in oklab, var(--tone) 20%, transparent)" } as CSSProperties) : undefined}
           >
             {icon}
           </span>
