@@ -6,7 +6,7 @@ import { LayoutGrid } from "lucide-react";
 import { Badge, Button, Card, CardHeader, EmptyState, FilterChips, KpiCard, type Chip } from "@/components/ui";
 import { cn } from "@/components/ui/cn";
 import { formatMoney } from "@/lib/money";
-import { busyTableActions, durationLabel, owedTotalPence, posTableHref, showClearAnyway, unpaidOrders } from "@/lib/tables";
+import { busyTableActions, durationLabel, owedTotalPence, showClearAnyway, unpaidOrders } from "@/lib/tables";
 import { printBillHref } from "@/lib/print-links";
 import type { Floor, SessionOrder, TableView } from "@/lib/tables-data";
 import { PaymentDialog } from "../pos/payment-dialog";
@@ -39,7 +39,7 @@ export function TablesFloor({
   floor: Floor;
   restaurantId: string;
   canMerge?: boolean;
-  /** can(role, "take_payment"): shows "Payment lo". The server route checks the login again. */
+  /** can(role, "take_payment"): shows "Take bill". The server route checks the login again. */
   canPay?: boolean;
   /** can(role, "print_bill"): shows "Bill print". */
   canPrint?: boolean;
@@ -317,16 +317,10 @@ export function TablesFloor({
                             const many = orders.length > 1;
                             return (
                               <>
-                                <a
-                                  href={posTableHref(t.id)}
-                                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-brand-line bg-brand-tint px-3 text-sm font-semibold text-brand-ink transition duration-200 active:scale-[0.98]"
-                                >
-                                  Items jodo
-                                </a>
                                 {a.pay &&
                                   owing.map((o) => (
                                     <Button key={o.id} variant="primary" disabled={busy} onClick={() => setPaying({ tableId: t.id, order: o })}>
-                                      {owing.length > 1 ? `Payment lo · ${o.number}` : "Payment lo"}
+                                      {owing.length > 1 ? `Take bill · ${o.number}` : "Take bill"}
                                     </Button>
                                   ))}
                                 {a.printBill &&

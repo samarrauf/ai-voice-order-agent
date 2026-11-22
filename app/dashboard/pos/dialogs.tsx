@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Check, CircleAlert, CircleCheck, Minus, Plus, Users, X } from "lucide-react";
 import { Badge, Button, cn } from "@/components/ui";
@@ -13,7 +14,17 @@ import type { PosItem, PosTable } from "./pos-types";
 // "order sent" message. All three share the Modal frame below. On a phone a
 // popup slides up from the bottom; on bigger screens it sits in the middle.
 
+// Where popups are drawn. NOT inside the page card: glass cards use backdrop-filter, which makes
+// `position: fixed` children position against the card instead of the screen. The `.dash` wrapper is
+// the highest element that still carries the theme colours (the layout sets them on it), has no
+// filter or transform, and covers the whole page. Server render and hydration see `null`.
+const subscribeNone = () => () => {};
+const popupHost = () => document.querySelector<HTMLElement>(".dash") ?? document.body;
+
+/** The one popup frame (payment, table, held orders, ...). Fixed to the screen, above the top bar and the bottom nav; the page behind does not scroll. */
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const host = useSyncExternalStore(subscribeNone, popupHost, () => null);
+
   // Escape closes the popup.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -21,8 +32,18 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
+  // The page behind stays still while a popup is open (put back exactly as it was).
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
+
+  if (!host) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-6">
       <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 cursor-default bg-canvas/80 backdrop-blur-sm" />
       <div
         role="dialog"
@@ -43,7 +64,8 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    host,
   );
 }
 
