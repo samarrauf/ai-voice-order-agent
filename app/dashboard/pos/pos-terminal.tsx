@@ -19,8 +19,10 @@ import {
 } from "./cart-store";
 import { ErrorNote, ItemDialog, Modal, SentDialog, Stepper, TableDialog, type SentOrder } from "./dialogs";
 import { PaymentDialog } from "./payment-dialog";
+import { HeldListDialog, HoldDialog, countHeld } from "./held-dialogs";
 import { CostLine } from "../cost-line";
 import type { LineCost } from "@/lib/profit";
+import type { HeldCart } from "@/lib/held-carts";
 import type { PosCategory, PosItem, PosTable } from "./pos-types";
 
 // The POS screen. Left: search, category chips and the item tiles. Right: the
@@ -85,6 +87,12 @@ export function PosTerminal({
   const [sendError, setSendError] = useState<string | null>(null);
   const [sent, setSent] = useState<SentOrder | null>(null);
   const [paying, setPaying] = useState(false);
+  const [holding, setHolding] = useState(false);
+  const [showHeld, setShowHeld] = useState(false);
+  const [heldCount, setHeldCount] = useState<number | null>(null);
+  useEffect(() => {
+    void countHeld().then(setHeldCount);
+  }, []);
 
   // ---- Prices: always from the server ---------------------------------
   // The request body itself is the signature: items, order type and discount.
@@ -212,6 +220,9 @@ export function PosTerminal({
       sending={sending}
       sendError={sendError}
       onSend={send}
+      onHold={() => setHolding(true)}
+      onShowHeld={() => setShowHeld(true)}
+      heldCount={heldCount}
     />
   );
 
@@ -361,6 +372,35 @@ export function PosTerminal({
           }}
         />
       )}
+      {holding && (
+        <HoldDialog
+          cart={cart as HeldCart}
+          onClose={() => setHolding(false)}
+          onHeld={() => {
+            dispatch({ type: "reset" });
+            setHolding(false);
+            setSheetOpen(false);
+            setSendError(null);
+            void countHeld().then(setHeldCount);
+          }}
+        />
+      )}
+      {showHeld && (
+        <HeldListDialog
+          currency={currency}
+          cartHasItems={cart.lines.length > 0}
+          onClose={() => {
+            setShowHeld(false);
+            void countHeld().then(setHeldCount);
+          }}
+          onResume={(r) => {
+            dispatch({ type: "load", cart: r.cart as CartState });
+            setShowHeld(false);
+            setSendError(null);
+            void countHeld().then(setHeldCount);
+          }}
+        />
+      )}
       {sent && !paying && (
         <SentDialog order={sent} currency={currency} onClose={() => setSent(null)} onTakePayment={() => setPaying(true)} />
       )}
@@ -398,6 +438,9 @@ function CartPanel({
   sending,
   sendError,
   onSend,
+  onHold,
+  onShowHeld,
+  heldCount,
 }: {
   cart: CartState;
   dispatch: (action: CartAction) => void;
@@ -414,6 +457,9 @@ function CartPanel({
   sending: boolean;
   sendError: string | null;
   onSend: () => void;
+  onHold: () => void;
+  onShowHeld: () => void;
+  heldCount: number | null;
 }) {
   const empty = cart.lines.length === 0;
   return (
@@ -627,6 +673,14 @@ function CartPanel({
           <Send size={19} aria-hidden />
           {sending ? "Sending..." : "Send to Kitchen"}
         </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" disabled={empty} onClick={onHold}>
+            Hold
+          </Button>
+          <Button variant="secondary" onClick={onShowHeld}>
+            Held orders{heldCount ? ` (${heldCount})` : ""}
+          </Button>
+        </div>
         {needsTable && !empty && <p className="text-center text-xs text-ink-faint">Choose a table first, or switch to Takeaway.</p>}
         {needsDelivery && !empty && (
           <p className="text-center text-xs text-ink-faint">A delivery order needs the customer name, phone and address.</p>

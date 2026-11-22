@@ -34,7 +34,7 @@ async function cleanup() {
 
 beforeAll(async () => {
   await cleanup(); // self-heal after an interrupted run
-  const { data } = await db.from("restaurant_tables").select("id").eq("restaurant_id", RID).gte("seats", PARTY);
+  const { data } = await db.from("restaurant_tables").select("id").eq("restaurant_id", RID).eq("is_active", true).gte("seats", PARTY);
   expect(data, "expected exactly one eight-seater").toHaveLength(1);
   eightSeaterId = data![0].id;
   const { data: open } = await db.from("table_sessions").select("id").eq("table_id", eightSeaterId).is("cleared_at", null);

@@ -49,6 +49,7 @@ const ORDER_STATUS: Record<string, { label: string; tone: Tone }> = {
   ready: { label: "Ready", tone: "ready" },
   completed: { label: "Completed", tone: "done" },
   cancelled: { label: "Cancelled", tone: "danger" },
+  merged: { label: "Merged", tone: "done" },
   // Booking statuses (dashboard Bookings tab).
   confirmed: { label: "Confirmed", tone: "new" },
   seated: { label: "Seated", tone: "ready" },

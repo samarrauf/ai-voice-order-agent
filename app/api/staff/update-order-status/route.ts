@@ -10,7 +10,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 const BOARD_STATUSES = ["new", "preparing", "ready", "completed"] as const;
 
 // A cancelled or completed order is final: its status can never change again.
-const FINAL_STATUSES = ["cancelled", "completed"];
+const FINAL_STATUSES = ["cancelled", "completed", "merged"];
 
 const bodySchema = z.object({
   // Optional: older dashboard tabs still send it. The restaurant itself comes from the login session.

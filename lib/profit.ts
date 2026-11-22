@@ -103,7 +103,7 @@ export function summarizeProfit(orders: readonly ProfitOrder[], expenseAmounts: 
   let count = 0;
   let incomplete = 0;
   for (const o of orders) {
-    if (o.status === "cancelled") continue;
+    if (o.status === "cancelled" || o.status === "merged") continue;
     count++;
     const c = toPence(o.cost_total ?? 0);
     sales += toPence(o.total) - toPence(o.tax_amount ?? 0);

@@ -14,7 +14,7 @@ Har stage ke aakhir mein yeh file update karna lazmi hai (status, faislay, masai
 | B1 | Menu editor aur photos | baqi |
 | B2 | Cost, expenses, profit (sirf owner ko) | DONE, commit ka intezar |
 | B3 | Tables aur venue management | baqi |
-| B4a | Hold/resume, table badalna, merge | baqi |
+| B4a | Hold/resume, table badalna, merge | DONE, commit ka intezar |
 | B4b | Cancel, void, refund | baqi |
 | B4c | Bill split | baqi |
 | B4d | WhatsApp shukriya + Google review ek-click button | baqi |
@@ -73,6 +73,12 @@ B5 (Reports: dashboard-stats aur lib/profit-data.ts ka wahi hisaab), B10 (har pa
 - Faislay: munafa = subtotal - discount - cost_total (delivery, service, tax, rounding bahar; cancelled bahar); manager ki menu save cost ko naam se mila kar mehfooz rakhti hai; cost menu_changes mein nahi likhi jati; kharcha void hota hai, delete nahi.
 - Baqi masail: purane orders ki cost null (backfill nahi); category/restaurant-level extras ki cost editor se set nahi hoti; kharchon ki category ko band/rename karne ka UI nahi; Expenses page pehli visit par default categories banata hai.
 - Agla: B5 Reports (charts) loadProfitSummary aur dashboard-stats ka hisaab use kare.
+
+## B4a (hold/resume, table badalna, merge) ka khulasa
+- Status: migration 0027 owner ne run ki (held_carts, order_events, orders.status 'merged', move_table_tx, merge_orders_tx, record_payment_tx + merged); POS mein Hold / Held orders, Tables page par Move table / Merge orders; lint, type-check, build, naye tests pass.
+- Faislay: hold ka quote server rakhta hai (browser ki qeemat ignore), resume par dobara hisab aur farq dikhta hai; resume held cart ko usi statement mein hata deta hai (do staff ek cart resume nahi kar sakte). Move = session ki table badalti hai, order number wahi; seats kam hon to sirf warning; double-seating ka partial index barqarar.
+- Faislay: merge target order ke discount ke sath sab items ka computeBill dobara; source 'merged' (paisa zero, items target mein), sales/profit/board/tables bill se bahar (isExcludedStatus); payment wale, cancelled/completed/merged ya takeaway order merge nahi hote; source table tabhi free jab us par aur live order na ho. order_events: table_moved, merged_in, merged_into.
+- Baqi masail: source ka discount merge mein nahi jata (sirf target ka); held cart resume ke baad browser band ho jaye to cart chala jata hai; order_events ka dekhne wala UI nahi (aglay stages); move/merge ka UI Tables page par hai, POS table picker mein nahi.
 
 ## A3b (Home dashboard) ka khulasa
 - Status: Home /dashboard par, orders board /dashboard/orders par (nav: Home, Orders); lib/dashboard-stats.ts (pure hisaab), lib/dashboard-home.ts (loader + role gate), components/charts (CapsuleBars, Donut, Gauge, Sparkline), CountUp; lint, type-check, build, naye tests pass.

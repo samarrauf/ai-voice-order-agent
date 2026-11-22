@@ -62,7 +62,7 @@ export async function loadProfitSummary(
       .from("orders")
       .select("status, subtotal, discount_amount, tax_amount, total, cost_total, cost_complete")
       .eq("restaurant_id", restaurantId)
-      .neq("status", "cancelled")
+      .not("status", "in", "(cancelled,merged)")
       .gte("created_at", range.from.toISOString())
       .lt("created_at", range.to.toISOString())
       .order("created_at", { ascending: true })

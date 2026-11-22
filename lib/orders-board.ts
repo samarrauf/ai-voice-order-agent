@@ -53,6 +53,7 @@ export async function loadBoardOrders(restaurantId: string, role: StaffRole, lim
     .from("orders")
     .select(columns)
     .eq("restaurant_id", restaurantId)
+    .neq("status", "merged") // the source of a merge has no items or money left
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
@@ -63,7 +64,7 @@ export async function loadBoardOrders(restaurantId: string, role: StaffRole, lim
     const session = Array.isArray(ts) ? ts[0] : ts;
     const rt = session?.restaurant_tables as { table_number: string } | { table_number: string }[] | null | undefined;
     const table = Array.isArray(rt) ? rt[0] : rt;
-    const showProfit = owner && o.status !== "cancelled";
+    const showProfit = owner && o.status !== "cancelled" && o.status !== "merged";
     return {
       id: o.id,
       order_number: o.order_number,

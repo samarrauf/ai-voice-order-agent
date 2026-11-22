@@ -14,6 +14,9 @@ import {
 
 export type SectionView = { id: string; name: string; sort_order: number; is_active: boolean };
 
+/** A live order of a seated table (for the Move / Merge buttons). Never carries cost or profit. */
+export type SessionOrder = { id: string; number: string; total: number; paid: boolean };
+
 export type TableView = {
   id: string;
   number: string;
@@ -23,7 +26,7 @@ export type TableView = {
   notes: string | null;
   state: LiveState;
   /** Open seating session (state "seated"). */
-  session: { id: string; partySize: number; minutes: number; bill: number; bookingId: string | null } | null;
+  session: { id: string; partySize: number; minutes: number; bill: number; bookingId: string | null; orders: SessionOrder[] } | null;
   /** Next confirmed booking at this table (shown when reserved soon). */
   booking: { id: string; reference: string; name: string; partySize: number; time: string; inMinutes: number } | null;
 };
@@ -101,19 +104,24 @@ export async function loadFloor(rid: string, now: Date = new Date()): Promise<Fl
   ]);
   for (const r of [sections, tables, sessions, bookings]) if (r.error) throw r.error;
 
-  // The running bill: every order of the open sessions that is not cancelled.
+  // The running bill: every order of the open sessions that is not cancelled or merged.
   const sessionIds = (sessions.data ?? []).map((s) => s.id);
   const bills = new Map<string, number>();
+  const sessionOrders = new Map<string, SessionOrder[]>();
   if (sessionIds.length > 0) {
     const orders = await supabaseAdmin
       .from("orders")
-      .select("table_session_id, total, status")
+      .select("id, order_number, table_session_id, total, status, paid_amount")
       .eq("restaurant_id", rid)
       .in("table_session_id", sessionIds)
-      .neq("status", "cancelled");
+      .not("status", "in", "(cancelled,merged)");
     if (orders.error) throw orders.error;
     for (const o of orders.data ?? []) {
-      if (o.table_session_id) bills.set(o.table_session_id, (bills.get(o.table_session_id) ?? 0) + Number(o.total));
+      if (!o.table_session_id) continue;
+      bills.set(o.table_session_id, (bills.get(o.table_session_id) ?? 0) + Number(o.total));
+      const list = sessionOrders.get(o.table_session_id) ?? [];
+      list.push({ id: o.id, number: o.order_number, total: Number(o.total), paid: Number(o.paid_amount) > 0 });
+      sessionOrders.set(o.table_session_id, list);
     }
   }
 
@@ -137,7 +145,7 @@ export async function loadFloor(rid: string, now: Date = new Date()): Promise<Fl
       isActive: t.is_active,
       notes: t.notes,
       state: liveState({ session: s ? { seatedAt: s.seated_at } : null, nextBooking: slot }, local),
-      session: s ? { id: s.id, partySize: s.party_size, minutes: minutesSince(s.seated_at, now), bill: Math.round((bills.get(s.id) ?? 0) * 100) / 100, bookingId: s.booking_id } : null,
+      session: s ? { id: s.id, partySize: s.party_size, minutes: minutesSince(s.seated_at, now), bill: Math.round((bills.get(s.id) ?? 0) * 100) / 100, bookingId: s.booking_id, orders: sessionOrders.get(s.id) ?? [] } : null,
       booking:
         b && slot
           ? {

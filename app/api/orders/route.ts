@@ -47,7 +47,7 @@ export const GET = timed("orders", async (request: NextRequest, timer) => {
     )
     .order("created_at", { ascending: false })
     .limit(limit);
-  if (status) query = query.eq("status", status);
+  query = status ? query.eq("status", status) : query.neq("status", "merged");
   if (restaurant_id) query = query.eq("restaurant_id", restaurant_id);
 
   const { data, error } = await query;

@@ -70,7 +70,7 @@ async function fetchItems(restaurantId: string, from: Date, to: Date): Promise<S
       .from("order_items")
       .select("item_name, quantity, orders!inner(restaurant_id, status, created_at)")
       .eq("orders.restaurant_id", restaurantId)
-      .neq("orders.status", "cancelled")
+      .not("orders.status", "in", "(cancelled,merged)")
       .gte("orders.created_at", from.toISOString())
       .lt("orders.created_at", to.toISOString())
       .order("id", { ascending: true })
@@ -90,7 +90,7 @@ async function loadOps(restaurantId: string, withTotals: boolean): Promise<HomeO
     supabaseAdmin.from("orders").select("id", { count: "exact", head: true }).eq("restaurant_id", restaurantId).eq("status", "new"),
     supabaseAdmin.from("restaurant_tables").select("id", { count: "exact", head: true }).eq("restaurant_id", restaurantId).eq("is_active", true),
     supabaseAdmin.from("table_sessions").select("id", { count: "exact", head: true }).eq("restaurant_id", restaurantId).is("cleared_at", null),
-    supabaseAdmin.from("orders").select(liveColumns).eq("restaurant_id", restaurantId).order("created_at", { ascending: false }).limit(5),
+    supabaseAdmin.from("orders").select(liveColumns).eq("restaurant_id", restaurantId).neq("status", "merged").order("created_at", { ascending: false }).limit(5),
   ]);
   for (const r of [running, waiting, tablesTotal, tablesSeated, live]) if (r.error) throw r.error;
   const rows = (live.data ?? []) as unknown as Array<Record<string, string | number | null>>;

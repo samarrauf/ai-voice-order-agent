@@ -22,16 +22,23 @@ const TILE: Record<TableView["state"], string> = {
 const LABEL: Record<TableView["state"], string> = { free: "Free", seated: "Seated", reserved: "Reserved soon" };
 const TONE = { free: "ready", seated: "preparing", reserved: "new" } as const;
 
+const SELECT = "min-h-11 rounded-xl border border-line bg-raised px-3 text-sm text-ink";
 const ALL = "all";
 const NONE = "none";
 
-export function TablesFloor({ floor, restaurantId }: { floor: Floor; restaurantId: string }) {
+export function TablesFloor({ floor, restaurantId, canMerge = false }: { floor: Floor; restaurantId: string; canMerge?: boolean }) {
   const router = useRouter();
   const [tab, setTab] = useState<string>(ALL);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [seatingId, setSeatingId] = useState<string | null>(null);
   const [party, setParty] = useState("2");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  // Move / merge panel on one seated table: which action, and what was picked.
+  const [panel, setPanel] = useState<{ tableId: string; kind: "move" | "merge" } | null>(null);
+  const [pickTable, setPickTable] = useState("");
+  const [pickSource, setPickSource] = useState("");
+  const [pickTarget, setPickTarget] = useState("");
 
   const active = floor.tables.filter((t) => t.isActive);
   const sections = floor.sections.filter((s) => s.is_active);
@@ -86,6 +93,51 @@ export function TablesFloor({ floor, restaurantId }: { floor: Floor; restaurantI
     ]);
   };
 
+  const freeTables = active.filter((x) => x.state !== "seated");
+  const mergeTargets = (t: TableView) =>
+    active.flatMap((x) => (x.id === t.id || !x.session ? [] : x.session.orders.filter((o) => !o.paid).map((o) => ({ ...o, table: x.number }))));
+
+  function openPanel(t: TableView, kind: "move" | "merge") {
+    setError(null);
+    setNotice(null);
+    setPanel({ tableId: t.id, kind });
+    setPickTable(freeTables[0]?.id ?? "");
+    setPickSource(t.session?.orders.find((o) => !o.paid)?.id ?? "");
+    setPickTarget(mergeTargets(t)[0]?.id ?? "");
+  }
+
+  type PanelAnswer = { success?: boolean; error?: string; to_table?: string; seats_warning?: boolean; seats?: number; party_size?: number; target_order_number?: string; source_table_cleared?: boolean };
+
+  async function submitPanel(t: TableView) {
+    if (!panel) return;
+    setBusyId(t.id);
+    setError(null);
+    setNotice(null);
+    const move = panel.kind === "move";
+    try {
+      const res = await fetch(move ? "/api/staff/move-table" : "/api/staff/merge-orders", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(move ? { table_session_id: t.session!.id, to_table_id: pickTable } : { source_order_id: pickSource, target_order_id: pickTarget }),
+      });
+      const json = (await res.json().catch(() => null)) as PanelAnswer | null;
+      if (res.ok && json?.success) {
+        setNotice(
+          move
+            ? `Moved to table ${json.to_table}.${json.seats_warning ? ` Warning: that table has ${json.seats} seats for a party of ${json.party_size}.` : ""}`
+            : `Merged into order ${json.target_order_number}.${json.source_table_cleared ? " The other table is free now." : ""}`,
+        );
+        setPanel(null);
+      } else if (res.status === 401) setError("You were logged out. Please log in again.");
+      else if (res.status === 403) setError("You do not have permission to do this.");
+      else setError(json?.error ? `Could not ${move ? "move" : "merge"}: ${json.error}.` : "Something went wrong.");
+    } catch {
+      setError("Network problem. Try again.");
+    }
+    router.refresh();
+    setBusyId(null);
+  }
+
   const startSeat = (t: TableView) => {
     setError(null);
     setSeatingId(t.id);
@@ -104,6 +156,11 @@ export function TablesFloor({ floor, restaurantId }: { floor: Floor; restaurantI
       <Card className="mt-4">
         <CardHeader title="Floor" hint="Updates every 30 seconds" />
         {chips.length > 1 && <FilterChips label="Section" chips={chips} value={selected} onChange={setTab} className="mb-4" />}
+        {notice && (
+          <p role="status" className="mb-3 rounded-xl border border-line bg-raised px-3 py-2.5 text-sm text-ink">
+            {notice}
+          </p>
+        )}
         {error && (
           <p role="alert" className="mb-3 rounded-xl border border-danger/30 bg-danger/12 px-3 py-2.5 text-sm text-danger">
             {error}
@@ -146,7 +203,59 @@ export function TablesFloor({ floor, restaurantId }: { floor: Floor; restaurantI
                     </p>
                   )}
 
-                  {seatingId === t.id ? (
+                  {panel?.tableId === t.id && t.session ? (
+                    <div className="flex flex-col gap-2">
+                      {panel.kind === "move" ? (
+                        <>
+                          <label className="text-xs text-ink-muted" htmlFor={`move-${t.id}`}>
+                            Move this party to
+                          </label>
+                          <select id={`move-${t.id}`} value={pickTable} onChange={(e) => setPickTable(e.target.value)} className={SELECT}>
+                            {freeTables.length === 0 && <option value="">No free table</option>}
+                            {freeTables.map((x) => (
+                              <option key={x.id} value={x.id}>
+                                Table {x.number} ({x.seats} seats){x.state === "reserved" ? " - booked soon" : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </>
+                      ) : (
+                        <>
+                          <label className="text-xs text-ink-muted" htmlFor={`msrc-${t.id}`}>
+                            Take the items of
+                          </label>
+                          <select id={`msrc-${t.id}`} value={pickSource} onChange={(e) => setPickSource(e.target.value)} className={SELECT}>
+                            {t.session.orders
+                              .filter((o) => !o.paid)
+                              .map((o) => (
+                                <option key={o.id} value={o.id}>
+                                  {o.number} - {formatMoney(o.total, floor.currency)}
+                                </option>
+                              ))}
+                          </select>
+                          <label className="text-xs text-ink-muted" htmlFor={`mtgt-${t.id}`}>
+                            and add them to
+                          </label>
+                          <select id={`mtgt-${t.id}`} value={pickTarget} onChange={(e) => setPickTarget(e.target.value)} className={SELECT}>
+                            {mergeTargets(t).length === 0 && <option value="">No other open order</option>}
+                            {mergeTargets(t).map((o) => (
+                              <option key={o.id} value={o.id}>
+                                Table {o.table} - {o.number} - {formatMoney(o.total, floor.currency)}
+                              </option>
+                            ))}
+                          </select>
+                        </>
+                      )}
+                      <div className="flex gap-2">
+                        <Button variant="primary" disabled={busy || (panel.kind === "move" ? !pickTable : !pickSource || !pickTarget)} onClick={() => submitPanel(t)}>
+                          {panel.kind === "move" ? "Move" : "Merge"}
+                        </Button>
+                        <Button onClick={() => setPanel(null)} disabled={busy}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : seatingId === t.id ? (
                     <div className="flex flex-wrap items-center gap-2">
                       <label className="text-xs text-ink-muted" htmlFor={`party-${t.id}`}>
                         Guests
@@ -171,9 +280,19 @@ export function TablesFloor({ floor, restaurantId }: { floor: Floor; restaurantI
                   ) : (
                     <div className="mt-auto flex flex-wrap gap-2">
                       {t.state === "seated" ? (
-                        <Button variant="secondary" disabled={busy} onClick={() => clear(t)}>
-                          Clear table
-                        </Button>
+                        <>
+                          <Button variant="secondary" disabled={busy} onClick={() => clear(t)}>
+                            Clear table
+                          </Button>
+                          <Button variant="ghost" disabled={busy} onClick={() => openPanel(t, "move")}>
+                            Move table
+                          </Button>
+                          {canMerge && t.session && t.session.orders.some((o) => !o.paid) && (
+                            <Button variant="ghost" disabled={busy} onClick={() => openPanel(t, "merge")}>
+                              Merge orders
+                            </Button>
+                          )}
+                        </>
                       ) : (
                         <>
                           {t.state === "reserved" && t.booking && (

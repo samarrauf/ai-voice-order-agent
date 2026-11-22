@@ -20,6 +20,9 @@ export const RANGE_VERSUS: Record<RangeKey, string> = { today: "yesterday", "7d"
 export const isRangeKey = (v: unknown): v is RangeKey => typeof v === "string" && (RANGE_KEYS as readonly string[]).includes(v);
 
 /** Orders that still need the kitchen or the counter. */
+/** Orders that never count as a sale: cancelled, and the source order of a merge (its items moved to another order). */
+export const isExcludedStatus = (status: string): boolean => status === "cancelled" || status === "merged";
+
 export const OPEN_STATUSES = ["new", "accepted", "preparing", "ready"] as const;
 
 export type StatsOrder = {
@@ -41,7 +44,7 @@ const toPence = (amount: unknown): number => {
 
 /** Sales of one order in pence (the SALES RULE above); 0 for a cancelled order. */
 export function orderSalesPence(o: Pick<StatsOrder, "status" | "total" | "tax_amount">): number {
-  if (o.status === "cancelled") return 0;
+  if (isExcludedStatus(o.status)) return 0;
   return Math.max(0, toPence(o.total) - toPence(o.tax_amount));
 }
 
@@ -153,7 +156,7 @@ export function totalsFor(orders: readonly StatsOrder[], from: Date, to: Date): 
   let paid = 0;
   let billed = 0;
   for (const o of orders) {
-    if (o.status === "cancelled" || !inside(o, from, to)) continue;
+    if (isExcludedStatus(o.status) || !inside(o, from, to)) continue;
     const total = toPence(o.total);
     count += 1;
     sales += orderSalesPence(o);
@@ -209,7 +212,7 @@ export type TypeShare = { type: OrderType; label: string; count: number; percent
 /** How many orders of each type in [from, to), with whole percentages adding up to 100 (all 0 when empty). */
 export function typeShares(orders: readonly StatsOrder[], from: Date, to: Date): TypeShare[] {
   const counts: Record<OrderType, number> = { dine_in: 0, takeaway: 0, delivery: 0 };
-  for (const o of orders) if (o.status !== "cancelled" && inside(o, from, to)) counts[orderTypeOf(o)] += 1;
+  for (const o of orders) if (!isExcludedStatus(o.status) && inside(o, from, to)) counts[orderTypeOf(o)] += 1;
   const types: OrderType[] = ["dine_in", "takeaway", "delivery"];
   const pct = sharePercents(types.map((t) => counts[t]));
   return types.map((type, i) => ({ type, label: ORDER_TYPE_LABELS[type], count: counts[type], percent: pct[i] }));
@@ -257,7 +260,7 @@ const DAY_TO_HOUR = 22;
  * restaurant's time zone: an order at 23:30 UTC is already "tomorrow" in Karachi.
  */
 export function salesSeries(orders: readonly StatsOrder[], range: RangeKey, period: Period, timeZone: string, now: Date = period.end): SeriesPoint[] {
-  const current = orders.filter((o) => o.status !== "cancelled" && inside(o, period.start, period.end));
+  const current = orders.filter((o) => !isExcludedStatus(o.status) && inside(o, period.start, period.end));
   if (range === "today") {
     const byHour = new Array<number>(24).fill(0);
     let first = DAY_FROM_HOUR;
@@ -355,4 +358,4 @@ export function timeAgo(iso: string, now: Date): string {
 }
 
 /** Order status -> how far along it is (0-100), for the small bar in the live list. */
-export const STATUS_PROGRESS: Record<string, number> = { new: 20, accepted: 40, preparing: 65, ready: 85, completed: 100, cancelled: 0 };
+export const STATUS_PROGRESS: Record<string, number> = { new: 20, accepted: 40, preparing: 65, ready: 85, completed: 100, cancelled: 0, merged: 0 };

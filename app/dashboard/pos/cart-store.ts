@@ -68,6 +68,7 @@ export type CartAction =
   | { type: "setTable"; table: CartTable | null }
   | { type: "setField"; field: "customerName" | "customerPhone" | "deliveryAddress" | "deliveryPostcode" | "deliveryArea" | "discountValue" | "discountReason" | "note"; value: string }
   | { type: "setDiscountType"; discountType: DiscountType }
+  | { type: "load"; cart: CartState }
   | { type: "reset" };
 
 const lineKey = (l: NewLine) => [l.menuItemId, l.sizeName ?? "", ...[...l.options].sort()].join("|");
@@ -99,6 +100,9 @@ export function cartReducer(state: CartState, action: CartAction): CartState {
       return { ...state, discountType: action.discountType, discountValue: action.discountType === "none" ? "" : state.discountValue };
     case "setField":
       return { ...state, [action.field]: action.value };
+    case "load":
+      // A held order taken back: the server already re-checked it.
+      return action.cart;
     case "reset":
       // After an order is sent: empty everything but stay on the same order type.
       return emptyCart(state.orderType);
