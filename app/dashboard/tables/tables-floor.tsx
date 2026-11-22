@@ -6,7 +6,7 @@ import { LayoutGrid } from "lucide-react";
 import { Badge, Button, Card, CardHeader, EmptyState, FilterChips, KpiCard, type Chip } from "@/components/ui";
 import { cn } from "@/components/ui/cn";
 import { formatMoney } from "@/lib/money";
-import { busyTableActions, durationLabel, posTableHref, unpaidOrders } from "@/lib/tables";
+import { busyTableActions, durationLabel, owedTotalPence, posTableHref, showClearAnyway, unpaidOrders } from "@/lib/tables";
 import { printBillHref } from "@/lib/print-links";
 import type { Floor, SessionOrder, TableView } from "@/lib/tables-data";
 import { PaymentDialog } from "../pos/payment-dialog";
@@ -34,6 +34,7 @@ export function TablesFloor({
   canMerge = false,
   canPay = false,
   canPrint = false,
+  canClearUnpaid = false,
 }: {
   floor: Floor;
   restaurantId: string;
@@ -42,6 +43,8 @@ export function TablesFloor({
   canPay?: boolean;
   /** can(role, "print_bill"): shows "Bill print". */
   canPrint?: boolean;
+  /** can(role, "clear_unpaid"): shows "Clear anyway" (owner/manager). The server route checks the login again. */
+  canClearUnpaid?: boolean;
 }) {
   const router = useRouter();
   // The payment dialog (the POS one, unchanged) for one order of one table.
@@ -93,11 +96,11 @@ export function TablesFloor({
     ]);
 
   // Clearing a booked party also completes the booking, so it stops holding the table for 90 minutes.
-  const clear = (t: TableView) => {
+  const clear = (t: TableView, unpaid = false) => {
     const s = t.session!;
     return run(t.id, [
       async () => {
-        const r = await post("/api/staff/clear-table", { table_session_id: s.id });
+        const r = await post("/api/staff/clear-table", { table_session_id: s.id, ...(unpaid ? { clear_unpaid: true } : {}) });
         return !r.ok && r.status === 409 ? { ok: true, status: 200, message: "" } : r;
       },
       ...(s.bookingId
@@ -110,6 +113,14 @@ export function TablesFloor({
         : []),
     ]);
   };
+
+  function clearAnyway(t: TableView) {
+    const owed = formatMoney(owedTotalPence(t.session!.orders) / 100);
+    const ok = window.confirm(
+      `Table ${t.number}: bill abhi PAID NAHI hai. Baaki: ${owed}.\n\nClear karne par table free ho jayegi, lekin yeh unpaid order Orders board par baaki rahega aur record ho jayega ke aap ne clear kiya.\n\nKya aap sach mein clear karna chahte hain?`,
+    );
+    if (ok) void clear(t, true);
+  }
 
   const freeTables = active.filter((x) => x.state !== "seated");
   const mergeTargets = (t: TableView) =>
@@ -332,6 +343,11 @@ export function TablesFloor({
                                   ))}
                                 {owing.length > 0 && (
                                   <p className="basis-full text-xs text-ink-muted">Clear table appears once the bill is paid.</p>
+                                )}
+                                {showClearAnyway(orders, canClearUnpaid) && (
+                                  <Button variant="secondary" disabled={busy} onClick={() => clearAnyway(t)}>
+                                    Clear anyway
+                                  </Button>
                                 )}
                                 {(orders.length === 0 || a.clearReady) && (
                                   <Button variant={a.clearReady ? "primary" : "secondary"} disabled={busy} onClick={() => clear(t)}>

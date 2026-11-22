@@ -10,7 +10,7 @@ import { NEW_USERNAME } from "@/lib/staff-accounts";
 
 const OWNER_ONLY: Capability[] = ["settings_edit", "staff_manage", "view_cost", "view_profit", "manage_expenses"];
 const OWNER_MANAGER: Capability[] = [
-  "menu_edit", "tables_edit", "cancel_order", "refund_payment", "void_item", "merge_tables", "view_reports", "close_shift",
+  "menu_edit", "tables_edit", "cancel_order", "refund_payment", "void_item", "merge_tables", "clear_unpaid", "view_reports", "close_shift",
 ];
 const EVERYONE: Capability[] = [
   "take_order", "take_payment", "apply_discount", "print_bill", "print_kot", "hold_order", "move_table", "seat_table", "update_order_status",
@@ -26,7 +26,7 @@ describe("permissions map", () => {
   it("has exactly the three roles and exactly the listed capabilities", () => {
     expect([...STAFF_ROLES]).toEqual(["owner", "manager", "staff"]);
     expect([...ALL_CAPABILITIES].sort()).toEqual([...OWNER_ONLY, ...OWNER_MANAGER, ...EVERYONE].sort());
-    expect(Object.keys(CAPABILITIES)).toHaveLength(22);
+    expect(Object.keys(CAPABILITIES)).toHaveLength(23);
   });
 
   for (const capability of [...OWNER_ONLY, ...OWNER_MANAGER, ...EVERYONE]) {

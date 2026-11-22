@@ -153,6 +153,13 @@ export const unpaidOrders = <T extends OrderLike>(orders: readonly T[]): T[] => 
 /** True only when the table has at least one order and every one is fully paid. Then (and only then) Clear table is offered as the next step. */
 export const readyToClear = (orders: readonly OrderLike[]): boolean => orders.length > 0 && unpaidOrders(orders).length === 0;
 
+/** Total still owed on a table, in whole pence. */
+export const owedTotalPence = (orders: readonly OrderLike[]): number => orders.reduce((n, o) => n + owedPence(o), 0);
+
+/** "Clear anyway" (party left without paying): only owner/manager (`canClearUnpaid` = can(role, "clear_unpaid")), only while a bill is still owed. */
+export const showClearAnyway = (orders: readonly OrderLike[], canClearUnpaid: boolean): boolean =>
+  canClearUnpaid && unpaidOrders(orders).length > 0;
+
 /** POS address that opens on this table's open session. */
 export const posTableHref = (tableId: string) => `/dashboard/pos?table=${encodeURIComponent(tableId)}`;
 

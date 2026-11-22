@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { STAFF_ROLES, can } from "@/lib/permissions";
 import { printBillHref } from "@/lib/print-links";
-import { busyTableActions, owedPence, posTableHref, readyToClear, tableForPos, unpaidOrders } from "@/lib/tables";
+import { busyTableActions, owedPence, owedTotalPence, posTableHref, readyToClear, showClearAnyway, tableForPos, unpaidOrders } from "@/lib/tables";
 
 // Network-free: the rules behind the buttons on a busy table card.
 
@@ -64,6 +64,25 @@ describe("capabilities used by the card", () => {
     }
     expect(can(null, "take_payment")).toBe(false);
     expect(can(undefined, "print_bill")).toBe(false);
+  });
+});
+
+describe("Clear anyway (unpaid bill, owner/manager only)", () => {
+  it("clear_unpaid is owner and manager only, never staff", () => {
+    expect(can("owner", "clear_unpaid")).toBe(true);
+    expect(can("manager", "clear_unpaid")).toBe(true);
+    expect(can("staff", "clear_unpaid")).toBe(false);
+    expect(can(null, "clear_unpaid")).toBe(false);
+  });
+  it("is offered only while money is owed, and only with the capability", () => {
+    expect(showClearAnyway([order("a", 10)], true)).toBe(true);
+    expect(showClearAnyway([order("a", 10, 4)], true)).toBe(true);
+    expect(showClearAnyway([order("a", 10)], false)).toBe(false);
+    expect(showClearAnyway([order("a", 10, 10)], true)).toBe(false);
+    expect(showClearAnyway([], true)).toBe(false);
+  });
+  it("the confirm amount is the total still owed across orders, in pence", () => {
+    expect(owedTotalPence([order("a", 10, 4), order("b", 4.5), order("c", 3, 3)])).toBe(1050);
   });
 });
 

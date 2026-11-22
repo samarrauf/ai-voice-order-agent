@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { can } from "@/lib/permissions";
+import { pence, pounds } from "@/lib/order-pricing";
 import { requireStaff, restaurantMismatch } from "@/lib/staff-auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -11,9 +13,29 @@ const bodySchema = z.object({
   // Optional: older dashboard tabs still send it. The restaurant itself comes from the login session.
   restaurant_id: z.guid().optional(),
   table_session_id: z.guid(),
+  // "Clear anyway": the party left without paying. Owner/manager only (capability clear_unpaid).
+  // The unpaid orders stay as they are (they remain on the Orders board) and each gets a
+  // 'cleared_unpaid' row in order_events.
+  clear_unpaid: z.boolean().optional(),
 });
 
 const fail = (error: string, status: number) => NextResponse.json({ success: false, error }, { status });
+
+type Owing = { id: string; order_number: string; total: number | string; owed: number };
+
+/** One 'cleared_unpaid' event per order that still owed money: who cleared it, and how much was left. */
+async function logUnpaid(rid: string, staffId: string, sessionId: string, owing: Owing[]): Promise<boolean> {
+  const { error } = await supabaseAdmin.from("order_events").insert(
+    owing.map((o) => ({
+      restaurant_id: rid,
+      order_id: o.id,
+      staff_id: staffId,
+      event: "cleared_unpaid",
+      detail: { order_number: o.order_number, owed: pounds(o.owed), total: Number(o.total), table_session_id: sessionId },
+    })),
+  );
+  return !error;
+}
 
 export async function POST(request: Request) {
   const auth = await requireStaff(request);
@@ -25,6 +47,7 @@ export async function POST(request: Request) {
   const { table_session_id } = parsed.data;
   const mismatch = restaurantMismatch(parsed.data.restaurant_id, auth.staff);
   if (mismatch) return mismatch;
+  if (parsed.data.clear_unpaid && !can(auth.staff.role, "clear_unpaid")) return fail("forbidden", 403);
 
   // One atomic statement: only an OPEN session matches, so two staff pressing
   // "clear" together can't both succeed.
@@ -39,7 +62,26 @@ export async function POST(request: Request) {
     console.error("clear-table: update failed", error);
     return fail("could not clear the table", 500);
   }
-  if (cleared && cleared.length > 0) return NextResponse.json({ success: true, session: cleared[0] });
+  if (cleared && cleared.length > 0) {
+    if (parsed.data.clear_unpaid) {
+      // The amounts come from the database, never from the request.
+      const { data: orders, error: ordersErr } = await supabaseAdmin
+        .from("orders")
+        .select("id, order_number, total, paid_amount")
+        .eq("restaurant_id", rid)
+        .eq("table_session_id", table_session_id)
+        .not("status", "in", "(cancelled,merged)");
+      const owing = (orders ?? [])
+        .map((o) => ({ ...o, owed: Math.max(0, pence(o.total) - pence(o.paid_amount)) }))
+        .filter((o) => o.owed > 0);
+      if (ordersErr || (owing.length > 0 && !(await logUnpaid(rid, auth.staff.staffId, table_session_id, owing)))) {
+        console.error("clear-table: could not write cleared_unpaid events", ordersErr);
+        return NextResponse.json({ success: true, session: cleared[0], audit_warning: "table cleared but the unpaid record could not be saved" });
+      }
+      return NextResponse.json({ success: true, session: cleared[0], unpaid_orders: owing.length, unpaid_total: pounds(owing.reduce((n, o) => n + o.owed, 0)) });
+    }
+    return NextResponse.json({ success: true, session: cleared[0] });
+  }
 
   // Nothing updated: either it doesn't exist or it was already cleared.
   const { data: existing } = await supabaseAdmin.from("table_sessions").select("id").eq("id", table_session_id).eq("restaurant_id", rid).maybeSingle();

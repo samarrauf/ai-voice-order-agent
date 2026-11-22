@@ -36,6 +36,7 @@ export default async function TablesPage() {
       <TablesFloor floor={floor} restaurantId={rid} canMerge={can(me.role, "merge_tables")}
         canPay={can(me.role, "take_payment")}
         canPrint={can(me.role, "print_bill")}
+        canClearUnpaid={can(me.role, "clear_unpaid")}
       />
       {can(me.role, "tables_edit") && <TablesEditor floor={floor} restaurantId={rid} />}
     </div>

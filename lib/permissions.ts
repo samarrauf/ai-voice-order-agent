@@ -31,6 +31,7 @@ export const CAPABILITIES = {
   refund_payment: OWNER_MANAGER,
   void_item: OWNER_MANAGER,
   merge_tables: OWNER_MANAGER,
+  clear_unpaid: OWNER_MANAGER, // "Clear anyway": free a table whose bill is still unpaid
   view_reports: OWNER_MANAGER,
   close_shift: OWNER_MANAGER,
 

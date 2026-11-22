@@ -15,7 +15,7 @@ Har stage ke aakhir mein yeh file update karna lazmi hai (status, faislay, masai
 | B2 | Cost, expenses, profit (sirf owner ko) | DONE, commit ka intezar |
 | B3 | Tables aur venue management | baqi |
 | B4a | Hold/resume, table badalna, merge | DONE, commit ka intezar |
-| B4a+ | Tables card: Items jodo / Payment lo / Bill print, payment ke baad Clear table | DONE, commit ka intezar |
+| B4a+ | Tables card: Items jodo / Payment lo / Bill print, payment ke baad Clear table, Clear anyway (owner/manager) | DONE, commit ka intezar |
 | B4b | Cancel, void, refund | baqi |
 | B4c | Bill split | baqi |
 | B4d | WhatsApp shukriya + Google review ek-click button | baqi |
@@ -119,3 +119,5 @@ B5 (Reports: dashboard-stats aur lib/profit-data.ts ka wahi hisaab), B10 (har pa
 ## B4a+ Tables card shortcuts
 - Busy table card: "Items jodo" (`/dashboard/pos?table=<id>`, POS usi table ki session par dine-in khulta hai), "Payment lo" (mojooda `PaymentDialog` + `/api/staff/record-payment`, `take_payment`), "Bill print" (`printBillHref`, `print_bill`). Har unpaid order ka apna Payment button.
 - "Clear table" sirf jab saare orders poori tarah paid (ya table par koi order nahi). Table khud clear nahi hota. Helpers pure: `lib/tables.ts` (owedPence, unpaidOrders, readyToClear, busyTableActions, tableForPos). Tests: `tests/table-card-actions.pure.test.ts`.
+- "Clear anyway" (bill baaki, customer chala gaya): sirf owner/manager (naya capability `clear_unpaid`), confirm dialog mein baaki raqam. Mojooda `/api/staff/clear-table` mein `clear_unpaid: true`; staff ko server par 403. Har baaki order par `order_events` mein `cleared_unpaid` (kaun, order, baaki, total); order Orders board par rehta hai.
+- Tests: `tests/clear-anyway.test.ts` (live) + pure additions. Koi migration nahi. Note: bina flag ke plain clear server par ab bhi payment check nahi karta (bookings board bhi use karta hai).
