@@ -14,6 +14,7 @@ import {
   toPreviewPayload,
   type CartAction,
   type CartState,
+  type CartTable,
   type DiscountType,
   type OrderType,
 } from "./cart-store";
@@ -65,7 +66,10 @@ export function PosTerminal({
   deliveryAreas = [],
   categories,
   tables,
+  initialTable = null,
 }: {
+  /** Set when the POS was opened from a busy table card (?table=): the cart starts as dine-in on that table. */
+  initialTable?: CartTable | null;
   restaurantId: string;
   currency: string;
   /** restaurants.delivery_mode: 'postcode' (as before), 'area_list' (pick an area) or 'none' (no Delivery button). */
@@ -76,7 +80,7 @@ export function PosTerminal({
   tables: PosTable[];
 }) {
   const router = useRouter();
-  const [cart, dispatch] = useReducer(cartReducer, undefined, () => emptyCart());
+  const [cart, dispatch] = useReducer(cartReducer, undefined, () => ({ ...emptyCart(), table: initialTable }));
 
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");

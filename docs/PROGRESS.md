@@ -15,6 +15,7 @@ Har stage ke aakhir mein yeh file update karna lazmi hai (status, faislay, masai
 | B2 | Cost, expenses, profit (sirf owner ko) | DONE, commit ka intezar |
 | B3 | Tables aur venue management | baqi |
 | B4a | Hold/resume, table badalna, merge | DONE, commit ka intezar |
+| B4a+ | Tables card: Items jodo / Payment lo / Bill print, payment ke baad Clear table | DONE, commit ka intezar |
 | B4b | Cancel, void, refund | baqi |
 | B4c | Bill split | baqi |
 | B4d | WhatsApp shukriya + Google review ek-click button | baqi |
@@ -114,3 +115,7 @@ B5 (Reports: dashboard-stats aur lib/profit-data.ts ka wahi hisaab), B10 (har pa
 ## A3a Olive brand colours
 - Olive logo ka asli rang gold #CFB12C (+ hara #009147); DB theme gold #C9A227 usi family ka hai, isliye DB nahi badli. `lib/color.ts` mein 3 darje (button, highlight, ink) aur `lib/login-theme.ts` (host se login: POS host = Olive logo+naam+gold, baqi neutral grey). Gradient `.glass-accent` halka kiya.
 - Tests: color.pure + login-theme.pure naye (pure suite 13 files pass). Screenshots: design-samples/a3a-olive/.
+
+## B4a+ Tables card shortcuts
+- Busy table card: "Items jodo" (`/dashboard/pos?table=<id>`, POS usi table ki session par dine-in khulta hai), "Payment lo" (mojooda `PaymentDialog` + `/api/staff/record-payment`, `take_payment`), "Bill print" (`printBillHref`, `print_bill`). Har unpaid order ka apna Payment button.
+- "Clear table" sirf jab saare orders poori tarah paid (ya table par koi order nahi). Table khud clear nahi hota. Helpers pure: `lib/tables.ts` (owedPence, unpaidOrders, readyToClear, busyTableActions, tableForPos). Tests: `tests/table-card-actions.pure.test.ts`.

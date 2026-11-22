@@ -136,3 +136,45 @@ export function durationLabel(minutes: number): string {
 
 /** Natural order of table names: T2 before T10. */
 export const compareTableNumbers = (a: string, b: string) => a.localeCompare(b, "en", { numeric: true });
+
+// ---- Table card shortcuts (busy table: add items / take payment / print bill) ----
+// Pure helpers so the rules are testable without a browser. No new payment logic: the
+// money still moves only through /api/staff/record-payment.
+
+type OrderLike = { id: string; total: number; paidAmount: number };
+
+/** Amount still owed on one order, in whole pence (never negative). */
+export const owedPence = (o: Pick<OrderLike, "total" | "paidAmount">) =>
+  Math.max(0, Math.round(o.total * 100) - Math.round(o.paidAmount * 100));
+
+/** Orders of a seated table that still owe money. */
+export const unpaidOrders = <T extends OrderLike>(orders: readonly T[]): T[] => orders.filter((o) => owedPence(o) > 0);
+
+/** True only when the table has at least one order and every one is fully paid. Then (and only then) Clear table is offered as the next step. */
+export const readyToClear = (orders: readonly OrderLike[]): boolean => orders.length > 0 && unpaidOrders(orders).length === 0;
+
+/** POS address that opens on this table's open session. */
+export const posTableHref = (tableId: string) => `/dashboard/pos?table=${encodeURIComponent(tableId)}`;
+
+/** Which buttons a busy table card shows. `canPay` is can(role, "take_payment"), `canPrint` is can(role, "print_bill"). */
+export function busyTableActions(
+  orders: readonly OrderLike[],
+  caps: { canPay: boolean; canPrint: boolean },
+): { addItems: true; pay: boolean; printBill: boolean; clearReady: boolean } {
+  return {
+    addItems: true,
+    pay: caps.canPay && unpaidOrders(orders).length > 0,
+    printBill: caps.canPrint && orders.length > 0,
+    clearReady: readyToClear(orders),
+  };
+}
+
+/** The POS ?table= value -> the cart's table, but only for a table with an open seating session. */
+export function tableForPos<T extends { id: string; number: string; sessionId: string | null }>(
+  tables: readonly T[],
+  param: string | undefined,
+): { tableId: string; tableNumber: string; sessionId: string } | null {
+  if (!param) return null;
+  const t = tables.find((x) => x.id === param);
+  return t && t.sessionId ? { tableId: t.id, tableNumber: t.number, sessionId: t.sessionId } : null;
+}

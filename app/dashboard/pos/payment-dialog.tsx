@@ -31,7 +31,13 @@ export function PaymentDialog({
   currency,
   onBack,
   onClose,
+  alreadyPaid = 0,
+  onPaid,
 }: {
+  /** Money already taken on this order (Tables page: a part-paid order). Default 0 = a fresh order. */
+  alreadyPaid?: number;
+  /** Called when the server says the order is now fully paid. */
+  onPaid?: () => void;
   order: SentOrder;
   restaurantId: string;
   currency: string;
@@ -39,9 +45,10 @@ export function PaymentDialog({
   onClose: () => void;
 }) {
   // `order.total` is the total the server saved when the order was created.
-  const [state, setState] = useState<PayState>({ status: "unpaid", paid: 0, balance: order.total });
+  const startBalance = Math.max(0, Math.round(order.total * 100) - Math.round(alreadyPaid * 100)) / 100;
+  const [state, setState] = useState<PayState>({ status: alreadyPaid > 0 ? "partial" : "unpaid", paid: alreadyPaid, balance: startBalance });
   const [method, setMethod] = useState<Method>("cash");
-  const [amount, setAmount] = useState(order.total.toFixed(2));
+  const [amount, setAmount] = useState(startBalance.toFixed(2));
   const [reference, setReference] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +79,7 @@ export function PaymentDialog({
         setAmount(Number(json.balance).toFixed(2));
         setReference("");
         setKey(crypto.randomUUID());
+        if (json.payment_status === "paid") onPaid?.();
       } else if (res.status === 401) {
         setError("You were logged out. Please log in again.");
       } else if (res.status === 400 && typeof json?.error === "string" && json.error.startsWith("payment is more")) {

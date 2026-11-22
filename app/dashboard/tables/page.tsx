@@ -33,7 +33,10 @@ export default async function TablesPage() {
     <div className="anim-rise">
       <PageHeader title="Tables" subtitle="The dining room right now: who is sitting where, and what is booked soon." />
       <AutoRefresh seconds={30} />
-      <TablesFloor floor={floor} restaurantId={rid} canMerge={can(me.role, "merge_tables")} />
+      <TablesFloor floor={floor} restaurantId={rid} canMerge={can(me.role, "merge_tables")}
+        canPay={can(me.role, "take_payment")}
+        canPrint={can(me.role, "print_bill")}
+      />
       {can(me.role, "tables_edit") && <TablesEditor floor={floor} restaurantId={rid} />}
     </div>
   );

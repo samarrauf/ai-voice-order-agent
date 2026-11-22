@@ -6,8 +6,10 @@ import { LayoutGrid } from "lucide-react";
 import { Badge, Button, Card, CardHeader, EmptyState, FilterChips, KpiCard, type Chip } from "@/components/ui";
 import { cn } from "@/components/ui/cn";
 import { formatMoney } from "@/lib/money";
-import { durationLabel } from "@/lib/tables";
-import type { Floor, TableView } from "@/lib/tables-data";
+import { busyTableActions, durationLabel, posTableHref, unpaidOrders } from "@/lib/tables";
+import { printBillHref } from "@/lib/print-links";
+import type { Floor, SessionOrder, TableView } from "@/lib/tables-data";
+import { PaymentDialog } from "../pos/payment-dialog";
 import { post } from "./post";
 
 // The live floor: every active table as a coloured tile (free / seated / reserved soon),
@@ -26,8 +28,24 @@ const SELECT = "min-h-11 rounded-xl border border-line bg-raised px-3 text-sm te
 const ALL = "all";
 const NONE = "none";
 
-export function TablesFloor({ floor, restaurantId, canMerge = false }: { floor: Floor; restaurantId: string; canMerge?: boolean }) {
+export function TablesFloor({
+  floor,
+  restaurantId,
+  canMerge = false,
+  canPay = false,
+  canPrint = false,
+}: {
+  floor: Floor;
+  restaurantId: string;
+  canMerge?: boolean;
+  /** can(role, "take_payment"): shows "Payment lo". The server route checks the login again. */
+  canPay?: boolean;
+  /** can(role, "print_bill"): shows "Bill print". */
+  canPrint?: boolean;
+}) {
   const router = useRouter();
+  // The payment dialog (the POS one, unchanged) for one order of one table.
+  const [paying, setPaying] = useState<{ tableId: string; order: SessionOrder } | null>(null);
   const [tab, setTab] = useState<string>(ALL);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [seatingId, setSeatingId] = useState<string | null>(null);
@@ -279,11 +297,50 @@ export function TablesFloor({ floor, restaurantId, canMerge = false }: { floor: 
                     </div>
                   ) : (
                     <div className="mt-auto flex flex-wrap gap-2">
-                      {t.state === "seated" ? (
+                      {t.state === "seated" && t.session ? (
                         <>
-                          <Button variant="secondary" disabled={busy} onClick={() => clear(t)}>
-                            Clear table
-                          </Button>
+                          {(() => {
+                            const orders = t.session.orders;
+                            const a = busyTableActions(orders, { canPay, canPrint });
+                            const owing = unpaidOrders(orders);
+                            const many = orders.length > 1;
+                            return (
+                              <>
+                                <a
+                                  href={posTableHref(t.id)}
+                                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-brand-line bg-brand-tint px-3 text-sm font-semibold text-brand-ink transition duration-200 active:scale-[0.98]"
+                                >
+                                  Items jodo
+                                </a>
+                                {a.pay &&
+                                  owing.map((o) => (
+                                    <Button key={o.id} variant="primary" disabled={busy} onClick={() => setPaying({ tableId: t.id, order: o })}>
+                                      {owing.length > 1 ? `Payment lo · ${o.number}` : "Payment lo"}
+                                    </Button>
+                                  ))}
+                                {a.printBill &&
+                                  orders.map((o) => (
+                                    <a
+                                      key={o.id}
+                                      href={printBillHref(o.id)}
+                                      target="_blank"
+                                      rel="noopener"
+                                      className="inline-flex min-h-11 items-center justify-center rounded-xl border border-line bg-raised px-3 text-sm font-semibold transition duration-200 hover:border-line-strong active:scale-[0.98]"
+                                    >
+                                      {many ? `Bill print · ${o.number}` : "Bill print"}
+                                    </a>
+                                  ))}
+                                {owing.length > 0 && (
+                                  <p className="basis-full text-xs text-ink-muted">Clear table appears once the bill is paid.</p>
+                                )}
+                                {(orders.length === 0 || a.clearReady) && (
+                                  <Button variant={a.clearReady ? "primary" : "secondary"} disabled={busy} onClick={() => clear(t)}>
+                                    Clear table
+                                  </Button>
+                                )}
+                              </>
+                            );
+                          })()}
                           <Button variant="ghost" disabled={busy} onClick={() => openPanel(t, "move")}>
                             Move table
                           </Button>
@@ -313,6 +370,19 @@ export function TablesFloor({ floor, restaurantId, canMerge = false }: { floor: 
           </ul>
         )}
       </Card>
+      {paying && (
+        <PaymentDialog
+          order={{ orderId: paying.order.id, orderNumber: paying.order.number, total: paying.order.total, where: "" }}
+          alreadyPaid={paying.order.paidAmount}
+          restaurantId={restaurantId}
+          currency={floor.currency}
+          onBack={() => setPaying(null)}
+          onClose={() => {
+            setPaying(null);
+            router.refresh(); // fresh balances; Clear table shows once everything is paid
+          }}
+        />
+      )}
     </div>
   );
 }

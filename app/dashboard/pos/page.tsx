@@ -6,6 +6,7 @@ import { deliveryModeOf } from "@/lib/delivery";
 import { activeDeliveryAreas } from "@/lib/staff-delivery";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { Card, EmptyState, Skeleton } from "@/components/ui";
+import { tableForPos } from "@/lib/tables";
 import { PosTerminal } from "./pos-terminal";
 import type { PosCategory, PosItem, PosOptionGroup, PosTable } from "./pos-types";
 
@@ -33,7 +34,7 @@ type OptionRow = {
   max_select: number;
 };
 
-async function Pos() {
+async function Pos({ tableParam }: { tableParam?: string }) {
   // The restaurant always comes from the login session.
   const rid = (await requireStaffPage()).restaurantId;
   const [restaurantRes, categoriesRes, optionsRes, tablesRes, sessionsRes, areasRes] = await Promise.all([
@@ -139,6 +140,7 @@ async function Pos() {
       deliveryAreas={(areasRes.data ?? []).map((a) => a.label)}
       categories={categories}
       tables={tables}
+      initialTable={tableForPos(tables, tableParam)}
     />
   );
 }
@@ -165,10 +167,11 @@ function PosSkeleton() {
   );
 }
 
-export default function PosPage() {
+export default async function PosPage({ searchParams }: { searchParams: Promise<{ table?: string | string[] }> }) {
+  const { table } = await searchParams;
   return (
     <Suspense fallback={<PosSkeleton />}>
-      <Pos />
+      <Pos tableParam={typeof table === "string" ? table : undefined} />
     </Suspense>
   );
 }
