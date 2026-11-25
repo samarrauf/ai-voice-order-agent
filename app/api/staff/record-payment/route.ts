@@ -4,6 +4,8 @@ import { requireStaff, restaurantMismatch } from "@/lib/staff-auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { MAX_AMOUNT_ANY_CURRENCY, maxAmountFor } from "@/lib/money";
 import { pence, pounds } from "@/lib/order-pricing";
+import { computeSplit, guestsIn, SPLIT_ERRORS, splitOrderFromPrint, splitSpecSchema } from "@/lib/bill-split";
+import { loadPrintData } from "@/lib/receipt-data";
 
 // Staff action: record a payment against an order (POS "Take payment").
 //
@@ -18,6 +20,12 @@ import { pence, pounds } from "@/lib/order-pricing";
 // id for each payment it intends to make). Sending the same key again for the
 // same order records nothing new and returns the current state with
 // `duplicate: true`.
+//
+// Split bill (B4c): with `split` + `guest` the payment is that guest's. The
+// server works the split out again from the saved order (never the browser's
+// sums), saves payer_label "Guest N" on the payment, and the database refuses
+// more than that guest's share (payer_overpayment) under the same order lock.
+// The order-level rules above stay exactly the same.
 
 const bodySchema = z.object({
   // Optional: older dashboard tabs still send it. The restaurant itself comes from the login session.
@@ -33,6 +41,11 @@ const bodySchema = z.object({
     .nullish()
     .transform((v) => v || null),
   idempotency_key: z.string().trim().min(8).max(100),
+  split: splitSpecSchema.optional(),
+  guest: z.number().int().min(1).optional(),
+}).refine((b) => (b.split === undefined) === (b.guest === undefined), {
+  message: "split and guest go together",
+  path: ["guest"],
 });
 
 const fail = (error: string, status: number) => NextResponse.json({ success: false, error }, { status });
@@ -45,6 +58,8 @@ const RPC_ERRORS: Record<string, [string, number]> = {
   order_refunded: ["this order was refunded; its bill is settled and takes no new payment", 409],
   key_used: ["this payment key was already used for a refund; nothing was recorded", 409],
   overpayment: ["payment is more than the amount still owed", 400],
+  payer_overpayment: ["payment is more than this guest's share still owed", 400],
+  payer_label_required: ["could not record the payment", 500],
 };
 
 export async function POST(request: Request) {
@@ -74,6 +89,20 @@ export async function POST(request: Request) {
     return fail("amount must be a valid money amount with at most 2 decimals", 400);
   }
 
+  // Split bill: the guest's share comes from the saved order, worked out here.
+  let payerLabel: string | null = null;
+  let payerLimit: number | null = null;
+  if (body.split && body.guest !== undefined) {
+    if (body.guest > guestsIn(body.split)) return fail("guest is not part of this split", 400);
+    const printData = await loadPrintData(body.order_id, rid);
+    if (!printData) return fail(RPC_ERRORS.order_not_found[0], 404);
+    const split = computeSplit(splitOrderFromPrint(printData, printData.restaurant.rounding_step), body.split);
+    if (!split.ok) return fail(SPLIT_ERRORS[split.error], 400);
+    const share = split.guests[body.guest - 1];
+    payerLabel = share.label;
+    payerLimit = pounds(share.totalPence);
+  }
+
   const { data, error } = await supabaseAdmin.rpc("record_payment_tx", {
     p_restaurant_id: rid,
     p_order_id: body.order_id,
@@ -82,6 +111,8 @@ export async function POST(request: Request) {
     p_reference: body.reference,
     p_created_by: "dashboard",
     p_idempotency_key: body.idempotency_key,
+    p_payer_label: payerLabel,
+    p_payer_limit: payerLimit,
   });
   if (error || !data) {
     console.error("record-payment: record_payment_tx failed", error);
@@ -101,7 +132,7 @@ export async function POST(request: Request) {
   if (result.duplicate) {
     const { data: prior, error: priorError } = await supabaseAdmin
       .from("order_payments")
-      .select("amount, method")
+      .select("amount, method, payer_label")
       .eq("order_id", body.order_id)
       .eq("idempotency_key", body.idempotency_key)
       .maybeSingle();
@@ -109,7 +140,7 @@ export async function POST(request: Request) {
       console.error("record-payment: duplicate check failed", priorError);
       return fail("could not record the payment", 500);
     }
-    if (prior && (pence(prior.amount) !== amountPence || prior.method !== body.method)) {
+    if (prior && (pence(prior.amount) !== amountPence || prior.method !== body.method || (prior.payer_label ?? null) !== payerLabel)) {
       return fail("this payment key was already used for a different payment; nothing was recorded", 409);
     }
   }

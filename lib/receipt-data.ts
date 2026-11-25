@@ -28,13 +28,13 @@ export async function loadPrintData(orderId: string, restaurantId: string): Prom
     supabaseAdmin
       .from("restaurants")
       .select(
-        "name, tagline, address_line, city, postcode, phone, currency, timezone, theme_primary, theme_accent, theme_secondary, logo_url, whatsapp_number, website_url, instagram_handle, facebook_url, receipt_footer_note",
+        "name, tagline, address_line, city, postcode, phone, currency, timezone, theme_primary, theme_accent, theme_secondary, logo_url, whatsapp_number, website_url, instagram_handle, facebook_url, receipt_footer_note, rounding_step",
       )
       .eq("id", restaurantId)
       .maybeSingle(),
     supabaseAdmin
       .from("order_payments")
-      .select("kind, method, amount, created_at")
+      .select("kind, method, amount, created_at, payer_label")
       .eq("order_id", orderId)
       .eq("restaurant_id", restaurantId)
       .order("created_at", { ascending: true }),

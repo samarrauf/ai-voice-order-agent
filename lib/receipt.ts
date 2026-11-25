@@ -30,6 +30,8 @@ export type ReceiptRestaurant = {
   instagram_handle?: string | null;
   facebook_url?: string | null;
   receipt_footer_note?: string | null;
+  /** restaurants.rounding_step (0.01, 0.5, 1); only the split bills (B4c) use it. */
+  rounding_step?: number | string | null;
 };
 
 export type ReceiptOrder = {
@@ -82,6 +84,8 @@ export type ReceiptPayment = {
   method: string;
   amount: Num;
   created_at?: string | null;
+  /** B4c: who paid this part of a split bill, e.g. "Guest 2". */
+  payer_label?: string | null;
 };
 
 export type PrintInput = {

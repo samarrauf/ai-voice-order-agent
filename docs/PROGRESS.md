@@ -18,7 +18,7 @@ Har stage ke aakhir mein yeh file update karna lazmi hai (status, faislay, masai
 | B4a+ | Tables card: Items jodo / Payment lo / Bill print, payment ke baad Clear table, Clear anyway (owner/manager) | DONE, commit ka intezar |
 | B4a2 | Chalte table bill mein items jodo (POS busy-table dialog, add-items, ADDITION KOT) + plain clear-table payment check | DONE, commit ka intezar |
 | B4b | Cancel, void, refund (wajah + audit) | DONE, commit ka intezar |
-| B4c | Bill split | baqi |
+| B4c | Bill split (barabar, items, raqam; har guest alag payment aur receipt) | DONE, commit ka intezar |
 | B4d | WhatsApp shukriya + Google review ek-click button | baqi |
 | B5 | Reports | baqi |
 | B6 | Shift aur cash drawer, Z-report | baqi |
@@ -75,6 +75,12 @@ B5 (Reports: dashboard-stats aur lib/profit-data.ts ka wahi hisaab), B10 (har pa
 - Faislay: munafa = subtotal - discount - cost_total (delivery, service, tax, rounding bahar; cancelled bahar); manager ki menu save cost ko naam se mila kar mehfooz rakhti hai; cost menu_changes mein nahi likhi jati; kharcha void hota hai, delete nahi.
 - Baqi masail: purane orders ki cost null (backfill nahi); category/restaurant-level extras ki cost editor se set nahi hoti; kharchon ki category ko band/rename karne ka UI nahi; Expenses page pehli visit par default categories banata hai.
 - Agla: B5 Reports (charts) loadProfitSummary aur dashboard-stats ka hisaab use kare.
+
+## B4c (bill split) ka khulasa
+- Status: migration 0030 owner ne run ki (order_payments.payer_label, record_payment_tx + p_payer_label/p_payer_limit, purana 7-arg drop); lib/bill-split.ts (pure), lib/split-receipt.ts, /api/staff/split-bill, record-payment mein split+guest, payment popup mein "Split bill" (pos/split-bill.tsx), print bill ?split= par har guest ki 80mm receipt (print/receipt-paper.tsx); lint, type-check, build, poora suite pass.
+- Faislay: split save nahi hota (link/request mein aata hai), server har dafa saved order se dobara hisab karta hai; largest remainder se har hissa (subtotal, discount, delivery, service, tax, rounding) alag baanta jata hai, jama hamesha exact; guest total rounding step ke units mein (PKR poore rupay); equal = barabar weights (totals mein max 1 unit farq, 0.01 par guest ki Rounding line 0), items = guest ke items ka subtotal, shared item pence mein barabar; raqam mode mein raqam step ka multiple.
+- Faislay: guest payment par label "Guest N" aur limit = us ka hissa, DB lock ke andar (payer_overpayment); order ke purane qaide (overpayment, idempotency, cancelled, refunded) wahi. Har guest ka hissa alag rakha hai taake "tax by payment method" stage sirf guest ka tax badal sake.
+- Baqi masail: split badalne par purani payments label se hi ginti hoti hain (Guest 2 ka matlab naye split mein badal sakta hai; order total ki hadd phir bhi lagti hai); split ke baad items jode/void kiye to "by items" split dobara banana parta hai; Split bill UI browser mein login ke baghair nahi dekha.
 
 ## B4b (cancel, void item, refund) ka khulasa
 - Status: migration 0029 owner ne run ki (orders cancel_*/refunded_amount, order_items voided_*, order_payments kind/refund_reason/staff_id, payment_status + refunded/partially_refunded, record_refund_tx, cancel_order_tx, void_order_item_tx; record_payment_tx/add_items/merge voided ko chhorte hain); /api/staff/{cancel-order,refund,void-item}, Orders board par Cancel/Refund/Void dialogs (lib/order-adjust.ts); lint, type-check, build, poora suite pass.

@@ -6,18 +6,11 @@ import { PaymentStatusBadge } from "@/components/ui/payment-status-badge";
 import { formatMoney } from "@/lib/money";
 import { PrintButtons } from "../print-buttons";
 import { ErrorNote, Modal, type SentOrder } from "./dialogs";
+import { FIELD, METHODS, type Method } from "./pay-methods";
+import { SplitBill } from "./split-bill";
 
-const METHODS = [
-  { key: "cash", label: "Cash" },
-  { key: "card", label: "Card" },
-  { key: "online", label: "Online" },
-  { key: "other", label: "Other" },
-] as const;
-type Method = (typeof METHODS)[number]["key"];
 type PayState = { status: string; paid: number; balance: number };
-
-const field =
-  "min-h-11 w-full rounded-xl border border-line bg-raised px-3 text-sm text-ink placeholder:text-ink-faint transition-colors duration-200 hover:border-line-strong";
+const field = FIELD;
 
 /**
  * "Take payment" for a just-sent order. One payment at a time; if the customer
@@ -55,6 +48,8 @@ export function PaymentDialog({
   // One fresh key per payment. A double click re-sends the SAME key, so the
   // server records it only once; a new key is made after each successful payment.
   const [key, setKey] = useState(() => crypto.randomUUID());
+  // B4c: the Split bill screen inside this same popup.
+  const [splitting, setSplitting] = useState(false);
 
   async function pay() {
     if (busy) return;
@@ -100,6 +95,26 @@ export function PaymentDialog({
 
   const paid = state.status === "paid";
   const valid = Number(amount) > 0;
+
+  if (splitting) {
+    return (
+      <Modal title={`Split bill · ${order.orderNumber}`} onClose={onClose}>
+        <SplitBill
+          orderId={order.orderId}
+          restaurantId={restaurantId}
+          currency={currency}
+          onPayment={(s) => {
+            setState(s);
+            setAmount(s.balance.toFixed(2));
+            if (s.status === "paid") onPaid?.();
+          }}
+          onBack={() => setSplitting(false)}
+          onClose={onClose}
+        />
+      </Modal>
+    );
+  }
+
   return (
     <Modal title={`Payment · ${order.orderNumber}`} onClose={onClose}>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
@@ -162,6 +177,11 @@ export function PaymentDialog({
           </>
         )}
         {error && <ErrorNote>{error}</ErrorNote>}
+        {!paid && (
+          <Button className="w-full" onClick={() => setSplitting(true)} disabled={busy}>
+            Split bill
+          </Button>
+        )}
         <PrintButtons orderId={order.orderId} />
       </div>
       <div className="flex shrink-0 gap-3 border-t border-line px-5 py-4">

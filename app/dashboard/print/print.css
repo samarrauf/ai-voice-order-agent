@@ -67,6 +67,18 @@ body:has(.print-root) main {
   text-align: center;
 }
 
+/* ---- split bills (B4c): one paper per guest ---- */
+.paper + .paper {
+  margin-top: 24px;
+}
+.split-part {
+  margin-top: 8px;
+  padding: 4px 6px;
+  border: 1px dashed #000;
+  text-align: center;
+  font-weight: 700;
+}
+
 /* ---- bill branding (not used by the KOT) ---- */
 .paper {
   -webkit-print-color-adjust: exact;
@@ -284,6 +296,11 @@ body:has(.print-root) main {
   }
   .paper-a4 {
     max-width: none;
+  }
+  /* each guest of a split bill starts on a new page (a new cut on the 80mm printer) */
+  .paper + .paper {
+    margin-top: 0;
+    break-before: page;
   }
   .item,
   .kot-item,
