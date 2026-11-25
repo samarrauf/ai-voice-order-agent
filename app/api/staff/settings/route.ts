@@ -4,7 +4,7 @@ import { parseSettings } from "@/lib/settings";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
 // Owner action: save one section of the restaurant's Settings.
-// Body: { section: "profile" | "money" | "orders" | "theme", values: { ... } }
+// Body: { section: "profile" | "money" | "orders" | "theme" | "messages" | "reports", values: { ... } }
 //   - Capability settings_edit (lib/permissions.ts: owner only; manager and staff get 403). The restaurant comes from the login.
 //   - Every value is checked (lib/settings.ts); anything unknown is refused.
 //     currency and timezone are read-only: sending them is a 400.

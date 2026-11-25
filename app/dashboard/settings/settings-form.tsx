@@ -14,7 +14,7 @@ export type SettingsValues = Record<string, string | number | boolean | null>;
 type Field = {
   key: string;
   label: string;
-  kind?: "text" | "number" | "select" | "color" | "textarea";
+  kind?: "text" | "number" | "select" | "color" | "textarea" | "time";
   hint?: string;
   options?: readonly string[];
   wide?: boolean;
@@ -42,6 +42,16 @@ const MONEY: Field[] = [
   { key: "service_charge_percent", label: "Service charge %", kind: "number" },
   { key: "service_charge_applies_to", label: "Service charge applies to", kind: "select", options: SERVICE_CHARGE_APPLIES_TO },
   { key: "max_discount_percent", label: "Biggest discount staff can give %", kind: "number" },
+];
+
+// P4: when the "day" starts in Reports (for places open past midnight).
+const REPORTS: Field[] = [
+  {
+    key: "business_day_start",
+    label: "Business day starts at",
+    kind: "time",
+    hint: "Orders before this time count for the day before in Reports. 00:00 = midnight; e.g. 04:00 if you close at 3 am.",
+  },
 ];
 
 const THEME: Field[] = [
@@ -91,7 +101,8 @@ function SectionCard({
 }) {
   const router = useRouter();
   const [values, setValues] = useState<SettingsValues>(() =>
-    Object.fromEntries(fields.map((f) => [f.key, initial[f.key] ?? ""])),
+    // A time column comes back as "HH:MM:SS"; the time box wants "HH:MM".
+    Object.fromEntries(fields.map((f) => [f.key, f.kind === "time" ? String(initial[f.key] ?? "00:00").slice(0, 5) : (initial[f.key] ?? "")])),
   );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<Message>(null);
@@ -153,7 +164,7 @@ function SectionCard({
               ) : (
                 <input
                   className={input}
-                  type={f.kind === "number" ? "number" : "text"}
+                  type={f.kind === "number" ? "number" : f.kind === "time" ? "time" : "text"}
                   inputMode={f.kind === "number" ? "decimal" : undefined}
                   step={f.kind === "number" ? "0.01" : undefined}
                   min={f.kind === "number" ? 0 : undefined}
@@ -256,6 +267,7 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
       <SectionCard section="profile" title="Restaurant profile" hint="Shown on bills and the dashboard" fields={PROFILE} initial={initial} />
       <SectionCard section="money" title="Charges and money" hint="Prices stay in the menu; these are the extras" fields={MONEY} initial={initial} />
       <OrdersCard initial={initial} />
+      <SectionCard section="reports" title="Reports" hint="When your business day begins" fields={REPORTS} initial={initial} />
       <FixedCard initial={initial} />
       <SectionCard section="theme" title="Colours" hint="Changes the dashboard colours" fields={THEME} initial={initial} />
     </>

@@ -18,8 +18,16 @@ describe("navFor (role filter via can())", () => {
   });
   it("every role sees the everyday pages", () => {
     for (const role of STAFF_ROLES) {
-      expect(ids(role)).toEqual(expect.arrayContaining(["home", "orders", "overview", "bookings", "calls", "customers", "tables"]));
+      expect(ids(role)).toEqual(expect.arrayContaining(["home", "orders", "bookings", "calls", "customers", "tables"]));
     }
+  });
+  it("Reports (view_reports) replaced Overview and is for owner and manager only", () => {
+    expect(ids("owner")).toContain("reports");
+    expect(ids("manager")).toContain("reports");
+    expect(ids("staff")).not.toContain("reports");
+    expect(NAV_ITEMS.some((i) => i.id === "overview" || i.href === "/dashboard/overview")).toBe(false);
+    expect(NAV_ITEMS.find((i) => i.id === "reports")?.href).toBe("/dashboard/reports");
+    expect(pageTitleFor("/dashboard/reports")).toBe("Reports");
   });
   it("Menu (menu_edit) is for owner and manager only", () => {
     expect(ids("owner")).toContain("menu");

@@ -20,7 +20,7 @@ Har stage ke aakhir mein yeh file update karna lazmi hai (status, faislay, masai
 | B4b | Cancel, void, refund (wajah + audit) | DONE, commit ka intezar |
 | B4c | Bill split (barabar, items, raqam; har guest alag payment aur receipt) | DONE, commit ka intezar |
 | B4d | WhatsApp shukriya + Google review ek-click button | DONE, commit ka intezar |
-| B5 | Reports | baqi |
+| B5 (P4) | Reports + owner-only profit | DONE, commit ka intezar |
 | B6 | Shift aur cash drawer, Z-report | baqi |
 | B7 | PRA/tax design note (sirf docs) | baqi |
 | B8 | Offline POS | baqi |
@@ -149,3 +149,10 @@ B5 (Reports: dashboard-stats aur lib/profit-data.ts ka wahi hisaab), B10 (har pa
 - Fix (Take bill "stuck"): glass cards par `backdrop-filter` hai, is liye card ke andar `position: fixed` popup screen ke bajaye card ke hisaab se khulta tha. Shared `Modal` (`app/dashboard/pos/dialogs.tsx`) ab `createPortal` se `.dash` wrapper mein render hota hai (body mein nahi: theme colours `.dash` par hain), z-60 (topbar z-30, nav z-40 se upar), peeche ka page scroll lock, Escape/parda-click wahi. Sab popups (payment, held, POS) isi ek Modal se.
 - Label "Payment lo" -> "Take bill" (kai orders par "Take bill · <number>"); Tables card se "Items jodo" hata (POS `?table=` code baqi, B4a2 ke liye). Test: `tests/modal-portal.pure.test.ts` (source-level; asli layout browser mein dekhna hoga).
 - Tests: `tests/clear-anyway.test.ts` (live) + pure additions. Koi migration nahi. (Fixed in B4a2: plain clear ab server par payment check karta hai.)
+
+## P4 (Reports) ka khulasa
+- Status: migration 0032 owner ne run ki (restaurants.business_day_start + settings 'reports' section); /dashboard/reports (view_reports), /api/staff/reports, lib/reports.ts (pure) + lib/reports-data.ts; nav mein Overview ki jagah Reports, overview/stats redirect.
+- Faislay: sales = total - tax - refund (ex tax), cancelled/merged bahar (Home wala rule); tax collected = tax - refund ka tax hissa; item "Amount" = line totals (order discount se pehle); payment methods = muddat mein li gayi payments minus refunds (payment ke waqt se).
+- Faislay: profit (gross, item cost, expenses, net, item profit) sirf view_profit; manager ke liye cost columns aur expenses query hi nahi hote; cost_complete=false par saaf note.
+- Baqi masail: Home ka "Today" abhi aadhi raat se (business_day_start sirf Reports mein); net profit ka % farq pichli muddat ghate mein ho to nahi dikhta; page browser mein screenshot se nahi dekha.
+- Tests: tests/reports.pure.test.ts (23) + tests/reports.test.ts (live, 11); nav/dashboard-home tests Reports ke mutabiq badle. Poora suite 69 files; top-item naam row order par depend karta tha (fix: sab se zyada biki spelling).

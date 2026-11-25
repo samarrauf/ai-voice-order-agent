@@ -40,7 +40,7 @@ export type NavItem = {
 export const NAV_ITEMS: readonly NavItem[] = [
   { id: "home", label: "Home", icon: "home", href: "/dashboard", exact: true, group: "main" },
   { id: "orders", label: "Orders", icon: "orders", href: "/dashboard/orders", group: "main" },
-  { id: "overview", label: "Overview", icon: "overview", href: "/dashboard/overview", group: "main" },
+  { id: "reports", label: "Reports", icon: "overview", href: "/dashboard/reports", capability: "view_reports", group: "main" },
   { id: "bookings", label: "Bookings", icon: "bookings", href: "/dashboard/bookings", group: "main" },
   { id: "calls", label: "Conversations", short: "Calls", icon: "calls", href: "/dashboard/conversations", group: "main" },
   { id: "customers", label: "Customers", icon: "customers", href: "/dashboard/customers", group: "main" },
@@ -65,7 +65,7 @@ export function isNavActive(pathname: string, item: Pick<NavItem, "href" | "exac
 export function pageTitleFor(pathname: string): string {
   if (pathname.startsWith("/dashboard/pos")) return "New order";
   if (pathname.startsWith("/dashboard/password")) return "Password";
-  if (pathname.startsWith("/dashboard/stats")) return "Stats";
+  if (pathname.startsWith("/dashboard/stats") || pathname.startsWith("/dashboard/overview")) return "Reports";
   const hit = [...NAV_ITEMS].sort((a, b) => b.href.length - a.href.length).find((i) => isNavActive(pathname, i));
   return hit?.label ?? "Dashboard";
 }

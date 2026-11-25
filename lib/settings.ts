@@ -10,6 +10,7 @@ import { THANKYOU_TEMPLATE_MAX, isAllowedReviewUrl } from "@/lib/whatsapp-link";
 //   money    - delivery fee, minimum order, tax, service charge, max discount
 //   orders   - the "taking orders" switch
 //   theme    - the five dashboard colours
+//   reports  - P4: business_day_start, when the restaurant's "day" starts in Reports
 //   messages - B4d: Google review link + WhatsApp thank-you template (stored in the
 //              private restaurant_messages table, NOT restaurants: see MESSAGE_COLUMNS)
 // Unknown fields are refused (strict), so nobody can slip in `id` or `restaurant_id`.
@@ -18,7 +19,7 @@ import { THANKYOU_TEMPLATE_MAX, isAllowedReviewUrl } from "@/lib/whatsapp-link";
 // The biggest delivery fee and minimum order come from the restaurant's currency
 // (lib/money.ts), so a rupee restaurant can save 150 / 1500; GBP is still 100 / 1000.
 
-export const SECTIONS = ["profile", "money", "orders", "theme", "messages"] as const;
+export const SECTIONS = ["profile", "money", "orders", "theme", "messages", "reports"] as const;
 export type SettingsSection = (typeof SECTIONS)[number];
 
 /** Shown on the Settings page but never changeable from it. */
@@ -32,6 +33,7 @@ export const SETTINGS_COLUMNS = [
   "delivery_fee", "min_order_value", "tax_rate_percent", "service_charge_percent",
   "service_charge_applies_to", "max_discount_percent",
   "is_accepting_orders",
+  "business_day_start",
   "theme_primary", "theme_accent", "theme_secondary", "theme_background", "theme_text",
 ] as const;
 export type SettingsColumn = (typeof SETTINGS_COLUMNS)[number];
@@ -115,6 +117,16 @@ const moneySchema = (currency: string) =>
     max_discount_percent: amount(100),
   });
 
+/**
+ * P4: "HH:MM" (or Postgres "HH:MM:SS" with :00 seconds), saved as "HH:MM:00" so it compares
+ * equal to what the database returns for a time column (no false "changed" audit rows).
+ */
+const businessDayStart = z
+  .string()
+  .trim()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d(:00)?$/, "must be a time like 04:00")
+  .transform((v) => `${v.slice(0, 5)}:00`);
+
 export const sectionSchemas = {
   profile: z.strictObject({
     name: requiredText(80),
@@ -144,6 +156,9 @@ export const sectionSchemas = {
   messages: z.strictObject({
     google_review_url: reviewUrl,
     thankyou_template: template,
+  }),
+  reports: z.strictObject({
+    business_day_start: businessDayStart,
   }),
 } satisfies Record<SettingsSection, z.ZodType>;
 

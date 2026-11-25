@@ -139,14 +139,14 @@ describe("old links keep working", () => {
   it("the orders board lives at /dashboard/orders (a page component)", () => {
     expect(typeof OrdersPage).toBe("function");
   });
-  it("/dashboard/stats still redirects to the overview page", () => {
+  it("/dashboard/stats still redirects (now to Reports)", () => {
     try {
       StatsPage();
       throw new Error("no redirect");
     } catch (e) {
       const digest = (e as { digest?: string }).digest;
       expect(digest?.startsWith("NEXT_REDIRECT")).toBe(true);
-      expect(digest?.split(";")[2]).toBe("/dashboard/overview");
+      expect(digest?.split(";")[2]).toBe("/dashboard/reports");
     }
   });
 });
