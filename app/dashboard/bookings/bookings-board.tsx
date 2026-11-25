@@ -1,5 +1,6 @@
 "use client";
 
+import { BILL_UNPAID_ERROR } from "@/lib/tables";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarX, CircleAlert, Clock, Phone, Search, Users } from "lucide-react";
@@ -144,7 +145,8 @@ export function BookingsBoard({
             async (): Promise<PostResult> => {
               const r = await post("/api/staff/clear-table", { table_session_id: b.open_session_id });
               // 409 = someone already cleared it: fine, carry on and complete the booking.
-              return !r.ok && r.status === 409 ? { ok: true } : r;
+              // But 409 "bill unpaid" means the table is NOT cleared: stop and show it.
+              return !r.ok && r.status === 409 && r.error !== BILL_UNPAID_ERROR ? { ok: true } : r;
             },
           ]
         : []),

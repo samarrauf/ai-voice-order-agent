@@ -20,6 +20,9 @@ export type PosItem = {
 
 export type PosCategory = { id: string; name: string; items: PosItem[] };
 
+/** An order of a busy table (no cost, no profit). */
+export type PosOrder = { id: string; number: string; total: number; status: string; paidAmount: number };
+
 export type PosTable = {
   id: string;
   number: string;
@@ -27,4 +30,6 @@ export type PosTable = {
   /** The open seating session, if someone is sitting there now. */
   sessionId: string | null;
   partySize: number | null;
+  /** Live bill of the busy table (from loadFloor): running total, minutes seated and its orders. */
+  busy: { bill: number; minutes: number; orders: PosOrder[] } | null;
 };

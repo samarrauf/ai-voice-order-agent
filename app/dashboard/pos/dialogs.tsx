@@ -6,9 +6,10 @@ import Link from "next/link";
 import { Check, CircleAlert, CircleCheck, Minus, Plus, Users, X } from "lucide-react";
 import { Badge, Button, cn } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
+import { addableOrders, busyLabel } from "@/lib/tables";
 import { PrintButtons } from "../print-buttons";
 import { MAX_LINE_QTY, type CartTable, type NewLine } from "./cart-store";
-import type { PosItem, PosTable } from "./pos-types";
+import type { PosItem, PosOrder, PosTable } from "./pos-types";
 
 // The POS popups: choose size + extras, choose (and seat) a table, and the
 // "order sent" message. All three share the Modal frame below. On a phone a
@@ -227,16 +228,22 @@ export function ItemDialog({
  */
 export function TableDialog({
   restaurantId,
+  currency,
   tables,
   selectedId,
   onPick,
+  onPickBusy,
   onChanged,
   onClose,
 }: {
   restaurantId: string;
+  currency: string;
   tables: PosTable[];
   selectedId: string | null;
+  /** A table that was just seated (free before). */
   onPick: (table: CartTable) => void;
+  /** A busy table was chosen: the screen asks add-to-bill / separate bill / another table. */
+  onPickBusy: (table: PosTable) => void;
   /** Called when the tables on screen may be out of date, so the page re-reads them. */
   onChanged: () => void;
   onClose: () => void;
@@ -319,7 +326,7 @@ export function TableDialog({
                     aria-pressed={selectedId === t.id}
                     onClick={() => {
                       setError(null);
-                      if (occupied) onPick({ tableId: t.id, tableNumber: t.number, sessionId: t.sessionId! });
+                      if (occupied) onPickBusy(t);
                       else {
                         setParty(Math.min(2, t.seats));
                         setSeating(t);
@@ -338,7 +345,7 @@ export function TableDialog({
                       </span>
                     </span>
                     <Badge tone={occupied ? "preparing" : "ready"} dot>
-                      {occupied ? "Busy" : "Free"}
+                      {t.busy ? busyLabel(t.busy.bill, t.busy.minutes, (n) => formatMoney(n, currency)) : occupied ? "Busy" : "Free"}
                     </Badge>
                   </button>
                 </li>
@@ -347,14 +354,21 @@ export function TableDialog({
           </ul>
         )}
         <p className="text-xs leading-relaxed text-ink-faint">
-          A free table asks for the party size and seats them. A busy table adds this order to the party already there.
+          A free table asks for the party size and seats them. A busy table lets you add items to the running bill, or start a separate bill.
         </p>
       </div>
     </Modal>
   );
 }
 
-export type SentOrder = { orderId: string; orderNumber: string; total: number; where: string };
+export type SentOrder = {
+  orderId: string;
+  orderNumber: string;
+  total: number;
+  where: string;
+  /** Items were added to a running bill: the id of that items_added event (for the ADDITION kitchen ticket). */
+  additionEventId?: string | null;
+};
 
 /** The "order sent" message. The total shown is the one the server saved. */
 export function SentDialog({
@@ -369,18 +383,18 @@ export function SentDialog({
   onTakePayment: () => void;
 }) {
   return (
-    <Modal title="Sent to kitchen" onClose={onClose}>
+    <Modal title={order.additionEventId ? "Items added" : "Sent to kitchen"} onClose={onClose}>
       <div className="flex flex-col items-center px-5 py-8 text-center">
         <span className="flex size-16 items-center justify-center rounded-full border border-status-ready/30 bg-status-ready/12 text-status-ready">
           <CircleCheck size={32} aria-hidden />
         </span>
-        <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint">Order number</p>
+        <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint">{order.additionEventId ? "Bill" : "Order number"}</p>
         <p className="mt-1 font-display text-5xl font-semibold tracking-tight tabular-nums">{order.orderNumber}</p>
         <p className="mt-3 text-sm text-ink-muted">
           {order.where} · <span className="font-semibold tabular-nums text-ink">{formatMoney(order.total, currency)}</span>
         </p>
       </div>
-      <PrintButtons orderId={order.orderId} className="shrink-0 px-5 pb-3" />
+      <PrintButtons orderId={order.orderId} kotEventId={order.additionEventId} className="shrink-0 px-5 pb-3" />
       <div className="flex shrink-0 gap-3 border-t border-line px-5 py-4">
         <Link
           href="/dashboard/orders"
@@ -393,6 +407,84 @@ export function SentDialog({
         </Button>
         <Button variant="primary" size="lg" className="flex-1" onClick={onTakePayment}>
           Take payment
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+/** What to do when a BUSY table is chosen: add to its running bill (the default), a separate bill, or another table. */
+export function BusyTableDialog({
+  table,
+  currency,
+  onAddToBill,
+  onSeparate,
+  onChooseOther,
+  onClose,
+}: {
+  table: PosTable;
+  currency: string;
+  /** Items will be added to this running order. */
+  onAddToBill: (order: PosOrder) => void;
+  /** A separate bill on the same table; `existing` = the running bill it stays apart from (logged in order_events). */
+  onSeparate: (existing: PosOrder | null) => void;
+  onChooseOther: () => void;
+  onClose: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const orders = table.busy?.orders ?? [];
+  const addable = addableOrders(orders);
+  const money = (n: number) => formatMoney(n, currency);
+
+  if (confirming) {
+    return (
+      <Modal title="Separate bill?" onClose={onClose}>
+        <div className="space-y-3 px-5 py-5 text-sm leading-relaxed">
+          <p>
+            Table {table.number} already has a running bill{addable.length === 1 ? ` (${addable[0].number})` : ""}. A separate bill means the guests will have{" "}
+            <strong>two bills</strong>: this new order will not be added to the old one.
+          </p>
+          <p className="text-ink-muted">To keep one bill for the table, go back and add the items to the running bill.</p>
+        </div>
+        <div className="flex shrink-0 gap-3 border-t border-line px-5 py-4">
+          <Button size="lg" onClick={() => setConfirming(false)}>
+            Back
+          </Button>
+          <Button variant="primary" size="lg" className="flex-1" onClick={() => onSeparate(addable[0] ?? null)}>
+            Yes, separate bill
+          </Button>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal title={`Table ${table.number} is busy`} onClose={onClose}>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-5">
+        {table.busy && <p className="text-sm text-ink-muted">{busyLabel(table.busy.bill, table.busy.minutes, money)}</p>}
+        {addable.length > 0 ? (
+          addable.map((o, i) => (
+            <Button key={o.id} variant={i === 0 ? "primary" : "secondary"} size="lg" className="w-full justify-between!" onClick={() => onAddToBill(o)}>
+              <span>Add items to this bill{addable.length > 1 ? ` · ${o.number}` : ""}</span>
+              <span className="tabular-nums">{money(o.total)}</span>
+            </Button>
+          ))
+        ) : (
+          <p className="rounded-xl border border-line bg-raised px-3.5 py-3 text-sm text-ink-muted">
+            This table has no open bill to add to (it is paid, closed or empty). A new bill will be started.
+          </p>
+        )}
+        {addable.length > 0 ? (
+          <Button size="lg" className="w-full" onClick={() => setConfirming(true)}>
+            Start a separate bill
+          </Button>
+        ) : (
+          <Button variant="primary" size="lg" className="w-full" onClick={() => onSeparate(null)}>
+            Start a new bill
+          </Button>
+        )}
+        <Button size="lg" variant="ghost" className="w-full" onClick={onChooseOther}>
+          Choose another table
         </Button>
       </div>
     </Modal>

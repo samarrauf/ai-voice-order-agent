@@ -7,6 +7,7 @@ import { activeDeliveryAreas } from "@/lib/staff-delivery";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { Card, EmptyState, Skeleton } from "@/components/ui";
 import { tableForPos } from "@/lib/tables";
+import { loadFloor, type Floor } from "@/lib/tables-data";
 import { PosTerminal } from "./pos-terminal";
 import type { PosCategory, PosItem, PosOptionGroup, PosTable } from "./pos-types";
 
@@ -37,7 +38,7 @@ type OptionRow = {
 async function Pos({ tableParam }: { tableParam?: string }) {
   // The restaurant always comes from the login session.
   const rid = (await requireStaffPage()).restaurantId;
-  const [restaurantRes, categoriesRes, optionsRes, tablesRes, sessionsRes, areasRes] = await Promise.all([
+  const [restaurantRes, categoriesRes, optionsRes, floor, areasRes] = await Promise.all([
     supabaseAdmin.from("restaurants").select("currency, delivery_mode").eq("id", rid).maybeSingle(),
     supabaseAdmin
       .from("menu_categories")
@@ -60,13 +61,13 @@ async function Pos({ tableParam }: { tableParam?: string }) {
       .eq("is_available", true)
       .order("group_name")
       .order("price_delta"),
-    supabaseAdmin.from("restaurant_tables").select("id, table_number, seats").eq("restaurant_id", rid).eq("is_active", true),
-    supabaseAdmin.from("table_sessions").select("id, table_id, party_size").eq("restaurant_id", rid).is("cleared_at", null),
+    // Live state of every table (seated, running bill, minutes, orders): the same loader as the Tables page.
+    loadFloor(rid).catch((e) => ({ error: e as unknown })),
     activeDeliveryAreas(rid).order("label"),
   ]);
 
   const error =
-    restaurantRes.error ?? categoriesRes.error ?? optionsRes.error ?? tablesRes.error ?? sessionsRes.error ?? areasRes.error;
+    restaurantRes.error ?? categoriesRes.error ?? optionsRes.error ?? ("error" in floor ? floor.error : null) ?? areasRes.error;
   if (error) {
     console.error("pos: failed to load", error);
     return (
@@ -121,16 +122,23 @@ async function Pos({ tableParam }: { tableParam?: string }) {
     }))
     .filter((c) => c.items.length > 0);
 
-  const sessionByTable = new Map((sessionsRes.data ?? []).map((s) => [s.table_id, s]));
-  const tables: PosTable[] = (tablesRes.data ?? [])
+  // loadFloor already sorts naturally (T2 before T10); a table that is switched off is not offered.
+  const tables: PosTable[] = (floor as Floor).tables
+    .filter((t) => t.isActive)
     .map((t) => ({
       id: t.id,
-      number: t.table_number,
+      number: t.number,
       seats: t.seats,
-      sessionId: sessionByTable.get(t.id)?.id ?? null,
-      partySize: sessionByTable.get(t.id)?.party_size ?? null,
-    }))
-    .sort((a, b) => a.number.localeCompare(b.number, "en", { numeric: true }));
+      sessionId: t.session?.id ?? null,
+      partySize: t.session?.partySize ?? null,
+      busy: t.session
+        ? {
+            bill: t.session.bill,
+            minutes: t.session.minutes,
+            orders: t.session.orders.map((o) => ({ id: o.id, number: o.number, total: o.total, status: o.status, paidAmount: o.paidAmount })),
+          }
+        : null,
+    }));
 
   return (
     <PosTerminal

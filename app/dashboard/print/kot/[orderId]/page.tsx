@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { buildKot } from "@/lib/receipt";
 import { PrintControls } from "../../print-controls";
-import { isA4, loadOrderOr404, pageRule } from "../../load";
+import { isA4, loadAdditionItemIds, loadOrderOr404, pageRule } from "../../load";
 
 export const metadata: Metadata = { title: "Print kitchen ticket", robots: { index: false } };
 
@@ -11,19 +11,26 @@ export default async function PrintKotPage({
   searchParams,
 }: {
   params: Promise<{ orderId: string }>;
-  searchParams: Promise<{ size?: string | string[] }>;
+  searchParams: Promise<{ size?: string | string[]; addition?: string | string[] }>;
 }) {
-  const [{ orderId }, { size }] = await Promise.all([params, searchParams]);
+  const [{ orderId }, { size, addition }] = await Promise.all([params, searchParams]);
   const a4 = isA4(size);
-  const k = buildKot(await loadOrderOr404(orderId));
+  const data = await loadOrderOr404(orderId);
+  const additionIds = typeof addition === "string" ? await loadAdditionItemIds(orderId, addition) : undefined;
+  const k = buildKot(data, additionIds);
+  const sizeHref = (extra: string) => {
+    const query = [extra, typeof addition === "string" ? `addition=${encodeURIComponent(addition)}` : ""].filter(Boolean).join("&");
+    return `/dashboard/print/kot/${orderId}${query ? `?${query}` : ""}`;
+  };
 
   return (
     <>
       <style>{pageRule(a4)}</style>
       <PrintControls
-        otherSize={{ label: a4 ? "80mm paper" : "A4 paper", href: `/dashboard/print/kot/${orderId}${a4 ? "" : "?size=a4"}` }}
+        otherSize={{ label: a4 ? "80mm paper" : "A4 paper", href: sizeHref(a4 ? "" : "size=a4") }}
       />
       <article className={`paper kot ${a4 ? "paper-a4" : "paper-80"}`}>
+        {k.addition && <div className="kot-number">ADDITION</div>}
         <div className="kot-number">{k.orderNumber}</div>
         <div className="kot-kind">{k.kindLabel}</div>
         {k.table && <div className="kot-kind">Table {k.table}</div>}

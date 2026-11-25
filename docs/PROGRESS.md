@@ -16,6 +16,7 @@ Har stage ke aakhir mein yeh file update karna lazmi hai (status, faislay, masai
 | B3 | Tables aur venue management | baqi |
 | B4a | Hold/resume, table badalna, merge | DONE, commit ka intezar |
 | B4a+ | Tables card: Items jodo / Payment lo / Bill print, payment ke baad Clear table, Clear anyway (owner/manager) | DONE, commit ka intezar |
+| B4a2 | Chalte table bill mein items jodo (POS busy-table dialog, add-items, ADDITION KOT) + plain clear-table payment check | DONE, commit ka intezar |
 | B4b | Cancel, void, refund | baqi |
 | B4c | Bill split | baqi |
 | B4d | WhatsApp shukriya + Google review ek-click button | baqi |
@@ -116,10 +117,17 @@ B5 (Reports: dashboard-stats aur lib/profit-data.ts ka wahi hisaab), B10 (har pa
 - Olive logo ka asli rang gold #CFB12C (+ hara #009147); DB theme gold #C9A227 usi family ka hai, isliye DB nahi badli. `lib/color.ts` mein 3 darje (button, highlight, ink) aur `lib/login-theme.ts` (host se login: POS host = Olive logo+naam+gold, baqi neutral grey). Gradient `.glass-accent` halka kiya.
 - Tests: color.pure + login-theme.pure naye (pure suite 13 files pass). Screenshots: design-samples/a3a-olive/.
 
+## B4a2 (chalte bill mein items jodo) ka khulasa
+- Status: migration 0028 owner ne run ki (orders.items_added_at, add_items_to_order_tx); /api/staff/add-items; POS busy table par dialog (bill mein jodo / alag bill / doosri table) aur label "Busy · amount · min"; lint, type-check, build, poora suite (60 files) pass.
+- Faislay: qeemat/cost server se (priceLines + order_line_unit_cost), total computeBill se poore order par, order ka apna discount; payment/cancelled/merged/completed/cleared par 409; ready order wapas preparing (naya status nahi); KOT "?addition=<event id>" par sirf naye items; order_events: items_added, separate_bill. Alag naya bill par server koi rok nahi.
+- Faislay: plain clear-table ab server par baaki raqam par 409 (BILL_UNPAID_ERROR); sirf clear_unpaid (owner/manager) se clear; bina order ya paid table waise hi clear. Bookings board aur Tables floor is 409 par ruk kar message dikhate hain.
+- Baqi masail: add mode mein discount/note nahi badalte; held cart add-mode mein hold nahi hota; POS ka naya dialog browser mein dekha nahi; item hatana/void B4b mein.
+- Test: staff-endpoints ka cleared-table test ab clear_unpaid use karta hai (session par pehle se unpaid orders).
+
 ## B4a+ Tables card shortcuts
 - Busy table card: "Items jodo" (`/dashboard/pos?table=<id>`, POS usi table ki session par dine-in khulta hai), "Payment lo" (mojooda `PaymentDialog` + `/api/staff/record-payment`, `take_payment`), "Bill print" (`printBillHref`, `print_bill`). Har unpaid order ka apna Payment button.
 - "Clear table" sirf jab saare orders poori tarah paid (ya table par koi order nahi). Table khud clear nahi hota. Helpers pure: `lib/tables.ts` (owedPence, unpaidOrders, readyToClear, busyTableActions, tableForPos). Tests: `tests/table-card-actions.pure.test.ts`.
 - "Clear anyway" (bill baaki, customer chala gaya): sirf owner/manager (naya capability `clear_unpaid`), confirm dialog mein baaki raqam. Mojooda `/api/staff/clear-table` mein `clear_unpaid: true`; staff ko server par 403. Har baaki order par `order_events` mein `cleared_unpaid` (kaun, order, baaki, total); order Orders board par rehta hai.
 - Fix (Take bill "stuck"): glass cards par `backdrop-filter` hai, is liye card ke andar `position: fixed` popup screen ke bajaye card ke hisaab se khulta tha. Shared `Modal` (`app/dashboard/pos/dialogs.tsx`) ab `createPortal` se `.dash` wrapper mein render hota hai (body mein nahi: theme colours `.dash` par hain), z-60 (topbar z-30, nav z-40 se upar), peeche ka page scroll lock, Escape/parda-click wahi. Sab popups (payment, held, POS) isi ek Modal se.
 - Label "Payment lo" -> "Take bill" (kai orders par "Take bill · <number>"); Tables card se "Items jodo" hata (POS `?table=` code baqi, B4a2 ke liye). Test: `tests/modal-portal.pure.test.ts` (source-level; asli layout browser mein dekhna hoga).
-- Tests: `tests/clear-anyway.test.ts` (live) + pure additions. Koi migration nahi. Note: bina flag ke plain clear server par ab bhi payment check nahi karta (bookings board bhi use karta hai).
+- Tests: `tests/clear-anyway.test.ts` (live) + pure additions. Koi migration nahi. (Fixed in B4a2: plain clear ab server par payment check karta hai.)

@@ -150,6 +150,11 @@ export function OrdersBoard({ orders, restaurantId, currency }: { orders: BoardO
                   </div>
                   <div className="flex flex-col items-end gap-1.5">
                     <StatusBadge status={o.status} />
+                    {o.has_new_items && (
+                      <Badge tone="preparing" dot>
+                        New items
+                      </Badge>
+                    )}
                     <PaymentStatusBadge status={o.payment_status} />
                   </div>
                 </div>

@@ -19,12 +19,14 @@ export type BoardOrder = {
   total: number;
   payment_status: string;
   created_at: string;
+  /** Items were added to this running order and the kitchen has not finished it yet. */
+  has_new_items: boolean;
   items: BoardItem[];
   /** Owner only, and not for cancelled orders. profit null = no cost snapshot (old order). */
   profit?: { profit: number | null; complete: boolean };
 };
 
-const BASE = `id, order_number, status, source, total, payment_status, created_at,
+const BASE = `id, order_number, status, source, total, payment_status, created_at, items_added_at,
   table_sessions ( restaurant_tables ( table_number ) )`;
 
 type Row = {
@@ -35,6 +37,7 @@ type Row = {
   total: number | string;
   payment_status: string;
   created_at: string;
+  items_added_at: string | null;
   subtotal?: number | string;
   discount_amount?: number | string;
   cost_total?: number | string | null;
@@ -74,6 +77,7 @@ export async function loadBoardOrders(restaurantId: string, role: StaffRole, lim
       total: Number(o.total),
       payment_status: o.payment_status,
       created_at: o.created_at,
+      has_new_items: !!o.items_added_at && ["new", "accepted", "preparing"].includes(o.status),
       items: (o.order_items ?? []).map((i) => ({
         name: i.item_name,
         size: i.size_name,

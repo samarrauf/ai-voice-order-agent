@@ -326,7 +326,9 @@ describe("manual-order", () => {
 
   it("refuses an order for a cleared table or an unknown session", async () => {
     const { data: s } = await db.from("table_sessions").select("id").eq("id", bookingSession).single();
-    await callStaff(clearTable, { table_session_id: s!.id });
+    // This session already has unpaid orders from the tests above, so a plain clear is now refused (409); clear it anyway (owner).
+    expect((await callStaff(clearTable, { table_session_id: s!.id })).status).toBe(409);
+    expect((await callStaff(clearTable, { table_session_id: s!.id, clear_unpaid: true })).status).toBe(200);
     expect((await order(bookingSession)).status).toBe(409);
     expect((await order("00000000-0000-4000-8000-000000000000")).status).toBe(404);
   });

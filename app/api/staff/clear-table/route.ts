@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { can } from "@/lib/permissions";
 import { pence, pounds } from "@/lib/order-pricing";
+import { BILL_UNPAID_ERROR } from "@/lib/tables";
 import { requireStaff, restaurantMismatch } from "@/lib/staff-auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -48,6 +49,23 @@ export async function POST(request: Request) {
   const mismatch = restaurantMismatch(parsed.data.restaurant_id, auth.staff);
   if (mismatch) return mismatch;
   if (parsed.data.clear_unpaid && !can(auth.staff.role, "clear_unpaid")) return fail("forbidden", 403);
+
+  // A plain clear (no clear_unpaid flag) refuses a table that still owes money, whatever the UI shows.
+  // Tables with no order at all (e.g. a booked party that never ordered) and fully paid tables clear as before.
+  // The amounts come from the database. Cancelled and merged orders carry no bill.
+  if (!parsed.data.clear_unpaid) {
+    const { data: live, error: liveErr } = await supabaseAdmin
+      .from("orders")
+      .select("total, paid_amount")
+      .eq("restaurant_id", rid)
+      .eq("table_session_id", table_session_id)
+      .not("status", "in", "(cancelled,merged)");
+    if (liveErr) {
+      console.error("clear-table: could not check the bill", liveErr);
+      return fail("could not check the bill", 500);
+    }
+    if ((live ?? []).some((o) => pence(o.total) > pence(o.paid_amount))) return fail(BILL_UNPAID_ERROR, 409);
+  }
 
   // One atomic statement: only an OPEN session matches, so two staff pressing
   // "clear" together can't both succeed.

@@ -49,6 +49,9 @@ const bodySchema = z
     restaurant_id: z.guid().optional(),
     order_type: z.enum(["dine_in", "takeaway", "delivery"]).default("dine_in"),
     table_session_id: z.guid().nullish(),
+    // Dine-in on a table that already has a running bill: staff chose a SEPARATE bill. Only used to write
+    // the order_events row; it never blocks the order (QR table ordering will put several orders on a table).
+    separate_from_order_id: z.guid().nullish(),
     customer_name: optionalText(80),
     customer_phone: optionalText(30),
     delivery_address: optionalText(200),
@@ -183,6 +186,28 @@ export async function POST(request: Request) {
     return fail("order insert failed", 500);
   }
   const saved = order as { id: string; order_number: string; source: string };
+
+  // "Separate bill" on a busy table: record who chose it and which running bill it stays apart from.
+  // The existing order must be of this restaurant and on the same table session. A failed log never fails the order.
+  if (sessionId && body.separate_from_order_id) {
+    const { data: existing } = await supabaseAdmin
+      .from("orders")
+      .select("id, order_number")
+      .eq("id", body.separate_from_order_id)
+      .eq("restaurant_id", rid)
+      .eq("table_session_id", sessionId)
+      .maybeSingle();
+    if (existing) {
+      const { error: eventError } = await supabaseAdmin.from("order_events").insert({
+        restaurant_id: rid,
+        order_id: saved.id,
+        staff_id: auth.staff.staffId,
+        event: "separate_bill",
+        detail: { table_session_id: sessionId, existing_order_id: existing.id, existing_order_number: existing.order_number },
+      });
+      if (eventError) console.error("manual-order: could not write separate_bill event", eventError);
+    }
+  }
 
   return NextResponse.json(
     {

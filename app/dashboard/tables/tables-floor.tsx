@@ -6,7 +6,7 @@ import { LayoutGrid } from "lucide-react";
 import { Badge, Button, Card, CardHeader, EmptyState, FilterChips, KpiCard, type Chip } from "@/components/ui";
 import { cn } from "@/components/ui/cn";
 import { formatMoney } from "@/lib/money";
-import { busyTableActions, durationLabel, owedTotalPence, showClearAnyway, unpaidOrders } from "@/lib/tables";
+import { BILL_UNPAID_ERROR, busyTableActions, durationLabel, owedTotalPence, showClearAnyway, unpaidOrders } from "@/lib/tables";
 import { printBillHref } from "@/lib/print-links";
 import type { Floor, SessionOrder, TableView } from "@/lib/tables-data";
 import { PaymentDialog } from "../pos/payment-dialog";
@@ -101,7 +101,8 @@ export function TablesFloor({
     return run(t.id, [
       async () => {
         const r = await post("/api/staff/clear-table", { table_session_id: s.id, ...(unpaid ? { clear_unpaid: true } : {}) });
-        return !r.ok && r.status === 409 ? { ok: true, status: 200, message: "" } : r;
+        // 409 = already cleared (fine); 409 "bill unpaid" = still seated, show the message.
+        return !r.ok && r.status === 409 && r.message !== BILL_UNPAID_ERROR ? { ok: true, status: 200, message: "" } : r;
       },
       ...(s.bookingId
         ? [

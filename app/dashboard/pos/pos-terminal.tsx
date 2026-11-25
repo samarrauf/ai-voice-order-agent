@@ -18,13 +18,14 @@ import {
   type DiscountType,
   type OrderType,
 } from "./cart-store";
-import { ErrorNote, ItemDialog, Modal, SentDialog, Stepper, TableDialog, type SentOrder } from "./dialogs";
+import { BusyTableDialog, ErrorNote, ItemDialog, Modal, SentDialog, Stepper, TableDialog, type SentOrder } from "./dialogs";
 import { PaymentDialog } from "./payment-dialog";
 import { HeldListDialog, HoldDialog, countHeld } from "./held-dialogs";
 import { CostLine } from "../cost-line";
 import type { LineCost } from "@/lib/profit";
 import type { HeldCart } from "@/lib/held-carts";
-import type { PosCategory, PosItem, PosTable } from "./pos-types";
+import { addableOrders } from "@/lib/tables";
+import type { PosCategory, PosItem, PosOrder, PosTable } from "./pos-types";
 
 // The POS screen. Left: search, category chips and the item tiles. Right: the
 // cart (on a phone it is a sheet that slides up from the bottom).
@@ -47,6 +48,9 @@ const DISCOUNT_TYPES: readonly { key: DiscountType; label: string }[] = [
 ];
 
 // Soft tile tints, one per category in turn: the restaurant's chart palette (lib/chart-palette.ts, set as --chart-N by the layout).
+/** Items go to this running bill (B4a2) instead of a new order. `sessionId` ties it to the table it was chosen on. */
+type AddTo = { orderId: string; number: string; sessionId: string };
+
 const TINTS = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => `var(--chart-${n})`);
 
 // The server's whole bill for the cart. Every number here came from /api/staff/price-preview.
@@ -86,6 +90,16 @@ export function PosTerminal({
   const [category, setCategory] = useState("all");
   const [configuring, setConfiguring] = useState<PosItem | null>(null);
   const [choosingTable, setChoosingTable] = useState(false);
+  // Busy table flow: the table whose "add to bill / separate / other" dialog is open, the bill we add to,
+  // and the running bill a separate bill stays apart from (logged when the new order is saved).
+  const [busyTable, setBusyTable] = useState<PosTable | null>(null);
+  const [addToState, setAddTo] = useState<AddTo | null>(() => {
+    // Opened from a busy table (?table=): add to that table's running bill by default.
+    const t = initialTable ? tables.find((x) => x.id === initialTable.tableId) : null;
+    const o = t?.busy ? addableOrders(t.busy.orders)[0] : null;
+    return initialTable && o ? { orderId: o.id, number: o.number, sessionId: initialTable.sessionId } : null;
+  });
+  const [separateFrom, setSeparateFrom] = useState<{ orderId: string; sessionId: string } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -100,7 +114,11 @@ export function PosTerminal({
 
   // ---- Prices: always from the server ---------------------------------
   // The request body itself is the signature: items, order type and discount.
-  const sig = JSON.stringify(toPreviewPayload(restaurantId, cart));
+  // Adding to a running bill: only the NEW items are priced here (the order keeps its own discount).
+  const addTo = addToState && cart.orderType === "dine_in" && cart.table?.sessionId === addToState.sessionId ? addToState : null;
+  const sig = JSON.stringify(
+    toPreviewPayload(restaurantId, addTo ? { ...cart, discountType: "none", discountValue: "", discountReason: "" } : cart),
+  );
   const hasItems = cart.lines.length > 0;
   const [quote, setQuote] = useState<Quote | null>(null);
   const [retry, setRetry] = useState(0);
@@ -166,13 +184,39 @@ export function PosTerminal({
     setSending(true);
     setSendError(null);
     try {
-      const res = await fetch("/api/staff/manual-order", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(toOrderPayload(restaurantId, cart)),
-      });
+      // A separate bill on a busy table is told to the server so it can log it (order_events).
+      const separate =
+        separateFrom && cart.orderType === "dine_in" && cart.table?.sessionId === separateFrom.sessionId ? separateFrom : null;
+      const res = addTo
+        ? await fetch("/api/staff/add-items", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ restaurant_id: restaurantId, order_id: addTo.orderId, items: toOrderPayload(restaurantId, cart).items }),
+          })
+        : await fetch("/api/staff/manual-order", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ ...toOrderPayload(restaurantId, cart), ...(separate ? { separate_from_order_id: separate.orderId } : {}) }),
+          });
       const json = await res.json().catch(() => null);
-      if (res.status === 201 && json?.success) {
+      if (addTo && res.status === 201 && json?.success) {
+        setSent({
+          orderId: json.order_id,
+          orderNumber: json.order_number,
+          total: json.total,
+          where: `Table ${cart.table?.tableNumber} · items added`,
+          additionEventId: json.event_id ?? null,
+        });
+        dispatch({ type: "reset" });
+        setAddTo(null);
+        setSheetOpen(false);
+        router.refresh();
+      } else if (addTo && (res.status === 409 || res.status === 404)) {
+        // Closed, paid, cancelled or merged in the meantime: say why, and let staff choose again.
+        setAddTo(null);
+        router.refresh();
+        setSendError(`${typeof json?.error === "string" ? json.error : "That bill can no longer be added to"}. Choose the table again.`);
+      } else if (res.status === 201 && json?.success) {
         setSent({
           orderId: json.order_id,
           orderNumber: json.order_number,
@@ -180,6 +224,7 @@ export function PosTerminal({
           where: cart.orderType === "dine_in" ? `Table ${cart.table?.tableNumber}` : cart.orderType === "delivery" ? "Delivery" : "Takeaway",
         });
         dispatch({ type: "reset" });
+        setSeparateFrom(null);
         setSheetOpen(false);
         router.refresh();
       } else if (res.status === 401) {
@@ -211,6 +256,11 @@ export function PosTerminal({
       currency={currency}
       deliveryMode={deliveryMode}
       deliveryAreas={deliveryAreas}
+      addTo={addTo}
+      onChangeBill={() => {
+        const t = tables.find((x) => x.id === cart.table?.tableId);
+        if (t) setBusyTable(t);
+      }}
       priced={priced}
       priceError={current && !current.ok ? current.error : null}
       onRetryPrice={() => setRetry((n) => n + 1)}
@@ -365,14 +415,46 @@ export function PosTerminal({
       {choosingTable && (
         <TableDialog
           restaurantId={restaurantId}
+          currency={currency}
           tables={tables}
           selectedId={cart.table?.tableId ?? null}
           onChanged={() => router.refresh()}
           onClose={() => setChoosingTable(false)}
           onPick={(table) => {
             dispatch({ type: "setTable", table });
+            setAddTo(null);
+            setSeparateFrom(null);
             setSendError(null);
             setChoosingTable(false);
+          }}
+          onPickBusy={(table) => {
+            setChoosingTable(false);
+            setBusyTable(table);
+          }}
+        />
+      )}
+      {busyTable && busyTable.sessionId && (
+        <BusyTableDialog
+          table={busyTable}
+          currency={currency}
+          onClose={() => setBusyTable(null)}
+          onChooseOther={() => {
+            setBusyTable(null);
+            setChoosingTable(true);
+          }}
+          onAddToBill={(o: PosOrder) => {
+            dispatch({ type: "setTable", table: { tableId: busyTable.id, tableNumber: busyTable.number, sessionId: busyTable.sessionId! } });
+            setAddTo({ orderId: o.id, number: o.number, sessionId: busyTable.sessionId! });
+            setSeparateFrom(null);
+            setSendError(null);
+            setBusyTable(null);
+          }}
+          onSeparate={(existing) => {
+            dispatch({ type: "setTable", table: { tableId: busyTable.id, tableNumber: busyTable.number, sessionId: busyTable.sessionId! } });
+            setAddTo(null);
+            setSeparateFrom(existing ? { orderId: existing.id, sessionId: busyTable.sessionId! } : null);
+            setSendError(null);
+            setBusyTable(null);
           }}
         />
       )}
@@ -432,6 +514,8 @@ function CartPanel({
   currency,
   deliveryMode,
   deliveryAreas,
+  addTo,
+  onChangeBill,
   priced,
   priceError,
   onRetryPrice,
@@ -451,6 +535,9 @@ function CartPanel({
   currency: string;
   deliveryMode: "postcode" | "area_list" | "none";
   deliveryAreas: string[];
+  /** Set while items are being added to a running bill. */
+  addTo: AddTo | null;
+  onChangeBill: () => void;
   priced: Extract<Quote, { ok: true }> | null;
   priceError: string | null;
   onRetryPrice: () => void;
@@ -476,6 +563,16 @@ function CartPanel({
           onChange={(orderType) => dispatch({ type: "setOrderType", orderType })}
         />
 
+        {cart.orderType === "dine_in" && addTo && (
+          <div className="rounded-xl border border-brand-line bg-brand-tint px-3.5 py-2.5 text-sm text-brand-ink">
+            <p className="font-semibold">Adding to bill {addTo.number}</p>
+            <p className="mt-0.5 text-xs">These items join the running bill of Table {cart.table?.tableNumber}.</p>
+            <button type="button" onClick={onChangeBill} className="mt-1 text-xs font-semibold underline underline-offset-2">
+              Change
+            </button>
+          </div>
+        )}
+
         {cart.orderType === "dine_in" && (
           <button
             type="button"
@@ -493,7 +590,7 @@ function CartPanel({
           </button>
         )}
 
-        <div className="grid grid-cols-2 gap-2">
+        {!addTo && <div className="grid grid-cols-2 gap-2">
           <input
             value={cart.customerName}
             onChange={(e) => dispatch({ type: "setField", field: "customerName", value: e.target.value })}
@@ -513,7 +610,7 @@ function CartPanel({
             autoComplete="off"
             className={input}
           />
-        </div>
+        </div>}
 
         {cart.orderType === "delivery" && (
           <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-2">
@@ -598,7 +695,7 @@ function CartPanel({
           </ul>
         )}
 
-        {!empty && (
+        {!empty && !addTo && (
           <div className="space-y-2">
             <p className={label}>Discount</p>
             <FilterChips
@@ -630,7 +727,7 @@ function CartPanel({
           </div>
         )}
 
-        <textarea
+        {!addTo && <textarea
           value={cart.note}
           onChange={(e) => dispatch({ type: "setField", field: "note", value: e.target.value })}
           placeholder="Note for the whole order (e.g. less spicy)"
@@ -638,7 +735,7 @@ function CartPanel({
           maxLength={300}
           rows={2}
           className={cn(input, "resize-none py-2.5")}
-        />
+        />}
       </div>
 
       <div className="shrink-0 space-y-3 border-t border-line p-4">
@@ -664,7 +761,7 @@ function CartPanel({
           </dl>
         )}
         <div className="flex items-baseline justify-between">
-          <span className={label}>Total</span>
+          <span className={label}>{addTo ? "New items" : "Total"}</span>
           {empty ? (
             <span className="text-2xl font-bold tabular-nums text-ink-faint">–</span>
           ) : priced ? (
@@ -675,10 +772,10 @@ function CartPanel({
         </div>
         <Button variant="primary" size="lg" className="min-h-14 w-full text-lg" disabled={!canSend} onClick={onSend}>
           <Send size={19} aria-hidden />
-          {sending ? "Sending..." : "Send to Kitchen"}
+          {sending ? "Sending..." : addTo ? "Add to bill and send" : "Send to Kitchen"}
         </Button>
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="secondary" disabled={empty} onClick={onHold}>
+          <Button variant="secondary" disabled={empty || !!addTo} onClick={onHold}>
             Hold
           </Button>
           <Button variant="secondary" onClick={onShowHeld}>

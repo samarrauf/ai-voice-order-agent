@@ -185,3 +185,19 @@ export function tableForPos<T extends { id: string; number: string; sessionId: s
   const t = tables.find((x) => x.id === param);
   return t && t.sessionId ? { tableId: t.id, tableNumber: t.number, sessionId: t.sessionId } : null;
 }
+
+// ---- Busy table in the POS (B4a2): label and "add to the running bill" rules ----
+
+/** Table picker label of a busy table: "Busy · 42.50 · 35 min". `money` is the restaurant's formatMoney. */
+export const busyLabel = (bill: number, minutes: number, money: (n: number) => string): string =>
+  `Busy · ${money(bill)} · ${durationLabel(minutes)}`;
+
+/**
+ * Orders of a seated table that items can still be added to: not cancelled, completed or
+ * merged, and with no payment taken yet. The server enforces the same rule (add_items_to_order_tx).
+ */
+export const addableOrders = <T extends { status: string; paidAmount: number }>(orders: readonly T[]): T[] =>
+  orders.filter((o) => !["cancelled", "completed", "merged"].includes(o.status) && !(o.paidAmount > 0));
+
+/** clear-table answer (409) when a plain clear is tried on a table whose bill is not fully paid. Callers must not mistake it for "already cleared". */
+export const BILL_UNPAID_ERROR = "the bill is still unpaid: take payment first (an owner or manager can use Clear anyway)";

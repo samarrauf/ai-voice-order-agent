@@ -16,7 +16,7 @@ export type SectionView = { id: string; name: string; sort_order: number; is_act
 
 /** A live order of a seated table (for the Move / Merge buttons). Never carries cost or profit. */
 /** `paid` = any money taken (blocks merging); `paidAmount` = how much, so the payment dialog starts at the true balance. */
-export type SessionOrder = { id: string; number: string; total: number; paid: boolean; paidAmount: number };
+export type SessionOrder = { id: string; number: string; total: number; paid: boolean; paidAmount: number; status: string };
 
 export type TableView = {
   id: string;
@@ -121,7 +121,7 @@ export async function loadFloor(rid: string, now: Date = new Date()): Promise<Fl
       if (!o.table_session_id) continue;
       bills.set(o.table_session_id, (bills.get(o.table_session_id) ?? 0) + Number(o.total));
       const list = sessionOrders.get(o.table_session_id) ?? [];
-      list.push({ id: o.id, number: o.order_number, total: Number(o.total), paid: Number(o.paid_amount) > 0, paidAmount: Number(o.paid_amount) });
+      list.push({ id: o.id, number: o.order_number, total: Number(o.total), paid: Number(o.paid_amount) > 0, paidAmount: Number(o.paid_amount), status: o.status });
       sessionOrders.set(o.table_session_id, list);
     }
   }

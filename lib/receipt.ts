@@ -59,6 +59,8 @@ export type ReceiptOrder = {
 };
 
 export type ReceiptItem = {
+  /** order_items.id; the kitchen ticket of an addition picks its lines by it. */
+  id?: string;
   item_name: string;
   size_name?: string | null;
   options?: unknown;
@@ -269,11 +271,19 @@ export type KotModel = {
   placedAt: string;
   lines: KotLine[];
   notes: string | null;
+  /** True for the ticket of items added to a running order: only the NEW items, headed ADDITION. */
+  addition?: true;
 };
 
-/** The kitchen ticket: NO prices, NO payments, NO customer or address details. */
-export function buildKot({ restaurant, order, items }: PrintInput): KotModel {
+/**
+ * The kitchen ticket: NO prices, NO payments, NO customer or address details.
+ * With `additionItemIds` only those items are listed (an ADDITION ticket); the older
+ * items are not printed again and the order note (already sent) is left out.
+ */
+export function buildKot({ restaurant, order, items }: PrintInput, additionItemIds?: readonly string[]): KotModel {
   const kind = orderKind(order);
+  const ids = additionItemIds ? new Set(additionItemIds) : null;
+  if (ids) items = items.filter((i) => !!i.id && ids.has(i.id));
   return {
     orderNumber: order.order_number,
     kindLabel: KIND_LABEL[kind],
@@ -285,6 +295,7 @@ export function buildKot({ restaurant, order, items }: PrintInput): KotModel {
       options: [clean(i.size_name), ...optionNames(i.options)].filter((x): x is string => !!x),
       notes: clean(i.notes),
     })),
-    notes: clean(order.notes),
+    notes: ids ? null : clean(order.notes),
+    ...(ids ? { addition: true as const } : {}),
   };
 }
