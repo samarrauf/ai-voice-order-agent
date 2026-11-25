@@ -8,6 +8,7 @@ import { PaymentStatusBadge } from "@/components/ui/payment-status-badge";
 import { formatMoney } from "@/lib/money";
 import { NewOrderLink } from "./new-order-link";
 import { PrintButtons } from "./print-buttons";
+import { ThankYouButton } from "./thankyou-button";
 import { CostLine } from "./cost-line";
 import type { BoardOrder } from "@/lib/orders-board";
 import { can, type StaffRole } from "@/lib/permissions";
@@ -273,6 +274,9 @@ export function OrdersBoard({
                 )}
 
                 <PrintButtons orderId={o.id} className="mt-4" />
+                {o.thankyou && o.status !== "cancelled" && (
+                  <ThankYouButton orderId={o.id} href={o.thankyou.url} clicked={o.thankyou.clicked} className="mt-2 w-full" />
+                )}
 
                 {(cancellable || refundable) && (
                   <div className="mt-3 flex gap-2">

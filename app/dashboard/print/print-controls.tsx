@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 // The Print / Close buttons, and the automatic print dialog when the page opens.
 // The buttons are hidden on paper (class "no-print").
-export function PrintControls({ otherSize }: { otherSize?: { label: string; href: string } }) {
+// `extra`: more toolbar buttons (B4d WhatsApp thank-you). Inside the toolbar, so never on paper.
+export function PrintControls({ otherSize, extra }: { otherSize?: { label: string; href: string }; extra?: ReactNode }) {
   const done = useRef(false);
   const router = useRouter();
 
@@ -34,6 +35,7 @@ export function PrintControls({ otherSize }: { otherSize?: { label: string; href
           {otherSize.label}
         </a>
       )}
+      {extra}
       <button type="button" className="print-btn" onClick={close}>
         Close
       </button>

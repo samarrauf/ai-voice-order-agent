@@ -5,6 +5,7 @@ import { Button, cn } from "@/components/ui";
 import { PaymentStatusBadge } from "@/components/ui/payment-status-badge";
 import { formatMoney } from "@/lib/money";
 import { PrintButtons } from "../print-buttons";
+import { ThankYouPanel } from "../thankyou-button";
 import { ErrorNote, Modal, type SentOrder } from "./dialogs";
 import { FIELD, METHODS, type Method } from "./pay-methods";
 import { SplitBill } from "./split-bill";
@@ -136,7 +137,11 @@ export function PaymentDialog({
         </div>
 
         {paid ? (
-          <p className="py-4 text-center text-sm text-ink-muted">This order is fully paid.</p>
+          <>
+            <p className="py-2 text-center text-sm text-ink-muted">This order is fully paid.</p>
+            {/* B4d: thank-you + Google review on WhatsApp (staff press Send there). */}
+            <ThankYouPanel orderId={order.orderId} />
+          </>
         ) : (
           <>
             <div role="group" aria-label="Payment method" className="grid grid-cols-4 gap-2">

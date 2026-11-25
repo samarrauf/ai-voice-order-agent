@@ -2,6 +2,7 @@ import "server-only";
 import { can, type StaffRole } from "@/lib/permissions";
 import { lineProfit, orderProfit, type LineCost } from "@/lib/profit";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { loadThankYouSettings, thankYouAllowed, thankYouFor } from "@/lib/thankyou";
 
 // Orders board data: every order (phone, walk-in, table booking), newest first, with
 // its items and table number, in ONE query. The restaurant comes from the login session.
@@ -40,11 +41,14 @@ export type BoardOrder = {
   items: BoardItem[];
   /** Owner only, and not for cancelled orders. profit null = no cost snapshot (old order). */
   profit?: { profit: number | null; complete: boolean };
+  /** B4d: the WhatsApp thank-you link (built on the server). Absent for cancelled orders. */
+  thankyou?: { url: string; clicked: boolean };
 };
 
 const BASE = `id, order_number, status, source, total, payment_status, paid_amount, refunded_amount, cancel_reason,
   created_at, items_added_at, table_sessions ( restaurant_tables ( table_number ) ),
-  order_payments ( kind, method, amount, refund_reason, created_at )`;
+  order_payments ( kind, method, amount, refund_reason, created_at ),
+  customer_name, customer_phone, order_events ( event )`;
 
 type Row = {
   id: string;
@@ -76,6 +80,10 @@ type Row = {
     unit_cost?: number | string | null;
   }[];
   table_sessions: unknown;
+  customer_name: string | null;
+  customer_phone: string | null;
+  /** Only the 'thankyou_clicked' events (filtered in the query). */
+  order_events: { event: string }[] | null;
 };
 
 export async function loadBoardOrders(restaurantId: string, role: StaffRole, limit = 150): Promise<BoardOrder[]> {
@@ -84,13 +92,17 @@ export async function loadBoardOrders(restaurantId: string, role: StaffRole, lim
     ? `${BASE}, subtotal, discount_amount, tax_amount, cost_total, cost_complete,
        order_items ( id, item_name, size_name, quantity, voided_at, void_reason, created_at, unit_price, unit_cost )`
     : `${BASE}, order_items ( id, item_name, size_name, quantity, voided_at, void_reason, created_at )`;
-  const { data, error } = await supabaseAdmin
-    .from("orders")
-    .select(columns)
-    .eq("restaurant_id", restaurantId)
-    .neq("status", "merged") // the source of a merge has no items or money left
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const [{ data, error }, thanks] = await Promise.all([
+    supabaseAdmin
+      .from("orders")
+      .select(columns)
+      .eq("restaurant_id", restaurantId)
+      .neq("status", "merged") // the source of a merge has no items or money left
+      .eq("order_events.event", "thankyou_clicked") // filters the embedded events only, not the orders
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    loadThankYouSettings(restaurantId),
+  ]);
   if (error) throw error;
 
   // Supabase types a nested to-one join loosely, so read it defensively.
@@ -116,6 +128,14 @@ export async function loadBoardOrders(restaurantId: string, role: StaffRole, lim
         .sort((a, b) => a.created_at.localeCompare(b.created_at))
         .map((p) => ({ amount: Number(p.amount), method: p.method, reason: p.refund_reason, created_at: p.created_at })),
       created_at: o.created_at,
+      ...(thanks && thankYouAllowed(o.status)
+        ? {
+            thankyou: {
+              url: thankYouFor(o, thanks).url,
+              clicked: (o.order_events ?? []).length > 0,
+            },
+          }
+        : {}),
       has_new_items: !!o.items_added_at && ["new", "accepted", "preparing"].includes(o.status),
       items: [...(o.order_items ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at)).map((i) => ({
         id: i.id,

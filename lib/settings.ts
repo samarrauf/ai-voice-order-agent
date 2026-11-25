@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DEFAULT_CURRENCY, maxDeliveryFeeFor, maxMinOrderFor } from "@/lib/money";
+import { THANKYOU_TEMPLATE_MAX, isAllowedReviewUrl } from "@/lib/whatsapp-link";
 
 // The rules for every field on the owner's Settings page. Pure checks, no
 // database here, so the page, the API route and the tests all share them.
@@ -9,13 +10,15 @@ import { DEFAULT_CURRENCY, maxDeliveryFeeFor, maxMinOrderFor } from "@/lib/money
 //   money    - delivery fee, minimum order, tax, service charge, max discount
 //   orders   - the "taking orders" switch
 //   theme    - the five dashboard colours
+//   messages - B4d: Google review link + WhatsApp thank-you template (stored in the
+//              private restaurant_messages table, NOT restaurants: see MESSAGE_COLUMNS)
 // Unknown fields are refused (strict), so nobody can slip in `id` or `restaurant_id`.
 // currency, timezone and rounding_step are READ-ONLY: the page shows them, nothing
 // here (or in the database function update_restaurant_settings_tx) can ever change them.
 // The biggest delivery fee and minimum order come from the restaurant's currency
 // (lib/money.ts), so a rupee restaurant can save 150 / 1500; GBP is still 100 / 1000.
 
-export const SECTIONS = ["profile", "money", "orders", "theme"] as const;
+export const SECTIONS = ["profile", "money", "orders", "theme", "messages"] as const;
 export type SettingsSection = (typeof SECTIONS)[number];
 
 /** Shown on the Settings page but never changeable from it. */
@@ -32,6 +35,9 @@ export const SETTINGS_COLUMNS = [
   "theme_primary", "theme_accent", "theme_secondary", "theme_background", "theme_text",
 ] as const;
 export type SettingsColumn = (typeof SETTINGS_COLUMNS)[number];
+
+/** B4d: read from restaurant_messages (RLS on, no policies), never from the public restaurants table. */
+export const MESSAGE_COLUMNS = ["google_review_url", "thankyou_template"] as const;
 
 export const SERVICE_CHARGE_APPLIES_TO = ["none", "dine_in", "all"] as const;
 
@@ -79,6 +85,19 @@ const amount = (max: number) =>
     .max(max, `at most ${max}`)
     .transform((v) => Math.round(v * 100) / 100);
 
+/** Google review link: https only, on an allowed Google host (lib/whatsapp-link.ts). */
+const reviewUrl = optionalText(300).refine((v) => v === null || isAllowedReviewUrl(v), {
+  message: "must be an https Google review link (g.page, google.com, maps.app.goo.gl, goo.gl, share.google or search.google.com)",
+});
+
+/** Thank-you template: plain text with new lines; no other control characters. Blank = the default message. */
+const template = z
+  .string()
+  .nullable()
+  .transform((v) => (v && v.trim() ? v.replace(/\r\n?/g, "\n").trim() : null))
+  .refine((v) => v === null || v.length <= THANKYOU_TEMPLATE_MAX, { message: `at most ${THANKYOU_TEMPLATE_MAX} characters` })
+  .refine((v) => v === null || !/[\u0000-\u0009\u000B-\u001F\u007F]/.test(v), { message: "has characters that cannot be sent" });
+
 const hex = z
   .string()
   .trim()
@@ -121,6 +140,10 @@ export const sectionSchemas = {
     theme_secondary: hex,
     theme_background: hex,
     theme_text: hex,
+  }),
+  messages: z.strictObject({
+    google_review_url: reviewUrl,
+    thankyou_template: template,
   }),
 } satisfies Record<SettingsSection, z.ZodType>;
 

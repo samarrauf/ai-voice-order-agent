@@ -45,6 +45,7 @@ export const CAPABILITIES = {
   move_table: EVERYONE,
   seat_table: EVERYONE,
   update_order_status: EVERYONE, // not cancelling: that is cancel_order
+  send_thankyou: EVERYONE, // B4d: WhatsApp thank-you + review button, customer phone on the order
 } as const satisfies Record<string, readonly StaffRole[]>;
 
 export type Capability = keyof typeof CAPABILITIES;

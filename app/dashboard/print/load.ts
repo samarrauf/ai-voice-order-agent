@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { loadPrintData } from "@/lib/receipt-data";
 import { requireStaffPage } from "@/lib/staff-page";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { loadThankYouSettings, thankYouAllowed, thankYouFor, type ThankYouOrder } from "@/lib/thankyou";
 
 // Shared start of both print pages: check the staff login, then load the order.
 // The order must belong to the logged-in staff member's restaurant (from the
@@ -38,4 +39,24 @@ export async function loadAdditionItemIds(orderId: string, eventId: string): Pro
   const ids = (data?.detail as { item_ids?: unknown } | undefined)?.item_ids;
   if (!Array.isArray(ids)) notFound();
   return ids.filter((x): x is string => typeof x === "string");
+}
+
+/**
+ * B4d: the WhatsApp thank-you link for the bill page toolbar (never on the paper).
+ * null for a cancelled/merged order or when the restaurant cannot be read.
+ */
+export async function loadThankYouLink(orderId: string, order: ThankYouOrder): Promise<{ url: string; clicked: boolean } | null> {
+  if (!thankYouAllowed(order.status)) return null;
+  const { restaurantId } = await requireStaffPage();
+  const [settings, clicks] = await Promise.all([
+    loadThankYouSettings(restaurantId),
+    supabaseAdmin
+      .from("order_events")
+      .select("id", { count: "exact", head: true })
+      .eq("order_id", orderId)
+      .eq("restaurant_id", restaurantId)
+      .eq("event", "thankyou_clicked"),
+  ]);
+  if (!settings) return null;
+  return { url: thankYouFor(order, settings).url, clicked: (clicks.count ?? 0) > 0 };
 }

@@ -3,7 +3,8 @@ import { decodeSplit, SPLIT_ERRORS } from "@/lib/bill-split";
 import { buildReceipt } from "@/lib/receipt";
 import { buildSplitReceipts } from "@/lib/split-receipt";
 import { PrintControls } from "../../print-controls";
-import { isA4, loadOrderOr404, pageRule } from "../../load";
+import { ThankYouButton } from "../../../thankyou-button";
+import { isA4, loadOrderOr404, loadThankYouLink, pageRule } from "../../load";
 import { ReceiptPaper } from "../../receipt-paper";
 
 export const metadata: Metadata = { title: "Print bill", robots: { index: false } };
@@ -22,6 +23,7 @@ export default async function PrintBillPage({
   const [{ orderId }, { size, split }] = await Promise.all([params, searchParams]);
   const a4 = isA4(size);
   const data = await loadOrderOr404(orderId);
+  const thanks = await loadThankYouLink(orderId, data.order);
 
   const splitParam = typeof split === "string" && split ? split : null;
   const query = (a4Next: boolean) => {
@@ -31,7 +33,12 @@ export default async function PrintBillPage({
     const s = q.toString();
     return `/dashboard/print/bill/${orderId}${s ? `?${s}` : ""}`;
   };
-  const controls = <PrintControls otherSize={{ label: a4 ? "80mm paper" : "A4 paper", href: query(!a4) }} />;
+  const controls = (
+    <PrintControls
+      otherSize={{ label: a4 ? "80mm paper" : "A4 paper", href: query(!a4) }}
+      extra={thanks && <ThankYouButton print orderId={orderId} href={thanks.url} clicked={thanks.clicked} />}
+    />
+  );
 
   if (splitParam) {
     const spec = decodeSplit(splitParam);

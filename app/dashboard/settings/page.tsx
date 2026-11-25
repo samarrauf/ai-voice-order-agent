@@ -1,7 +1,8 @@
 import { Card, CardHeader, PageHeader } from "@/components/ui";
-import { SETTINGS_COLUMNS } from "@/lib/settings";
+import { MESSAGE_COLUMNS, SETTINGS_COLUMNS } from "@/lib/settings";
 import { requireCapabilityPage } from "@/lib/staff-page";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { MessagesCard } from "./messages-card";
 import { SettingsForm, type SettingsValues } from "./settings-form";
 
 // Capability settings_edit (owner only, lib/permissions.ts). Anyone else is sent
@@ -11,7 +12,7 @@ import { SettingsForm, type SettingsValues } from "./settings-form";
 export default async function SettingsPage() {
   const { restaurantId } = await requireCapabilityPage("settings_edit");
 
-  const [restaurant, audit] = await Promise.all([
+  const [restaurant, audit, messages] = await Promise.all([
     supabaseAdmin.from("restaurants").select(SETTINGS_COLUMNS.join(", ")).eq("id", restaurantId).maybeSingle(),
     supabaseAdmin
       .from("settings_audit")
@@ -19,6 +20,8 @@ export default async function SettingsPage() {
       .eq("restaurant_id", restaurantId)
       .order("created_at", { ascending: false })
       .limit(10),
+    // B4d: private table (RLS on, no policies); no row yet = nothing set.
+    supabaseAdmin.from("restaurant_messages").select(MESSAGE_COLUMNS.join(", ")).eq("restaurant_id", restaurantId).maybeSingle(),
   ]);
 
   if (restaurant.error || !restaurant.data) {
@@ -34,11 +37,23 @@ export default async function SettingsPage() {
 
   const values = restaurant.data as unknown as SettingsValues;
   const timeZone = typeof values.timezone === "string" ? values.timezone : "Europe/London";
+  const msg = (messages.data ?? null) as { google_review_url: string | null; thankyou_template: string | null } | null;
 
   return (
     <div className="anim-rise">
       <PageHeader title="Settings" subtitle="Your restaurant's details, charges, orders switch and colours." />
+      {!msg?.google_review_url && (
+        <p role="note" className="mb-4 rounded-xl border border-line bg-raised px-4 py-3 text-sm text-ink-muted">
+          Yaad dihani: Google review link abhi khali hai. Neeche &quot;WhatsApp shukriya&quot; card mein daal dein, taake customers rating de sakein.
+        </p>
+      )}
       <SettingsForm initial={values} />
+      <MessagesCard
+        restaurantName={String(values.name ?? "")}
+        currency={String(values.currency ?? "")}
+        initialReviewUrl={msg?.google_review_url ?? null}
+        initialTemplate={msg?.thankyou_template ?? null}
+      />
 
       <Card className="mt-4">
         <CardHeader title="Recent changes" hint="Last 10 saves" />

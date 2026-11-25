@@ -13,7 +13,7 @@ const OWNER_MANAGER: Capability[] = [
   "menu_edit", "tables_edit", "cancel_order", "refund_payment", "void_item", "merge_tables", "clear_unpaid", "view_reports", "close_shift",
 ];
 const EVERYONE: Capability[] = [
-  "take_order", "take_payment", "apply_discount", "print_bill", "print_kot", "hold_order", "move_table", "seat_table", "update_order_status",
+  "take_order", "take_payment", "apply_discount", "print_bill", "print_kot", "hold_order", "move_table", "seat_table", "update_order_status", "send_thankyou",
 ];
 
 const expected: Record<StaffRole, Capability[]> = {
@@ -26,7 +26,7 @@ describe("permissions map", () => {
   it("has exactly the three roles and exactly the listed capabilities", () => {
     expect([...STAFF_ROLES]).toEqual(["owner", "manager", "staff"]);
     expect([...ALL_CAPABILITIES].sort()).toEqual([...OWNER_ONLY, ...OWNER_MANAGER, ...EVERYONE].sort());
-    expect(Object.keys(CAPABILITIES)).toHaveLength(23);
+    expect(Object.keys(CAPABILITIES)).toHaveLength(24);
   });
 
   for (const capability of [...OWNER_ONLY, ...OWNER_MANAGER, ...EVERYONE]) {

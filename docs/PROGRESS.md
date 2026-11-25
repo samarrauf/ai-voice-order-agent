@@ -19,7 +19,7 @@ Har stage ke aakhir mein yeh file update karna lazmi hai (status, faislay, masai
 | B4a2 | Chalte table bill mein items jodo (POS busy-table dialog, add-items, ADDITION KOT) + plain clear-table payment check | DONE, commit ka intezar |
 | B4b | Cancel, void, refund (wajah + audit) | DONE, commit ka intezar |
 | B4c | Bill split (barabar, items, raqam; har guest alag payment aur receipt) | DONE, commit ka intezar |
-| B4d | WhatsApp shukriya + Google review ek-click button | baqi |
+| B4d | WhatsApp shukriya + Google review ek-click button | DONE, commit ka intezar |
 | B5 | Reports | baqi |
 | B6 | Shift aur cash drawer, Z-report | baqi |
 | B7 | PRA/tax design note (sirf docs) | baqi |
@@ -87,6 +87,12 @@ B5 (Reports: dashboard-stats aur lib/profit-data.ts ka wahi hisaab), B10 (har pa
 - Faislay: paid_amount = net (payments - refunds), refunded_amount alag; refund ke baad bill settled (owed 0, nayi payment 409); part-paid order ka refund mana (baqi lo ya cancel karo); staff sirf 'new' + bilkul unpaid cancel kare, baqi cancel_order; completed cancel nahi (refund karo); paisa ho to sirf "Cancel and refund" (poora net, ek transaction, order row pehle update to refund fail = cancel rollback).
 - Faislay: void sirf payment se pehle, aakhri line nahi (cancel karo); fixed discount naye subtotal/cap ke andar clamp, percent cap tak; delivery fee order wali; voided line bill se bahar, KOT par VOID, agent lookup mein nahi. Reports: refund ka bina-tax hissa sales aur profit se ghata (refundSalesPence), cancelled bahar.
 - Baqi masail: void par tax/service ki aaj ki settings lagti hain (add-items jaisa); refund/cancel ka UI sirf Orders board par (Tables/POS mein nahi); order_events dekhne ka alag page nahi; cash refund ka drawer hisaab B6 mein (kind='refund' + method='cash'). UI browser mein login ke baghair nahi dekha.
+
+## B4d (WhatsApp shukriya + Google review button) ka khulasa
+- Status: migration 0031 owner ne run ki (restaurant_messages private table, settings RPC mein 'messages' section + audit); lib/whatsapp-link.ts (pure), lib/thankyou.ts, /api/staff/thankyou (message/set_phone/clicked), button payment panel (paid ke baad + optional phone), Orders board aur bill print toolbar mein; Settings card (link, template, preview, Default par wapas, reminder).
+- Faislay: review link/template restaurants mein nahi (anon read policy) balkay restaurant_messages (RLS on, koi policy nahi); phone orders.customer_phone mein (+92 format); wa.me ek asli link (target _blank, noopener), koi API ya auto-send nahi; review gating nahi; naya capability send_thankyou (sab roles), Settings sirf owner.
+- Faislay: allowlist hosts exact ya "www." ke sath (maps.google.com nahi); khali review link = review wali line hatti hai; default template DB mein null; cancelled/merged par button nahi aur API 409; click = order_events 'thankyou_clicked'.
+- Baqi masail: normalizePkPhone sirf Pakistani mobile maanta hai (UK numbers par link bina number ke khulta hai); purana /api/orders (x-tool-secret GET) pehle se customer_phone lautata hai, is stage mein nahi chheda; UI browser mein login ke baghair nahi dekha.
 
 ## B4a (hold/resume, table badalna, merge) ka khulasa
 - Status: migration 0027 owner ne run ki (held_carts, order_events, orders.status 'merged', move_table_tx, merge_orders_tx, record_payment_tx + merged); POS mein Hold / Held orders, Tables page par Move table / Merge orders; lint, type-check, build, naye tests pass.
