@@ -50,14 +50,14 @@ async function fetchOrders(restaurantId: string, from: Date, to: Date): Promise<
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await supabaseAdmin
       .from("orders")
-      .select("status, fulfilment_type, source, table_session_id, total, tax_amount, paid_amount, created_at")
+      .select("status, fulfilment_type, source, table_session_id, total, tax_amount, paid_amount, refunded_amount, created_at")
       .eq("restaurant_id", restaurantId)
       .gte("created_at", from.toISOString())
       .lt("created_at", to.toISOString())
       .order("created_at", { ascending: true })
       .range(page * PAGE, page * PAGE + PAGE - 1);
     if (error) throw error;
-    rows.push(...(data ?? []).map((o) => ({ ...o, total: Number(o.total), tax_amount: Number(o.tax_amount), paid_amount: Number(o.paid_amount) })));
+    rows.push(...(data ?? []).map((o) => ({ ...o, total: Number(o.total), tax_amount: Number(o.tax_amount), paid_amount: Number(o.paid_amount), refunded_amount: Number(o.refunded_amount ?? 0) })));
     if (!data || data.length < PAGE) break;
   }
   return rows;
@@ -70,6 +70,7 @@ async function fetchItems(restaurantId: string, from: Date, to: Date): Promise<S
       .from("order_items")
       .select("item_name, quantity, orders!inner(restaurant_id, status, created_at)")
       .eq("orders.restaurant_id", restaurantId)
+      .is("voided_at", null) // a voided line (B4b) was not sold
       .not("orders.status", "in", "(cancelled,merged)")
       .gte("orders.created_at", from.toISOString())
       .lt("orders.created_at", to.toISOString())

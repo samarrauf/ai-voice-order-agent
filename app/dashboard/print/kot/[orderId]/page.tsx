@@ -38,10 +38,11 @@ export default async function PrintKotPage({
 
         <hr className="rule" />
         {k.lines.map((l, i) => (
-          <div className="kot-item" key={i}>
+          <div className={l.voided ? "kot-item kot-void" : "kot-item"} key={i}>
             <span className="kot-qty">{l.quantity}x</span>
             <span>
-              {l.name}
+              {l.voided && <strong className="kot-void-tag">VOID </strong>}
+              <span className="kot-name">{l.name}</span>
               {l.options.map((o, j) => (
                 <div className="kot-extra" key={j}>+ {o}</div>
               ))}

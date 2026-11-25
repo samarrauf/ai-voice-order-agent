@@ -112,7 +112,7 @@ export async function loadFloor(rid: string, now: Date = new Date()): Promise<Fl
   if (sessionIds.length > 0) {
     const orders = await supabaseAdmin
       .from("orders")
-      .select("id, order_number, table_session_id, total, status, paid_amount")
+      .select("id, order_number, table_session_id, total, status, paid_amount, refunded_amount")
       .eq("restaurant_id", rid)
       .in("table_session_id", sessionIds)
       .not("status", "in", "(cancelled,merged)");
@@ -121,7 +121,9 @@ export async function loadFloor(rid: string, now: Date = new Date()): Promise<Fl
       if (!o.table_session_id) continue;
       bills.set(o.table_session_id, (bills.get(o.table_session_id) ?? 0) + Number(o.total));
       const list = sessionOrders.get(o.table_session_id) ?? [];
-      list.push({ id: o.id, number: o.order_number, total: Number(o.total), paid: Number(o.paid_amount) > 0, paidAmount: Number(o.paid_amount), status: o.status });
+      // Money ever taken (net + refunded, B4b): a refunded bill is settled, so it owes nothing.
+      const taken = Number(o.paid_amount) + Number(o.refunded_amount ?? 0);
+      list.push({ id: o.id, number: o.order_number, total: Number(o.total), paid: taken > 0, paidAmount: taken, status: o.status });
       sessionOrders.set(o.table_session_id, list);
     }
   }

@@ -31,7 +31,7 @@ async function Orders() {
     );
   }
 
-  return <OrdersBoard orders={orders} restaurantId={restaurantId} currency={currency} />;
+  return <OrdersBoard orders={orders} restaurantId={restaurantId} currency={currency} role={role} />;
 }
 
 /** Shown while the orders load: the same shape as the real page, in shimmering grey. */

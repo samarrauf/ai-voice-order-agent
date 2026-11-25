@@ -55,7 +55,12 @@ export type ReceiptOrder = {
   rounding_amount?: Num;
   total: Num;
   payment_status: string;
+  /** NET paid: payments minus refunds (migration 0029). */
   paid_amount: Num;
+  /** Sum of refunds (B4b). Missing = 0. */
+  refunded_amount?: Num;
+  /** Order status; "cancelled" prints a CANCELLED line on the bill. */
+  status?: string | null;
 };
 
 export type ReceiptItem = {
@@ -67,9 +72,13 @@ export type ReceiptItem = {
   quantity: number;
   line_total: Num;
   notes?: string | null;
+  /** B4b: a voided line is left off the bill and printed as VOID on the kitchen ticket. */
+  voided_at?: string | null;
 };
 
 export type ReceiptPayment = {
+  /** "payment" (default) or "refund" (B4b). */
+  kind?: string | null;
   method: string;
   amount: Num;
   created_at?: string | null;
@@ -92,7 +101,13 @@ const KIND_LABEL: Record<OrderKind, string> = {
 };
 
 const METHOD_LABEL: Record<string, string> = { cash: "Cash", card: "Card", online: "Online", other: "Other" };
-const STATUS_LABEL: Record<string, string> = { unpaid: "Unpaid", partial: "Partial", paid: "Paid" };
+const STATUS_LABEL: Record<string, string> = {
+  unpaid: "Unpaid",
+  partial: "Partial",
+  paid: "Paid",
+  refunded: "Refunded",
+  partially_refunded: "Part refunded",
+};
 
 const num = (v: Num): number => {
   const n = Number(v ?? 0);
@@ -187,7 +202,9 @@ export type ReceiptModel = {
   payments: { label: string; amount: string }[];
   paid: string;
   balanceDue: string;
-  paymentStatus: "unpaid" | "partial" | "paid";
+  paymentStatus: "unpaid" | "partial" | "paid" | "refunded" | "partially_refunded";
+  /** B4b: the order was cancelled. */
+  cancelled: boolean;
   paymentStatusLabel: string;
   notes: string | null;
 };
@@ -200,7 +217,8 @@ export function buildReceipt({ restaurant, order, items, payments }: PrintInput)
 
   const address = [restaurant.address_line, restaurant.city, restaurant.postcode].map(clean).filter(Boolean).join(", ");
 
-  const lines: ReceiptLine[] = items.map((i) => {
+  // Voided lines (B4b) are not part of the bill.
+  const lines: ReceiptLine[] = items.filter((i) => !i.voided_at).map((i) => {
     const detail = [clean(i.size_name), ...optionNames(i.options)].filter((x): x is string => !!x);
     return { quantity: i.quantity, name: i.item_name, detail, lineTotal: money(i.line_total) };
   });
@@ -218,8 +236,12 @@ export function buildReceipt({ restaurant, order, items, payments }: PrintInput)
   rows.push({ label: "TOTAL", value: money(order.total), kind: "total" });
 
   // Balance is whole pence arithmetic so 0.1 + 0.2 style noise never shows on paper.
-  const balancePence = Math.max(0, Math.round(num(order.total) * 100) - Math.round(num(order.paid_amount) * 100));
-  const status = (["unpaid", "partial", "paid"] as const).find((s) => s === order.payment_status) ?? "unpaid";
+  // After a refund the bill is settled: refunded money is not owed again; a cancelled order owes nothing.
+  const balancePence =
+    order.status === "cancelled"
+      ? 0
+      : Math.max(0, Math.round(num(order.total) * 100) - Math.round(num(order.paid_amount) * 100) - Math.round(num(order.refunded_amount) * 100));
+  const status = (["unpaid", "partial", "paid", "refunded", "partially_refunded"] as const).find((s) => s === order.payment_status) ?? "unpaid";
 
   const hasDelivery = kind === "delivery";
   const primary = sanitizeHex(restaurant.theme_primary, DEFAULT_BRANDING.primary);
@@ -253,7 +275,12 @@ export function buildReceipt({ restaurant, order, items, payments }: PrintInput)
       : null,
     lines,
     rows,
-    payments: payments.map((p) => ({ label: METHOD_LABEL[p.method] ?? p.method, amount: money(p.amount) })),
+    payments: payments.map((p) =>
+      p.kind === "refund"
+        ? { label: `Refund (${METHOD_LABEL[p.method] ?? p.method})`, amount: `-${money(p.amount)}` }
+        : { label: METHOD_LABEL[p.method] ?? p.method, amount: money(p.amount) },
+    ),
+    cancelled: order.status === "cancelled",
     paid: money(order.paid_amount),
     balanceDue: formatMoney(balancePence / 100, cur),
     paymentStatus: status,
@@ -262,7 +289,7 @@ export function buildReceipt({ restaurant, order, items, payments }: PrintInput)
   };
 }
 
-export type KotLine = { quantity: number; name: string; options: string[]; notes: string | null };
+export type KotLine = { quantity: number; name: string; options: string[]; notes: string | null; /** B4b: printed as VOID (do not make). */ voided?: true };
 
 export type KotModel = {
   orderNumber: string;
@@ -294,6 +321,7 @@ export function buildKot({ restaurant, order, items }: PrintInput, additionItemI
       name: i.item_name,
       options: [clean(i.size_name), ...optionNames(i.options)].filter((x): x is string => !!x),
       notes: clean(i.notes),
+      ...(i.voided_at ? { voided: true as const } : {}),
     })),
     notes: ids ? null : clean(order.notes),
     ...(ids ? { addition: true as const } : {}),

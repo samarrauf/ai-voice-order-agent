@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { can } from "@/lib/permissions";
-import { pence, pounds } from "@/lib/order-pricing";
+import { pounds } from "@/lib/order-pricing";
 import { BILL_UNPAID_ERROR } from "@/lib/tables";
+import { owedPence } from "@/lib/order-adjust";
 import { requireStaff, restaurantMismatch } from "@/lib/staff-auth";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
   if (!parsed.data.clear_unpaid) {
     const { data: live, error: liveErr } = await supabaseAdmin
       .from("orders")
-      .select("total, paid_amount")
+      .select("status, total, paid_amount, refunded_amount")
       .eq("restaurant_id", rid)
       .eq("table_session_id", table_session_id)
       .not("status", "in", "(cancelled,merged)");
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
       console.error("clear-table: could not check the bill", liveErr);
       return fail("could not check the bill", 500);
     }
-    if ((live ?? []).some((o) => pence(o.total) > pence(o.paid_amount))) return fail(BILL_UNPAID_ERROR, 409);
+    if ((live ?? []).some((o) => owedPence(o) > 0)) return fail(BILL_UNPAID_ERROR, 409);
   }
 
   // One atomic statement: only an OPEN session matches, so two staff pressing
@@ -85,12 +86,12 @@ export async function POST(request: Request) {
       // The amounts come from the database, never from the request.
       const { data: orders, error: ordersErr } = await supabaseAdmin
         .from("orders")
-        .select("id, order_number, total, paid_amount")
+        .select("id, order_number, status, total, paid_amount, refunded_amount")
         .eq("restaurant_id", rid)
         .eq("table_session_id", table_session_id)
         .not("status", "in", "(cancelled,merged)");
       const owing = (orders ?? [])
-        .map((o) => ({ ...o, owed: Math.max(0, pence(o.total) - pence(o.paid_amount)) }))
+        .map((o) => ({ ...o, owed: owedPence(o) }))
         .filter((o) => o.owed > 0);
       if (ordersErr || (owing.length > 0 && !(await logUnpaid(rid, auth.staff.staffId, table_session_id, owing)))) {
         console.error("clear-table: could not write cleared_unpaid events", ordersErr);

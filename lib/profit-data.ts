@@ -60,7 +60,7 @@ export async function loadProfitSummary(
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await supabaseAdmin
       .from("orders")
-      .select("status, subtotal, discount_amount, tax_amount, total, cost_total, cost_complete")
+      .select("status, subtotal, discount_amount, tax_amount, total, refunded_amount, cost_total, cost_complete")
       .eq("restaurant_id", restaurantId)
       .not("status", "in", "(cancelled,merged)")
       .gte("created_at", range.from.toISOString())

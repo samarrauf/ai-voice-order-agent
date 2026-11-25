@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Armchair, ArrowRight, CircleAlert, Clock, Inbox, Phone, Store } from "lucide-react";
+import { Armchair, ArrowRight, Ban, CircleAlert, Clock, Inbox, Phone, RotateCcw, Store, X } from "lucide-react";
 import { Badge, Button, Card, EmptyState, FilterChips, PageHeader, StatusBadge, cn } from "@/components/ui";
 import { PaymentStatusBadge } from "@/components/ui/payment-status-badge";
 import { formatMoney } from "@/lib/money";
@@ -10,6 +10,9 @@ import { NewOrderLink } from "./new-order-link";
 import { PrintButtons } from "./print-buttons";
 import { CostLine } from "./cost-line";
 import type { BoardOrder } from "@/lib/orders-board";
+import { can, type StaffRole } from "@/lib/permissions";
+import { cancelNeeds } from "@/lib/order-adjust";
+import { CancelDialog, RefundDialog, VoidDialog } from "./order-actions";
 
 export type { BoardOrder } from "@/lib/orders-board";
 
@@ -51,8 +54,33 @@ const formatTime = (iso: string) =>
 // Icon shown next to where the order came from. Anything else is a table order.
 const SOURCE_ICON: Record<string, typeof Phone> = { phone: Phone, staff_phone: Phone, walk_in: Store };
 
-export function OrdersBoard({ orders, restaurantId, currency }: { orders: BoardOrder[]; restaurantId: string; currency: string }) {
+type Dialog =
+  | { kind: "cancel" | "refund"; order: BoardOrder }
+  | { kind: "void"; order: BoardOrder; item: { id: string; name: string; quantity: number } }
+  | null;
+
+const METHOD: Record<string, string> = { cash: "Cash", card: "Card", online: "Online", other: "Other" };
+
+export function OrdersBoard({
+  orders,
+  restaurantId,
+  currency,
+  role,
+}: {
+  orders: BoardOrder[];
+  restaurantId: string;
+  currency: string;
+  role: StaffRole;
+}) {
   const router = useRouter();
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const canCancelAny = can(role, "cancel_order");
+  const canRefund = can(role, "refund_payment");
+  const canVoid = can(role, "void_item");
+  const done = () => {
+    setDialog(null);
+    router.refresh();
+  };
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("new");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -131,6 +159,14 @@ export function OrdersBoard({ orders, restaurantId, currency }: { orders: BoardO
             const next = NEXT[o.status];
             const isNew = group(o) === "new";
             const Source = SOURCE_ICON[o.source] ?? Armchair;
+            // B4b actions. The server checks the same rules again (under a row lock).
+            const open = !["cancelled", "completed", "merged"].includes(o.status);
+            const unpaid = o.paid_amount <= 0 && o.refunded_amount <= 0;
+            const liveItems = o.items.filter((i) => !i.voided).length;
+            const voidable = canVoid && open && unpaid && liveItems > 1;
+            const needs = cancelNeeds(o);
+            const cancellable = needs === "anyone" || (needs === "manager" && canCancelAny && (o.paid_amount <= 0 || canRefund));
+            const refundable = canRefund && o.paid_amount > 0 && o.payment_status !== "partial";
             return (
               <li
                 key={o.id}
@@ -168,15 +204,32 @@ export function OrdersBoard({ orders, restaurantId, currency }: { orders: BoardO
                   {o.items.length === 0 ? (
                     <li className="text-ink-faint">No items</li>
                   ) : (
-                    o.items.map((i, n) => (
-                      <li key={n} className="flex gap-2">
-                        <span className="w-7 shrink-0 font-bold tabular-nums text-highlight-ink">{i.quantity}×</span>
-                        <span>
-                          {i.name}
+                    o.items.map((i) => (
+                      <li key={i.id} className={cn("flex gap-2", i.voided && "text-ink-faint")}>
+                        <span className={cn("w-7 shrink-0 font-bold tabular-nums", i.voided ? "line-through" : "text-highlight-ink")}>
+                          {i.quantity}×
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className={cn(i.voided && "line-through")}>{i.name}</span>
                           {i.size && <span className="text-ink-faint"> ({i.size})</span>}
+                          {i.voided && (
+                            <span className="mt-0.5 block text-xs font-semibold text-danger">
+                              VOID{i.void_reason ? ` · ${i.void_reason}` : ""}
+                            </span>
+                          )}
                           {/* Owner only: the loader adds `cost` for view_profit (lib/orders-board.ts). */}
                           {i.cost && <CostLine cost={i.cost} currency={currency} className="mt-0.5" />}
                         </span>
+                        {voidable && !i.voided && (
+                          <button
+                            type="button"
+                            onClick={() => setDialog({ kind: "void", order: o, item: { id: i.id, name: i.name, quantity: i.quantity } })}
+                            aria-label={`Void ${i.name}`}
+                            className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-line px-2 text-xs font-semibold text-ink-muted hover:border-danger/40 hover:text-danger"
+                          >
+                            <X size={13} aria-hidden /> Void
+                          </button>
+                        )}
                       </li>
                     ))
                   )}
@@ -203,7 +256,38 @@ export function OrdersBoard({ orders, restaurantId, currency }: { orders: BoardO
                   </div>
                 )}
 
+                {o.status === "cancelled" && o.cancel_reason && (
+                  <p className="mt-3 rounded-xl border border-danger/30 bg-danger/12 px-3 py-2 text-xs">
+                    <span className="font-semibold text-danger">Cancelled:</span> {o.cancel_reason}
+                  </p>
+                )}
+                {o.refunds.length > 0 && (
+                  <ul className="mt-3 space-y-1 rounded-xl border border-line bg-raised px-3 py-2 text-xs">
+                    {o.refunds.map((r, n) => (
+                      <li key={n}>
+                        <span className="font-semibold tabular-nums">Refunded {formatMoney(r.amount, currency)}</span> (
+                        {METHOD[r.method] ?? r.method}){r.reason && <span className="text-ink-muted"> · {r.reason}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
                 <PrintButtons orderId={o.id} className="mt-4" />
+
+                {(cancellable || refundable) && (
+                  <div className="mt-3 flex gap-2">
+                    {cancellable && (
+                      <Button className="flex-1" onClick={() => setDialog({ kind: "cancel", order: o })}>
+                        <Ban size={16} aria-hidden /> {o.paid_amount > 0 ? "Cancel and refund" : "Cancel"}
+                      </Button>
+                    )}
+                    {refundable && (
+                      <Button className="flex-1" onClick={() => setDialog({ kind: "refund", order: o })}>
+                        <RotateCcw size={16} aria-hidden /> Refund
+                      </Button>
+                    )}
+                  </div>
+                )}
 
                 {next && (
                   <Button
@@ -222,6 +306,10 @@ export function OrdersBoard({ orders, restaurantId, currency }: { orders: BoardO
           })}
         </ul>
       )}
+
+      {dialog?.kind === "cancel" && <CancelDialog order={dialog.order} currency={currency} onClose={() => setDialog(null)} onDone={done} />}
+      {dialog?.kind === "refund" && <RefundDialog order={dialog.order} currency={currency} onClose={() => setDialog(null)} onDone={done} />}
+      {dialog?.kind === "void" && <VoidDialog order={dialog.order} item={dialog.item} onClose={() => setDialog(null)} onDone={done} />}
     </div>
   );
 }

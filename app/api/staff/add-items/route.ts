@@ -55,7 +55,7 @@ type OrderRow = {
   discount_type: string;
   discount_value: number | string;
   discount_reason: string | null;
-  order_items: { line_total: number | string }[];
+  order_items: { line_total: number | string; voided_at: string | null }[];
 };
 
 const MAX_ATTEMPTS = 6;
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const orderRes = await supabaseAdmin
       .from("orders")
-      .select("id, discount_type, discount_value, discount_reason, order_items ( line_total )")
+      .select("id, discount_type, discount_value, discount_reason, order_items ( line_total, voided_at )")
       .eq("id", body.order_id)
       .eq("restaurant_id", rid)
       .maybeSingle();
@@ -111,7 +111,8 @@ export async function POST(request: Request) {
     const order = orderRes.data as unknown as OrderRow | null;
     if (!order) return fail("order not found", 404);
 
-    const oldPence = order.order_items.reduce((n, i) => n + pence(i.line_total), 0);
+    // Voided lines (B4b) are not part of the bill.
+    const oldPence = order.order_items.reduce((n, i) => (i.voided_at ? n : n + pence(i.line_total)), 0);
     const billed = computeBill(oldPence + priced.subtotalPence, "dine_in", settingsRes.data as unknown as BillSettingsRow, {
       type: order.discount_type as "none" | "percent" | "fixed",
       value: Number(order.discount_value),

@@ -38,7 +38,7 @@ type OrderRow = {
   discount_type: string;
   discount_value: number | string;
   discount_reason: string | null;
-  order_items: { line_total: number | string }[];
+  order_items: { line_total: number | string; voided_at: string | null }[];
 };
 
 export async function POST(request: Request) {
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     const [ordersRes, settingsRes] = await Promise.all([
       supabaseAdmin
         .from("orders")
-        .select("id, discount_type, discount_value, discount_reason, order_items ( line_total )")
+        .select("id, discount_type, discount_value, discount_reason, order_items ( line_total, voided_at )")
         .eq("restaurant_id", rid)
         .in("id", [source_order_id, target_order_id]),
       supabaseAdmin.from("restaurants").select(BILL_SETTINGS_SELECT).eq("id", rid).maybeSingle(),
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     const target = orders.find((o) => o.id === target_order_id);
     if (orders.length !== 2 || !target) return fail("order not found", 404);
 
-    const subtotalPence = orders.reduce((n, o) => n + o.order_items.reduce((m, i) => m + pence(i.line_total), 0), 0);
+    const subtotalPence = orders.reduce((n, o) => n + o.order_items.reduce((m, i) => (i.voided_at ? m : m + pence(i.line_total)), 0), 0);
     const billed = computeBill(subtotalPence, "dine_in", settingsRes.data as unknown as BillSettingsRow, {
       type: target.discount_type as "none" | "percent" | "fixed",
       value: Number(target.discount_value),

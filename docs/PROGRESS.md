@@ -17,7 +17,7 @@ Har stage ke aakhir mein yeh file update karna lazmi hai (status, faislay, masai
 | B4a | Hold/resume, table badalna, merge | DONE, commit ka intezar |
 | B4a+ | Tables card: Items jodo / Payment lo / Bill print, payment ke baad Clear table, Clear anyway (owner/manager) | DONE, commit ka intezar |
 | B4a2 | Chalte table bill mein items jodo (POS busy-table dialog, add-items, ADDITION KOT) + plain clear-table payment check | DONE, commit ka intezar |
-| B4b | Cancel, void, refund | baqi |
+| B4b | Cancel, void, refund (wajah + audit) | DONE, commit ka intezar |
 | B4c | Bill split | baqi |
 | B4d | WhatsApp shukriya + Google review ek-click button | baqi |
 | B5 | Reports | baqi |
@@ -75,6 +75,12 @@ B5 (Reports: dashboard-stats aur lib/profit-data.ts ka wahi hisaab), B10 (har pa
 - Faislay: munafa = subtotal - discount - cost_total (delivery, service, tax, rounding bahar; cancelled bahar); manager ki menu save cost ko naam se mila kar mehfooz rakhti hai; cost menu_changes mein nahi likhi jati; kharcha void hota hai, delete nahi.
 - Baqi masail: purane orders ki cost null (backfill nahi); category/restaurant-level extras ki cost editor se set nahi hoti; kharchon ki category ko band/rename karne ka UI nahi; Expenses page pehli visit par default categories banata hai.
 - Agla: B5 Reports (charts) loadProfitSummary aur dashboard-stats ka hisaab use kare.
+
+## B4b (cancel, void item, refund) ka khulasa
+- Status: migration 0029 owner ne run ki (orders cancel_*/refunded_amount, order_items voided_*, order_payments kind/refund_reason/staff_id, payment_status + refunded/partially_refunded, record_refund_tx, cancel_order_tx, void_order_item_tx; record_payment_tx/add_items/merge voided ko chhorte hain); /api/staff/{cancel-order,refund,void-item}, Orders board par Cancel/Refund/Void dialogs (lib/order-adjust.ts); lint, type-check, build, poora suite pass.
+- Faislay: paid_amount = net (payments - refunds), refunded_amount alag; refund ke baad bill settled (owed 0, nayi payment 409); part-paid order ka refund mana (baqi lo ya cancel karo); staff sirf 'new' + bilkul unpaid cancel kare, baqi cancel_order; completed cancel nahi (refund karo); paisa ho to sirf "Cancel and refund" (poora net, ek transaction, order row pehle update to refund fail = cancel rollback).
+- Faislay: void sirf payment se pehle, aakhri line nahi (cancel karo); fixed discount naye subtotal/cap ke andar clamp, percent cap tak; delivery fee order wali; voided line bill se bahar, KOT par VOID, agent lookup mein nahi. Reports: refund ka bina-tax hissa sales aur profit se ghata (refundSalesPence), cancelled bahar.
+- Baqi masail: void par tax/service ki aaj ki settings lagti hain (add-items jaisa); refund/cancel ka UI sirf Orders board par (Tables/POS mein nahi); order_events dekhne ka alag page nahi; cash refund ka drawer hisaab B6 mein (kind='refund' + method='cash'). UI browser mein login ke baghair nahi dekha.
 
 ## B4a (hold/resume, table badalna, merge) ka khulasa
 - Status: migration 0027 owner ne run ki (held_carts, order_events, orders.status 'merged', move_table_tx, merge_orders_tx, record_payment_tx + merged); POS mein Hold / Held orders, Tables page par Move table / Merge orders; lint, type-check, build, naye tests pass.

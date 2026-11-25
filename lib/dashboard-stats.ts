@@ -3,13 +3,16 @@
 // Pure module: no React, no server imports, no network (tests/dashboard-stats.pure.test.ts).
 //
 // SALES RULE (used everywhere, do not change it in one place only):
-//   Sales = total - tax_amount, and cancelled orders are left out.
+//   Sales = total - tax_amount - (refunds without their tax share), and cancelled (and
+//   merged) orders are left out (B4b: refundSalesPence in lib/order-adjust.ts).
 // So tax collected for the taxman is never counted as the restaurant's income,
 // while the service charge, delivery fee and discount stay as the bill has them.
 // Money is added in whole pence (integers), so 0.1 + 0.2 style drift cannot happen.
 //
 // Periods follow the RESTAURANT's time zone, not the server's or the browser's.
 // "Today" starts at local midnight (business_day_start comes later, in B5).
+
+import { refundSalesPence } from "@/lib/order-adjust";
 
 export const RANGE_KEYS = ["today", "7d", "month"] as const;
 export type RangeKey = (typeof RANGE_KEYS)[number];
@@ -33,6 +36,8 @@ export type StatsOrder = {
   total: number;
   tax_amount: number;
   paid_amount: number;
+  /** Sum of refunds (B4b, migration 0029). Missing = 0. */
+  refunded_amount?: number;
   created_at: string;
 };
 export type StatsItem = { item_name: string; quantity: number };
@@ -43,9 +48,10 @@ const toPence = (amount: unknown): number => {
 };
 
 /** Sales of one order in pence (the SALES RULE above); 0 for a cancelled order. */
-export function orderSalesPence(o: Pick<StatsOrder, "status" | "total" | "tax_amount">): number {
+export function orderSalesPence(o: Pick<StatsOrder, "status" | "total" | "tax_amount" | "refunded_amount">): number {
   if (isExcludedStatus(o.status)) return 0;
-  return Math.max(0, toPence(o.total) - toPence(o.tax_amount));
+  // A refund comes off net sales (its tax share taken out the same way as the bill).
+  return Math.max(0, toPence(o.total) - toPence(o.tax_amount) - refundSalesPence(o));
 }
 
 // ---------- time zones ----------
@@ -160,7 +166,7 @@ export function totalsFor(orders: readonly StatsOrder[], from: Date, to: Date): 
     const total = toPence(o.total);
     count += 1;
     sales += orderSalesPence(o);
-    billed += total;
+    billed += Math.max(0, total - toPence(o.refunded_amount ?? 0)); // money given back is no longer billed
     paid += Math.min(Math.max(0, toPence(o.paid_amount)), total); // an overpayment never lifts the gauge past 100%
   }
   return { orders: count, salesPence: sales, averagePence: count ? Math.round(sales / count) : 0, paidPence: paid, billedPence: billed };

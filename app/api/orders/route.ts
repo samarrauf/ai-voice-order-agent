@@ -43,7 +43,7 @@ export const GET = timed("orders", async (request: NextRequest, timer) => {
       `id, restaurant_id, order_number, status, fulfilment_type,
        customer_name, customer_phone, delivery_address, delivery_postcode,
        subtotal, delivery_fee, total, payment_method, notes, created_at, updated_at,
-       order_items ( id, menu_item_id, item_name, size_name, options, quantity, unit_price, line_total, notes )`,
+       order_items ( id, menu_item_id, item_name, size_name, options, quantity, unit_price, line_total, notes, voided_at )`,
     )
     .order("created_at", { ascending: false })
     .limit(limit);

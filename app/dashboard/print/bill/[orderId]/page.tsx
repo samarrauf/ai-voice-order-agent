@@ -86,6 +86,7 @@ export default async function PrintBillPage({
         ))}
 
         <hr className="rule" />
+        {r.cancelled && <div className="status">ORDER CANCELLED</div>}
         <div className={`status status-${r.paymentStatus}`}>{r.paymentStatusLabel}</div>
         {r.payments.map((p, i) => (
           <div className="row" key={i}>

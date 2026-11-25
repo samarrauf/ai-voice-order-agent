@@ -4,7 +4,7 @@
 //
 // THE PROFIT RULE (the only place it is written down):
 //   item_profit  = (unit_price - unit_cost) x quantity
-//   order_profit = subtotal - discount_amount - cost_total
+//   order_profit = subtotal - discount_amount - cost_total - refund (without its tax share, B4b)
 //   Delivery fee, service charge, tax and rounding are NOT profit (they are passed on
 //   or cover other costs), so they are left out. Cancelled orders are left out entirely.
 //   The cost is the snapshot saved on the order when it was sold (order_items.unit_cost,
@@ -12,6 +12,8 @@
 //   never changes the profit of an order already sold.
 //
 // All maths in whole pence (integers), like lib/order-pricing.ts.
+
+import { refundSalesPence } from "@/lib/order-adjust";
 
 const toPence = (v: number | string) => Math.round(Number(v) * 100);
 
@@ -37,9 +39,17 @@ export function lineProfit(unitPrice: number | string, unitCost: number | string
 }
 
 /** Profit of one order (rule above). null when the order has no cost snapshot at all. */
-export function orderProfit(o: { subtotal: number | string; discount_amount: number | string | null; cost_total: number | string | null }): number | null {
+export function orderProfit(o: {
+  subtotal: number | string;
+  discount_amount: number | string | null;
+  cost_total: number | string | null;
+  total?: number | string;
+  tax_amount?: number | string | null;
+  refunded_amount?: number | string | null;
+}): number | null {
   if (o.cost_total === null || o.cost_total === undefined) return null;
-  return (toPence(o.subtotal) - toPence(o.discount_amount ?? 0) - toPence(o.cost_total)) / 100;
+  const refund = o.total === undefined ? 0 : refundSalesPence({ total: o.total, tax_amount: o.tax_amount ?? 0, refunded_amount: o.refunded_amount });
+  return (toPence(o.subtotal) - toPence(o.discount_amount ?? 0) - toPence(o.cost_total) - refund) / 100;
 }
 
 // ---------------------------------------------------------------------------
@@ -77,6 +87,8 @@ export type ProfitOrder = {
   discount_amount: number | string | null;
   tax_amount: number | string | null;
   total: number | string;
+  /** Sum of refunds (B4b). Missing = 0. */
+  refunded_amount?: number | string | null;
   cost_total: number | string | null;
   cost_complete: boolean | null;
 };
@@ -106,9 +118,11 @@ export function summarizeProfit(orders: readonly ProfitOrder[], expenseAmounts: 
     if (o.status === "cancelled" || o.status === "merged") continue;
     count++;
     const c = toPence(o.cost_total ?? 0);
-    sales += toPence(o.total) - toPence(o.tax_amount ?? 0);
+    // A refund is money given back: it comes off sales and profit (tax share taken out).
+    const refund = refundSalesPence(o);
+    sales += toPence(o.total) - toPence(o.tax_amount ?? 0) - refund;
     cost += c;
-    gross += toPence(o.subtotal) - toPence(o.discount_amount ?? 0) - c;
+    gross += toPence(o.subtotal) - toPence(o.discount_amount ?? 0) - c - refund;
     if (!o.cost_complete) incomplete++;
   }
   const expenses = expenseAmounts.reduce<number>((sum, a) => sum + toPence(a), 0);

@@ -41,7 +41,7 @@ export async function findOrderForCaller(
   const { data, error } = await supabaseAdmin
     .from("orders")
     .select(
-      "id, order_number, created_at, fulfilment_type, status, total, customer_phone, order_items(item_name, quantity)",
+      "id, order_number, created_at, fulfilment_type, status, total, customer_phone, order_items(item_name, quantity, voided_at)",
     )
     .eq("restaurant_id", restaurantId)
     .eq("order_number", normalizeOrderNumber(orderNumber))
@@ -57,7 +57,10 @@ export async function findOrderForCaller(
     fulfilment_type: data.fulfilment_type,
     status: data.status,
     total: Number(data.total),
-    items: (data.order_items ?? []).map((i: { item_name: string; quantity: number }) => ({
+    // A voided line (B4b) was taken off the order: the caller is not told about it.
+    items: (data.order_items ?? [])
+      .filter((i: { voided_at: string | null }) => !i.voided_at)
+      .map((i: { item_name: string; quantity: number }) => ({
       name: i.item_name,
       quantity: i.quantity,
     })),

@@ -42,6 +42,8 @@ const RPC_ERRORS: Record<string, [string, number]> = {
   order_cancelled: ["this order is cancelled", 409],
   order_merged: ["this order was merged into another order; take the payment on that one", 409],
   already_paid: ["this order is already fully paid", 409],
+  order_refunded: ["this order was refunded; its bill is settled and takes no new payment", 409],
+  key_used: ["this payment key was already used for a refund; nothing was recorded", 409],
   overpayment: ["payment is more than the amount still owed", 400],
 };
 

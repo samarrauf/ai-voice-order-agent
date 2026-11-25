@@ -11,8 +11,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ORDER_SELECT = `order_number, created_at, fulfilment_type, source, table_session_id,
   customer_name, customer_phone, delivery_address, delivery_postcode, notes,
   subtotal, discount_type, discount_value, discount_amount, delivery_fee,
-  service_charge_amount, tax_amount, rounding_amount, total, payment_status, paid_amount,
-  order_items ( id, item_name, size_name, options, quantity, line_total, notes, created_at ),
+  service_charge_amount, tax_amount, rounding_amount, total, payment_status, paid_amount, refunded_amount, status,
+  order_items ( id, item_name, size_name, options, quantity, line_total, notes, created_at, voided_at ),
   table_sessions ( restaurant_tables ( table_number ) )`;
 
 type TableRef = { table_number: string } | null;
@@ -34,7 +34,7 @@ export async function loadPrintData(orderId: string, restaurantId: string): Prom
       .maybeSingle(),
     supabaseAdmin
       .from("order_payments")
-      .select("method, amount, created_at")
+      .select("kind, method, amount, created_at")
       .eq("order_id", orderId)
       .eq("restaurant_id", restaurantId)
       .order("created_at", { ascending: true }),
